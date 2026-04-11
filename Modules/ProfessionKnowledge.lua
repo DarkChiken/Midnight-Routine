@@ -160,7 +160,7 @@ local PROFESSIONS = {
         { key = "discoveries", label = L["ProfKnowledge_Section_Discoveries"], entries = {
             T{ itemID = 238580, questID = 89122, kp = 3, zone = 2393, x = 50.6, y = 56.5 }, T{ itemID = 238585, questID = 89127, kp = 3, zone = 2393, x = 55.5, y = 48.0 },
             T{ itemID = 238582, questID = 89124, kp = 3, zone = 2393, x = 28.6, y = 46.5 }, T{ itemID = 238583, questID = 89125, kp = 3, zone = 2395, x = 56.7, y = 40.9 },
-            T{ itemID = 238587, questID = 89129, kp = 3, zone = 2395, x = 39.7, y = 38.8 }, T{ itemID = 238581, questID = 89123, kp = 3, zone = 2405, x = 30.6, y = 69.0 },
+            T{ itemID = 238587, questID = 89129, kp = 3, zone = 2395, x = 39.7, y = 38.8 }, T{ itemID = 238581, questID = 89123, kp = 3, zone = 2444, x = 30.6, y = 69.0 },
             T{ itemID = 238586, questID = 89128, kp = 3, zone = 2444, x = 54.2, y = 51.2 }, T{ itemID = 238584, questID = 89126, kp = 3, zone = 2444, x = 62.9, y = 53.5 },
         } },
         { key = "studies", label = L["ProfKnowledge_Section_Studies"], entries = { S{ itemID = 257599, questID = 93222, kp = 10, zone = 2395, x = 43.4, y = 47.4, note = L["ProfKnowledge_StudyUnlock"] } } },
