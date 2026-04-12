@@ -2477,6 +2477,7 @@ end
 
 function MR:ShowDetachedModules()
     if self._instanceFramesHidden then return end
+    if self:IsManagedWindowsBundleHidden() then return end
     if not self.detachedFrames then return end
     for key, frame in pairs(self.detachedFrames) do
         local mod = self.moduleByKey[key]
@@ -2774,7 +2775,7 @@ function MR:RefreshUI()
                 frame:SetHeight(math.max(sectionHeight + 12, HEADER_HEIGHT + 48))
             end
 
-            if not self._instanceFramesHidden then
+            if not self._instanceFramesHidden and not self:IsManagedWindowsBundleHidden() then
                 frame:Show()
             end
         elseif frame then
@@ -3875,6 +3876,9 @@ function MR:PopulateConfigFrame(f)
                         MR.frame:Show()
                     end
                     MR.db.char.panelOpen = true
+                    if MR.ClearManagedWindowsBundleHidden then
+                        MR:ClearManagedWindowsBundleHidden()
+                    end
                 else
                     if MR.frame then
                         MR.frame:Hide()
@@ -3939,6 +3943,15 @@ function MR:PopulateConfigFrame(f)
                 MR.db.profile.hideFramesInInstances = v
                 if MR.UpdateInstanceFrameVisibility then
                     MR:UpdateInstanceFrameVisibility()
+                end
+            end)
+        Checkbox(L["Config_RememberManagedWindowsVisibility"],
+            function() return MR.db.profile.rememberManagedWindowsVisibility end,
+            function(v)
+                MR.db.profile.rememberManagedWindowsVisibility = v and true or false
+                if not MR.db.profile.rememberManagedWindowsVisibility then
+                    MR.db.profile.managedWindowsBundleHidden = false
+                    MR:RefreshUI()
                 end
             end)
         Checkbox(L["Config_PeekOnHover"],

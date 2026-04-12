@@ -374,6 +374,9 @@ local function BuildWelcomeScreen()
             if anyEnabled and MR.frame then
                 MR.frame:Show()
                 MR.db.char.panelOpen = true
+                if MR.ClearManagedWindowsBundleHidden then
+                    MR:ClearManagedWindowsBundleHidden()
+                end
             end
         end)
     end)

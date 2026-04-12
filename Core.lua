@@ -19,6 +19,8 @@ local DEFAULTS = {
         minimized       = false,
         frameAlpha      = 1.0,
         hideFramesInInstances = false,
+        rememberManagedWindowsVisibility = false,
+        managedWindowsBundleHidden       = false,
         transparentMode = false,
         keepIconsVisibleInTextMode = true,
         keepHeadersVisibleInTextMode = true,
@@ -1931,6 +1933,17 @@ function MR:SetManagedWindowRestoreState(state)
     end
 end
 
+function MR:IsManagedWindowsBundleHidden()
+    local p = self.db and self.db.profile
+    return p and p.rememberManagedWindowsVisibility and p.managedWindowsBundleHidden or false
+end
+
+function MR:ClearManagedWindowsBundleHidden()
+    if self.db and self.db.profile then
+        self.db.profile.managedWindowsBundleHidden = false
+    end
+end
+
 function MR:HideManagedWindows(persistState)
     if persistState then
         self:PersistManagedWindowState({
@@ -1939,6 +1952,9 @@ function MR:HideManagedWindows(persistState)
             rares = false,
             gathering = false,
         })
+        if self.db.profile.rememberManagedWindowsVisibility then
+            self.db.profile.managedWindowsBundleHidden = true
+        end
     end
 
     if self.frame then self.frame:Hide() end
@@ -1953,6 +1969,7 @@ function MR:RestoreManagedWindows(state, persistState)
     state = state or {}
     if persistState then
         self:PersistManagedWindowState(state)
+        self:ClearManagedWindowsBundleHidden()
     end
 
     if state.panel then
@@ -2013,6 +2030,7 @@ function MR:ToggleManagedWindows()
         self.frame:Show()
     end
     self.db.char.panelOpen = true
+    self:ClearManagedWindowsBundleHidden()
     return true
 end
 
@@ -2040,6 +2058,9 @@ function MR:UpdateInstanceFrameVisibility()
     self._instanceRestoreState = nil
 
     self:RestoreManagedWindows(state)
+    if self:IsManagedWindowsBundleHidden() then
+        self:HideManagedWindows(false)
+    end
 end
 
 function MR:OnEnable()
@@ -2137,6 +2158,8 @@ function MR:OnEnteringWorld()
     end
     if temporarilyHidden then
         self:HideManagedWindows()
+    elseif self:IsManagedWindowsBundleHidden() then
+        self:HideManagedWindows(false)
     end
 
     self:UpdateInstanceFrameVisibility()
@@ -2150,7 +2173,7 @@ function MR:OnEnteringWorld()
             "COMBAT_TEXT_UPDATE",
         }, 1, "OnRenownUpdate")
     end
-    if not shouldHideFrames and not temporarilyHidden then
+    if not shouldHideFrames and not temporarilyHidden and not self:IsManagedWindowsBundleHidden() then
         if self:GetManagedWindowOpen("renownOpen") and self.EnsureRenownShown then
             self:EnsureRenownShown()
         end
@@ -2251,6 +2274,7 @@ SlashCmdList["MIDROUTE"] = function(msg)
     elseif msg == "show"    then
         if MR.frame then MR.frame:Show() end
         MR.db.char.panelOpen = true
+        MR:ClearManagedWindowsBundleHidden()
     elseif msg == "toggle"  then
         MR:ToggleManagedWindows()
     elseif msg == "main" or msg == "main toggle" then
@@ -2264,6 +2288,7 @@ SlashCmdList["MIDROUTE"] = function(msg)
             else
                 MR.frame:Show()
                 MR.db.char.panelOpen = true
+                MR:ClearManagedWindowsBundleHidden()
             end
         end
     elseif msg == "main show" then
@@ -2272,6 +2297,7 @@ SlashCmdList["MIDROUTE"] = function(msg)
         end
         if MR.frame then MR.frame:Show() end
         MR.db.char.panelOpen = true
+        MR:ClearManagedWindowsBundleHidden()
     elseif msg == "main hide" then
         if MR.frame then MR.frame:Hide() end
         MR.db.char.panelOpen = false
