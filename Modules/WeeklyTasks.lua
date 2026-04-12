@@ -40,6 +40,7 @@ local HALDURON_WEEKLIES = {
     { quest = 93755, name = L["Halduron_DenOfNalorakk"]      },
     { quest = 93756, name = L["Halduron_BlindingVale"]       },
     { quest = 93757, name = L["Halduron_VoidscarArena"]      },
+    { quest = 93758, name = L["Halduron_NexusPointXenas"]    },
     { quest = 95468, name = L["Halduron_HopeDarkestCorners"] },
 }
 
@@ -395,8 +396,11 @@ MR:RegisterModule({
             for _, variant in ipairs(completedHalduronWeeklies) do
                 names[#names + 1] = variant.name
             end
+            db[mod.key]["halduron_weekly"] = 1
             db[mod.key]["halduron_completed_name"] = names[1]
             db[mod.key]["halduron_completed_names"] = table.concat(names, " || ")
+        else
+            db[mod.key]["halduron_weekly"] = db[mod.key]["halduron_weekly"] or 0
         end
 
         for _, row in ipairs(mod.rows) do
@@ -523,7 +527,7 @@ MR:RegisterModule({
             label    = L["Weekly_Halduron_Label"],
             max      = 1,
             note     = L["Weekly_Halduron_Note"],
-            questIds = { 93753, 93754, 93755, 93756, 93757, 95468 },
+            questIds = { 93753, 93754, 93755, 93756, 93757, 93758, 95468 },
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(HALDURON_WEEKLIES)
 
