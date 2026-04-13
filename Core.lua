@@ -29,6 +29,7 @@ local DEFAULTS = {
         height          = 400,
         fontSize        = 11,
         fontMedia       = nil,
+        fontFlags       = "OUTLINE",
         backgroundMedia = nil,
         minimap         = { hide = false },
         managedWindowRestoreState = nil,

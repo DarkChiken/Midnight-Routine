@@ -40,6 +40,17 @@ local function RefreshFonts()
     FONT_ROWS = ns.FONT_ROWS or FONT_ROWS
 end
 
+local function GetFontFlags()
+    if ns.GetFontFlags then
+        local flags = ns.GetFontFlags()
+        if flags ~= nil then
+            return flags
+        end
+    end
+
+    return "OUTLINE"
+end
+
 local BASE_FACTIONS = {
     {
         key       = "silvermoon",
@@ -297,7 +308,7 @@ local function BuildRenownFrame()
     titleIcon:SetVertexColor(0.85, 0.65, 0.10, 1)
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
     titleTxt:SetPoint("LEFT", titleIcon, "RIGHT", 7, 0)
     titleTxt:SetText(L["Renown_Title"])
 
@@ -356,7 +367,7 @@ local function BuildRenownFrame()
         rowFrame:SetBackdropBorderColor(cr * 0.4, cg * 0.4, cb * 0.4, 0.8 * rowAlpha)
 
         local nameLabel = rowFrame:CreateFontString(nil, "OVERLAY")
-        nameLabel:SetFont(FONT_HEADERS, 10, "OUTLINE")
+        nameLabel:SetFont(FONT_HEADERS, 10, GetFontFlags())
         nameLabel:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 8, -5)
         nameLabel:SetPoint("RIGHT", rowFrame, "RIGHT", -58, -5)
         nameLabel:SetTextColor(cr, cg, cb)
@@ -365,7 +376,7 @@ local function BuildRenownFrame()
         if compact then nameLabel:Hide() end
 
         local renownLabel = rowFrame:CreateFontString(nil, "OVERLAY")
-        renownLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, "OUTLINE")
+        renownLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, GetFontFlags())
         renownLabel:SetPoint("TOPRIGHT", rowFrame, "TOPRIGHT", -6, -5)
         renownLabel:SetTextColor(0.65, 0.65, 0.65)
         if compact or not showLevel then renownLabel:Hide() end
@@ -391,12 +402,12 @@ local function BuildRenownFrame()
         barFill:SetColorTexture(cr, cg, cb, 0.85)
 
         local barLabel = barBg:CreateFontString(nil, "OVERLAY")
-        barLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, "OUTLINE")
+        barLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, GetFontFlags())
         barLabel:SetPoint("CENTER", barBg, "CENTER", 0, 0)
         barLabel:SetTextColor(1, 1, 1)
 
         local compactLevelLabel = barBg:CreateFontString(nil, "OVERLAY")
-        compactLevelLabel:SetFont(FONT_ROWS, math.max(8, (db.renownFontSize or 9) - 1), "OUTLINE")
+        compactLevelLabel:SetFont(FONT_ROWS, math.max(8, (db.renownFontSize or 9) - 1), GetFontFlags())
         compactLevelLabel:SetPoint("RIGHT", barBg, "RIGHT", -4, 0)
         compactLevelLabel:SetJustifyH("RIGHT")
         compactLevelLabel:SetTextColor(0.92, 0.92, 0.92)
@@ -745,7 +756,7 @@ local function BuildRenownConfigFrame()
     tbar:SetScript("OnDragStop",  function() f:StopMovingOrSizing() end)
 
     local ttitle = tbar:CreateFontString(nil, "OVERLAY")
-    ttitle:SetFont(FONT_HEADERS, 11, "OUTLINE")
+    ttitle:SetFont(FONT_HEADERS, 11, GetFontFlags())
     ttitle:SetText(L["Renown_Config_Title"])
     ttitle:SetPoint("LEFT", tbar, "LEFT", 8, 0)
 
@@ -873,7 +884,7 @@ PopulateRenownConfig = function(f)
             btn:SetBackdropBorderColor(isActive and 0.22 or 0.16, isActive and 0.82 or 0.28, isActive and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             lbl:SetPoint("CENTER")
             lbl:SetText(tab.label)
             lbl:SetTextColor(isActive and 0.85 or 0.62, isActive and 1.0 or 0.75, isActive and 0.92 or 0.70)
@@ -992,7 +1003,7 @@ PopulateRenownConfig = function(f)
     dragGhost:SetBackdropBorderColor(0.9, 0.72, 0.1, 1)
     dragGhost:Hide()
     local dragGhostLbl = dragGhost:CreateFontString(nil, "OVERLAY")
-    dragGhostLbl:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    dragGhostLbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
     dragGhostLbl:SetPoint("LEFT", dragGhost, "LEFT", 8, 0)
     dragGhostLbl:SetTextColor(1, 0.85, 0.2)
 
@@ -1119,7 +1130,7 @@ PopulateRenownConfig = function(f)
         grip:SetPoint("LEFT", rowFr, "LEFT", 2, 0)
         grip:RegisterForClicks("LeftButtonUp")
         local gripLbl = grip:CreateFontString(nil, "OVERLAY")
-        gripLbl:SetFont(FONT_HEADERS, 11, "OUTLINE")
+        gripLbl:SetFont(FONT_HEADERS, 11, GetFontFlags())
         gripLbl:SetPoint("CENTER")
         gripLbl:SetText("=")
         gripLbl:SetTextColor(0.28, 0.22, 0.08)
@@ -1165,7 +1176,7 @@ PopulateRenownConfig = function(f)
         swatch:SetPoint("RIGHT", rowFr, "RIGHT", 0, 0)
 
         local nameLbl = rowFr:CreateFontString(nil, "OVERLAY")
-        nameLbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+        nameLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
         nameLbl:SetPoint("LEFT",  visCheck, "RIGHT", 2, 0)
         nameLbl:SetPoint("RIGHT", swatch,   "LEFT",  -4, 0)
         nameLbl:SetText(faction.label)

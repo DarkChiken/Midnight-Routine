@@ -31,6 +31,17 @@ local function RefreshFonts()
     FONT_ROWS = ns.FONT_ROWS or FONT_ROWS
 end
 
+local function GetFontFlags()
+    if ns.GetFontFlags then
+        local flags = ns.GetFontFlags()
+        if flags ~= nil then
+            return flags
+        end
+    end
+
+    return "OUTLINE"
+end
+
 local MAP_TO_ZONE_KEY = {
     [2395] = "eversong",
     [2393] = "eversong",
@@ -428,14 +439,14 @@ BuildRaresFrame = function()
     UpdateMinBtn()
 
     local totalDoneLabel = titleBar:CreateFontString(nil, "OVERLAY")
-    totalDoneLabel:SetFont(FONT_ROWS, 9, "OUTLINE")
+    totalDoneLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
     totalDoneLabel:SetTextColor(0.45, 0.45, 0.55)
     totalDoneLabel:SetPoint("RIGHT", minBtn, "LEFT", -6, 0)
     totalDoneLabel:SetWordWrap(false)
     f.totalDoneLabel = totalDoneLabel
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
     titleTxt:SetPoint("LEFT",  titleIcon, "RIGHT", 5, 0)
     titleTxt:SetPoint("RIGHT", totalDoneLabel, "LEFT", -6, 0)
     titleTxt:SetJustifyH("LEFT")
@@ -654,18 +665,18 @@ BuildRaresFrame = function()
             stripe:SetColorTexture(cr, cg, cb, 1)
 
             local arrow = zHdr:CreateFontString(nil, "OVERLAY")
-            arrow:SetFont(FONT_ROWS, 9, "OUTLINE")
+            arrow:SetFont(FONT_ROWS, 9, GetFontFlags())
             arrow:SetPoint("LEFT", zHdr, "LEFT", 10, 1)
             arrow:SetText(isCollapsed and "|cff555555+|r" or "|cff777777-|r")
 
             local zName = zHdr:CreateFontString(nil, "OVERLAY")
-            zName:SetFont(FONT_HEADERS, 10, "OUTLINE")
+            zName:SetFont(FONT_HEADERS, 10, GetFontFlags())
             zName:SetPoint("LEFT", arrow, "RIGHT", 5, 0)
             zName:SetTextColor(cr, cg, cb)
             zName:SetText(zone.label)
 
             local zCount = zHdr:CreateFontString(nil, "OVERLAY")
-            zCount:SetFont(FONT_ROWS, 9, "OUTLINE")
+            zCount:SetFont(FONT_ROWS, 9, GetFontFlags())
             zCount:SetPoint("RIGHT", zHdr, "RIGHT", -8, 0)
             zCount:SetTextColor(0.5, 0.5, 0.5)
 
@@ -756,7 +767,7 @@ BuildRaresFrame = function()
             dot:SetColorTexture(0.28, 0.28, 0.28, 1)
 
             local lbl = body:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, db.raresFontSize or 9, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, db.raresFontSize or 9, GetFontFlags())
             lbl:SetPoint("TOPLEFT", body, "TOPLEFT", xPos + DOT_SIZE + 5, yPos)
             lbl:SetWidth(colW - DOT_SIZE - 10)
             lbl:SetHeight(ROW_H)
@@ -981,7 +992,7 @@ local function BuildRaresConfigFrame()
     tbar:SetScript("OnDragStop",  function() f:StopMovingOrSizing() end)
 
     local ttitle = tbar:CreateFontString(nil, "OVERLAY")
-    ttitle:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    ttitle:SetFont(FONT_HEADERS, 10, GetFontFlags())
     ttitle:SetText(L["Rares_Config_Title"])
     ttitle:SetPoint("LEFT", tbar, "LEFT", 8, 0)
 
@@ -1047,7 +1058,7 @@ PopulateRaresConfig = function(f)
             btn:SetBackdropBorderColor(isActive and 0.22 or 0.16, isActive and 0.82 or 0.28, isActive and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             lbl:SetPoint("CENTER")
             lbl:SetText(tab.label)
             lbl:SetTextColor(isActive and 0.85 or 0.62, isActive and 1.0 or 0.75, isActive and 0.92 or 0.70)
@@ -1141,7 +1152,7 @@ PopulateRaresConfig = function(f)
                 pb:SetBackdropColor(isActive and 0.12 or 0.05, isActive and 0.35 or 0.10, isActive and 0.32 or 0.18, syncFs and 0.4 or 1)
                 pb:SetBackdropBorderColor(isActive and 0.25 or 0.18, isActive and 0.85 or 0.40, isActive and 0.70 or 0.45, syncFs and 0.4 or 1)
                 local pfs = pb:CreateFontString(nil, "OVERLAY")
-                pfs:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+                pfs:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
                 pfs:SetPoint("CENTER")
                 pfs:SetText(p[1])
                 pfs:SetTextColor(syncFs and 0.35 or (isActive and 0.2 or 0.6), syncFs and 0.35 or (isActive and 0.95 or 0.75), syncFs and 0.35 or (isActive and 0.75 or 0.65))
@@ -1220,7 +1231,7 @@ PopulateRaresConfig = function(f)
             swatch:SetPoint("RIGHT", rowFr, "RIGHT", 0, 0)
 
             nameLbl = rowFr:CreateFontString(nil, "OVERLAY")
-            nameLbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+            nameLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
             nameLbl:SetPoint("LEFT",  rowFr,  "LEFT",  0,  0)
             nameLbl:SetPoint("RIGHT", swatch, "LEFT", -4,  0)
             nameLbl:SetText(zone.label)

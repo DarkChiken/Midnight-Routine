@@ -64,6 +64,17 @@ local function RefreshFonts()
     FONT_HEADERS = ns.FONT_HEADERS or FONT_HEADERS or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 
+local function GetFontFlags()
+    if ns.GetFontFlags then
+        local flags = ns.GetFontFlags()
+        if flags ~= nil then
+            return flags
+        end
+    end
+
+    return "OUTLINE"
+end
+
 local function GetMainHeaderHeight()
     return math.max(24, GetFontSize() + 11)
 end
@@ -610,7 +621,7 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
     btn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
 
     local label = btn:CreateFontString(nil, "OVERLAY")
-    label:SetFont(FONT_ROWS, opts.fontSize or 8, "OUTLINE")
+    label:SetFont(FONT_ROWS, opts.fontSize or 8, GetFontFlags())
     label:SetPoint("LEFT", btn, "LEFT", 8, 1)
     label:SetPoint("RIGHT", btn, "RIGHT", -20, 1)
     label:SetJustifyH("LEFT")
@@ -618,7 +629,7 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
     btn._label = label
 
     local caret = btn:CreateFontString(nil, "OVERLAY")
-    caret:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    caret:SetFont(FONT_HEADERS, 10, GetFontFlags())
     caret:SetPoint("RIGHT", btn, "RIGHT", -7, 1)
     caret:SetText("v")
     caret:SetTextColor(0.78, 0.90, 0.92)
@@ -652,18 +663,18 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
         local caretSize = math.max(9, labelSize + 1)
 
         if self._label then
-            self._label:SetFont(FONT_ROWS, labelSize, "OUTLINE")
+            self._label:SetFont(FONT_ROWS, labelSize, GetFontFlags())
         end
         if self._caret then
-            self._caret:SetFont(FONT_HEADERS, caretSize, "OUTLINE")
+            self._caret:SetFont(FONT_HEADERS, caretSize, GetFontFlags())
         end
 
         for _, row in ipairs(popup.buttons) do
             if row._label then
-                row._label:SetFont(FONT_ROWS, labelSize, "OUTLINE")
+                row._label:SetFont(FONT_ROWS, labelSize, GetFontFlags())
             end
             if row._check then
-                row._check:SetFont(FONT_HEADERS, caretSize, "OUTLINE")
+                row._check:SetFont(FONT_HEADERS, caretSize, GetFontFlags())
             end
         end
     end
@@ -703,13 +714,13 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
         row:SetBackdropBorderColor(0.12, 0.26, 0.32, 0.95)
 
         row._label = row:CreateFontString(nil, "OVERLAY")
-        row._label:SetFont(FONT_ROWS, opts.fontSize or 8, "OUTLINE")
+        row._label:SetFont(FONT_ROWS, opts.fontSize or 8, GetFontFlags())
         row._label:SetPoint("LEFT", row, "LEFT", 8, 1)
         row._label:SetPoint("RIGHT", row, "RIGHT", -22, 1)
         row._label:SetJustifyH("LEFT")
 
         row._check = row:CreateFontString(nil, "OVERLAY")
-        row._check:SetFont(FONT_HEADERS, 10, "OUTLINE")
+        row._check:SetFont(FONT_HEADERS, 10, GetFontFlags())
         row._check:SetPoint("RIGHT", row, "RIGHT", -7, 1)
 
         row:SetScript("OnEnter", function(selfRow)
@@ -1045,14 +1056,14 @@ function MR:RefreshWarbandBoard()
         accent:SetColorTexture(sr, sg, sb, 1)
 
         local name = btn:CreateFontString(nil, "OVERLAY")
-        name:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), "OUTLINE")
+        name:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
         name:SetPoint("TOPLEFT", btn, "TOPLEFT", 10, -7)
         name:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -34, -7)
         name:SetJustifyH("LEFT")
         name:SetText(entry.isCurrent and (entry.name .. "  |cff7ce7d8" .. (L["AltBoard_Current"] or "Current") .. "|r") or entry.name)
 
         local meta = btn:CreateFontString(nil, "OVERLAY")
-        meta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+        meta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         meta:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -3)
         meta:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -34, -3)
         meta:SetJustifyH("LEFT")
@@ -1067,7 +1078,7 @@ function MR:RefreshWarbandBoard()
         hideBtn:SetBackdropBorderColor(0.18, 0.30, 0.36, 0.95)
 
         local hideLabel = hideBtn:CreateFontString(nil, "OVERLAY")
-        hideLabel:SetFont(FONT_HEADERS, 10, "OUTLINE")
+        hideLabel:SetFont(FONT_HEADERS, 10, GetFontFlags())
         hideLabel:SetPoint("CENTER", hideBtn, "CENTER", 0, 1)
         hideLabel:SetText(entry.hidden and "+" or "x")
         hideLabel:SetTextColor(0.78, 0.88, 0.92)
@@ -1176,7 +1187,7 @@ function MR:RefreshWarbandBoard()
             dot:SetColorTexture(rr, rg, rb, 1)
 
             local label = chip:CreateFontString(nil, "OVERLAY")
-            label:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+            label:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
             label:SetPoint("LEFT", dot, "RIGHT", 6, 0)
             label:SetPoint("RIGHT", chip, "RIGHT", -78, 0)
             label:SetJustifyH("LEFT")
@@ -1184,7 +1195,7 @@ function MR:RefreshWarbandBoard()
             label:SetTextColor(0.84, 0.89, 0.96)
 
             local value = chip:CreateFontString(nil, "OVERLAY")
-            value:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), "OUTLINE")
+            value:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
             value:SetPoint("RIGHT", chip, "RIGHT", -8, 0)
             value:SetJustifyH("RIGHT")
             value:SetText(valueText)
@@ -1256,13 +1267,13 @@ function MR:RefreshWarbandBoard()
         headerHover:SetColorTexture(1, 1, 1, 0)
 
         local arrow = headerBtn:CreateFontString(nil, "OVERLAY")
-        arrow:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), "OUTLINE")
+        arrow:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
         arrow:SetPoint("LEFT", headerBtn, "LEFT", 12, 0)
         arrow:SetText(isCollapsed and "+" or "-")
         arrow:SetTextColor(0.78, 0.88, 0.92)
 
         local title = headerBtn:CreateFontString(nil, "OVERLAY")
-        title:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), "OUTLINE")
+        title:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
         title:SetPoint("LEFT", arrow, "RIGHT", 6, 0)
         title:SetPoint("RIGHT", headerBtn, "RIGHT", -120, 0)
         title:SetJustifyH("LEFT")
@@ -1270,7 +1281,7 @@ function MR:RefreshWarbandBoard()
         title:SetTextColor(mr, mg, mb)
 
         local progress = card:CreateFontString(nil, "OVERLAY")
-        progress:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+        progress:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         progress:SetPoint("RIGHT", card, "RIGHT", -12, 0)
         progress:SetPoint("TOP", headerBtn, "TOP", 0, -10)
         progress:SetText(string.format("%d / %d", moduleEntry.doneRows, moduleEntry.totalRows))
@@ -1315,7 +1326,7 @@ function MR:RefreshWarbandBoard()
                 dot:SetColorTexture(rr, rg, rb, 1)
 
                 local label = row:CreateFontString(nil, "OVERLAY")
-                label:SetFont(FONT_ROWS, GetFontSize(), "OUTLINE")
+                label:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
                 label:SetPoint("LEFT", row, "LEFT", 16, 0)
                 label:SetPoint("RIGHT", row, "RIGHT", -120, 0)
                 label:SetJustifyH("LEFT")
@@ -1323,7 +1334,7 @@ function MR:RefreshWarbandBoard()
                 label:SetTextColor(0.90, 0.93, 0.97)
 
                 local value = row:CreateFontString(nil, "OVERLAY")
-                value:SetFont(FONT_ROWS, GetFontSize(), "OUTLINE")
+                value:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
                 value:SetPoint("RIGHT", row, "RIGHT", -2, 0)
                 value:SetJustifyH("RIGHT")
                 value:SetText(selected.stale and (L["AltBoard_AwaitingRefresh"] or "Awaiting refresh") or rowEntry.displayValue)
@@ -1331,7 +1342,7 @@ function MR:RefreshWarbandBoard()
 
                 if rowEntry.accentLabel then
                     local accent = row:CreateFontString(nil, "OVERLAY")
-                    accent:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+                    accent:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
                     accent:SetPoint("RIGHT", value, "LEFT", -8, 0)
                     accent:SetJustifyH("RIGHT")
                     accent:SetText(WBClean(rowEntry.accentLabel))
@@ -1390,7 +1401,7 @@ function MR:ToggleWarbandBoard()
         LeftAccent(titleBar, 0.15, 0.85, 0.80)
 
         local title = titleBar:CreateFontString(nil, "OVERLAY")
-        title:SetFont(FONT_HEADERS, math.max(12, GetFontSize() + 2), "OUTLINE")
+        title:SetFont(FONT_HEADERS, math.max(12, GetFontSize() + 2), GetFontFlags())
         title:SetPoint("LEFT", titleBar, "LEFT", 10, 0)
         title:SetPoint("RIGHT", titleBar, "RIGHT", -150, 0)
         title:SetJustifyH("LEFT")
@@ -1398,12 +1409,12 @@ function MR:ToggleWarbandBoard()
         title:SetTextColor(0.92, 0.97, 1.0)
 
         local summaryValue = titleBar:CreateFontString(nil, "OVERLAY")
-        summaryValue:SetFont(FONT_HEADERS, math.max(11, GetFontSize() + 1), "OUTLINE")
+        summaryValue:SetFont(FONT_HEADERS, math.max(11, GetFontSize() + 1), GetFontFlags())
         summaryValue:SetPoint("RIGHT", titleBar, "RIGHT", -28, 0)
         summaryValue:SetText("0 / 0")
 
         local summarySub = frame:CreateFontString(nil, "OVERLAY")
-        summarySub:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+        summarySub:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         summarySub:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -66)
         summarySub:SetTextColor(0.62, 0.71, 0.79)
         summarySub:SetText("")
@@ -1425,7 +1436,7 @@ function MR:ToggleWarbandBoard()
         leftPane:SetBackdropBorderColor(0.10, 0.18, 0.25, 1)
 
         local leftLabel = leftPane:CreateFontString(nil, "OVERLAY")
-        leftLabel:SetFont(FONT_ROWS, math.max(9, GetFontSize()), "OUTLINE")
+        leftLabel:SetFont(FONT_ROWS, math.max(9, GetFontSize()), GetFontFlags())
         leftLabel:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 10, -10)
         leftLabel:SetText(L["AltBoard_Characters"] or "Characters")
         leftLabel:SetTextColor(0.74, 0.86, 0.89)
@@ -1438,7 +1449,7 @@ function MR:ToggleWarbandBoard()
         showHiddenBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
 
         local showHiddenLabel = showHiddenBtn:CreateFontString(nil, "OVERLAY")
-        showHiddenLabel:SetFont(FONT_ROWS, 9, "OUTLINE")
+        showHiddenLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
         showHiddenLabel:SetPoint("LEFT", showHiddenBtn, "LEFT", 6, 0)
         showHiddenLabel:SetPoint("RIGHT", showHiddenBtn, "RIGHT", -6, 0)
         showHiddenLabel:SetJustifyH("CENTER")
@@ -1489,17 +1500,17 @@ function MR:ToggleWarbandBoard()
         heroGlow:SetColorTexture(0.08, 0.20, 0.28, 0.22)
 
         local heroName = hero:CreateFontString(nil, "OVERLAY")
-        heroName:SetFont(FONT_HEADERS, math.max(13, GetFontSize() + 3), "OUTLINE")
+        heroName:SetFont(FONT_HEADERS, math.max(13, GetFontSize() + 3), GetFontFlags())
         heroName:SetPoint("TOPLEFT", hero, "TOPLEFT", 14, -12)
         heroName:SetTextColor(0.96, 0.99, 1.00)
 
         local heroMeta = hero:CreateFontString(nil, "OVERLAY")
-        heroMeta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+        heroMeta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         heroMeta:SetPoint("TOPLEFT", heroName, "BOTTOMLEFT", 0, -6)
         heroMeta:SetTextColor(0.70, 0.78, 0.86)
 
         local heroStatus = hero:CreateFontString(nil, "OVERLAY")
-        heroStatus:SetFont(FONT_ROWS, math.max(10, GetFontSize()), "OUTLINE")
+        heroStatus:SetFont(FONT_ROWS, math.max(10, GetFontSize()), GetFontFlags())
         heroStatus:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 14, 12)
 
         local concentrationPane = CreateFrame("Frame", nil, rightPane, "BackdropTemplate")
@@ -1517,13 +1528,13 @@ function MR:ToggleWarbandBoard()
         concentrationAccent:SetColorTexture(0.76, 0.62, 0.98, 1)
 
         local concentrationTitle = concentrationPane:CreateFontString(nil, "OVERLAY")
-        concentrationTitle:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), "OUTLINE")
+        concentrationTitle:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
         concentrationTitle:SetPoint("TOPLEFT", concentrationPane, "TOPLEFT", 14, -10)
         concentrationTitle:SetText(WBConcentrationLabel())
         concentrationTitle:SetTextColor(0.88, 0.82, 1.00)
 
         local concentrationStatus = concentrationPane:CreateFontString(nil, "OVERLAY")
-        concentrationStatus:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+        concentrationStatus:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         concentrationStatus:SetPoint("TOPLEFT", concentrationTitle, "BOTTOMLEFT", 0, -8)
         concentrationStatus:SetPoint("RIGHT", concentrationPane, "RIGHT", -12, 0)
         concentrationStatus:SetJustifyH("LEFT")
@@ -1983,7 +1994,7 @@ function MR:BuildUI()
     titleIcon:SetVertexColor(1, 0.84, 0.24, 1)
 
     local title = titleBar:CreateFontString(nil, "OVERLAY")
-    title:SetFont(FONT_HEADERS, math.max(8, GetFontSize() - 2), "OUTLINE")
+    title:SetFont(FONT_HEADERS, math.max(8, GetFontSize() - 2), GetFontFlags())
     title:SetPoint("LEFT", titleIcon, "RIGHT", 5, 0)
     title:SetPoint("RIGHT", titleBar, "RIGHT", -110, 0)
     title:SetJustifyH("LEFT")
@@ -1991,7 +2002,7 @@ function MR:BuildUI()
     self.titleText = title
 
     local titleCount = titleBar:CreateFontString(nil, "OVERLAY")
-    titleCount:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), "OUTLINE")
+    titleCount:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
     titleCount:SetTextColor(0.84, 0.88, 0.90)
     self.titleCount = titleCount
 
@@ -2017,7 +2028,7 @@ function MR:BuildUI()
             btn._iconTex = t
         else
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_HEADERS, 11, "OUTLINE")
+            lbl:SetFont(FONT_HEADERS, 11, GetFontFlags())
             lbl:SetPoint("CENTER", btn, "CENTER", 0, 1)
             lbl:SetText(icon.text)
             lbl:SetTextColor(normalColor[1], normalColor[2], normalColor[3])
@@ -2203,7 +2214,7 @@ function MR:BuildUI()
     warbandGlow:SetTexture("Interface\\Buttons\\WHITE8X8")
     warbandGlow:SetColorTexture(0.15, 0.42, 0.45, 0.14)
     local warbandText = warbandBtn:CreateFontString(nil, "OVERLAY")
-    warbandText:SetFont(FONT_HEADERS, 9, "OUTLINE")
+    warbandText:SetFont(FONT_HEADERS, 9, GetFontFlags())
     warbandText:SetPoint("CENTER", warbandBtn, "CENTER", 0, 1)
     warbandText:SetText(L["AltBoard_ButtonLabel"] or "ALTS")
     warbandText:SetTextColor(0.84, 0.92, 0.96)
@@ -2246,14 +2257,14 @@ function MR:BuildUI()
             cfgBtn._iconTex:SetSize(metrics.buttonSize - 5, metrics.buttonSize - 5)
         end
         if closeBtn._lbl then
-            closeBtn._lbl:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 1), "OUTLINE")
+            closeBtn._lbl:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 1), GetFontFlags())
         end
         if minBtn._lbl then
-            minBtn._lbl:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 1), "OUTLINE")
+            minBtn._lbl:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 1), GetFontFlags())
         end
-        title:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 2), "OUTLINE")
-        titleCount:SetFont(FONT_ROWS, math.max(8, metrics.fontSize - 2), "OUTLINE")
-        warbandText:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 2), "OUTLINE")
+        title:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 2), GetFontFlags())
+        titleCount:SetFont(FONT_ROWS, math.max(8, metrics.fontSize - 2), GetFontFlags())
+        warbandText:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 2), GetFontFlags())
         ApplyMainFrameLayout(f)
     end
     self.RefreshMainHeaderChrome = RefreshMainHeaderChrome
@@ -2804,13 +2815,13 @@ function MR:ApplySharedMediaSettings()
     RefreshFonts()
     local fontSize = GetFontSize()
     if self.titleText then
-        self.titleText:SetFont(FONT_HEADERS, math.max(8, fontSize - 2), "OUTLINE")
+        self.titleText:SetFont(FONT_HEADERS, math.max(8, fontSize - 2), GetFontFlags())
     end
     if self.titleCount then
-        self.titleCount:SetFont(FONT_ROWS, math.max(8, fontSize - 1), "OUTLINE")
+        self.titleCount:SetFont(FONT_ROWS, math.max(8, fontSize - 1), GetFontFlags())
     end
     if self.warbandBtnText then
-        self.warbandBtnText:SetFont(FONT_HEADERS, 9, "OUTLINE")
+        self.warbandBtnText:SetFont(FONT_HEADERS, 9, GetFontFlags())
     end
     if self.expansionDropdown and self.expansionDropdown.ApplyFonts then
         self.expansionDropdown:ApplyFonts()
@@ -2818,28 +2829,28 @@ function MR:ApplySharedMediaSettings()
     if self.altBoardFrame then
         local frame = self.altBoardFrame
         if frame.titleText then
-            frame.titleText:SetFont(FONT_HEADERS, math.max(12, fontSize + 2), "OUTLINE")
+            frame.titleText:SetFont(FONT_HEADERS, math.max(12, fontSize + 2), GetFontFlags())
         end
         if frame.summaryValue then
-            frame.summaryValue:SetFont(FONT_HEADERS, math.max(11, fontSize + 1), "OUTLINE")
+            frame.summaryValue:SetFont(FONT_HEADERS, math.max(11, fontSize + 1), GetFontFlags())
         end
         if frame.summarySub then
-            frame.summarySub:SetFont(FONT_ROWS, math.max(8, fontSize - 1), "OUTLINE")
+            frame.summarySub:SetFont(FONT_ROWS, math.max(8, fontSize - 1), GetFontFlags())
         end
         if frame.leftLabel then
-            frame.leftLabel:SetFont(FONT_ROWS, math.max(9, fontSize), "OUTLINE")
+            frame.leftLabel:SetFont(FONT_ROWS, math.max(9, fontSize), GetFontFlags())
         end
         if frame.showHiddenLabel then
-            frame.showHiddenLabel:SetFont(FONT_ROWS, 9, "OUTLINE")
+            frame.showHiddenLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
         end
         if frame.heroName then
-            frame.heroName:SetFont(FONT_HEADERS, math.max(13, fontSize + 3), "OUTLINE")
+            frame.heroName:SetFont(FONT_HEADERS, math.max(13, fontSize + 3), GetFontFlags())
         end
         if frame.heroMeta then
-            frame.heroMeta:SetFont(FONT_ROWS, math.max(8, fontSize - 1), "OUTLINE")
+            frame.heroMeta:SetFont(FONT_ROWS, math.max(8, fontSize - 1), GetFontFlags())
         end
         if frame.heroStatus then
-            frame.heroStatus:SetFont(FONT_ROWS, math.max(10, fontSize), "OUTLINE")
+            frame.heroStatus:SetFont(FONT_ROWS, math.max(10, fontSize), GetFontFlags())
         end
         if frame.expansionDropdown and frame.expansionDropdown.ApplyFonts then
             frame.expansionDropdown:ApplyFonts()
@@ -3045,7 +3056,7 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
     iconPlate:SetShown(hasHeaderIcon and (showIcons or showSectionHeaders))
 
     local lbl = hdrFrame:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), "OUTLINE")
+    lbl:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
     lbl:ClearAllPoints()
     if hasHeaderIcon then
         lbl:SetPoint("LEFT", iconPlate, "RIGHT", 6, 0)
@@ -3061,7 +3072,7 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
         or  WC(headerColor:gsub("#",""), mod.label))
 
     local cnt = hdrFrame:CreateFontString(nil, "OVERLAY")
-    cnt:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), "OUTLINE")
+    cnt:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
     cnt:SetPoint("RIGHT", hdrFrame, "RIGHT", -18, 0)
     cnt:SetText(string.format("%d / %d complete", secDone, secTotal))
     cnt:SetTextColor(countColor(secDone, secTotal))
@@ -3304,7 +3315,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     statusFill:SetPoint("BOTTOMRIGHT", statusBtn, "BOTTOMRIGHT", -2, 2)
 
     local statusCheck = statusBtn:CreateFontString(nil, "OVERLAY")
-    statusCheck:SetFont(FONT_HEADERS, 9, "OUTLINE")
+    statusCheck:SetFont(FONT_HEADERS, 9, GetFontFlags())
     statusCheck:SetPoint("CENTER", statusBtn, "CENTER", 0, 1)
     statusCheck:SetText("x")
 
@@ -3382,7 +3393,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
     local lbl = rowFrame:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(FONT_ROWS, GetFontSize(), "OUTLINE")
+    lbl:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
     if hasRowIcon then
         lbl:SetPoint("LEFT", rowIcon, "RIGHT", 8, 0)
     else
@@ -3413,7 +3424,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     end
 
     local countFS = rowFrame:CreateFontString(nil, "OVERLAY")
-    countFS:SetFont(FONT_ROWS, GetFontSize(), "OUTLINE")
+    countFS:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
     countFS:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
     countFS:SetJustifyH("RIGHT")
     if countFS.SetWordWrap then
@@ -3455,7 +3466,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         countFS:SetTextColor(countColor(done, row.max))
 
         local walletFS = rowFrame:CreateFontString(nil, "OVERLAY")
-        walletFS:SetFont(FONT_ROWS, GetFontSize(), "OUTLINE")
+        walletFS:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
         walletFS:SetPoint("RIGHT", countFS, "LEFT", -5, 0)
         walletFS:SetJustifyH("RIGHT")
         walletFS:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
@@ -3470,7 +3481,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
 
     if hasCoordText then
         local coordsFS = rowFrame:CreateFontString(nil, "OVERLAY")
-        coordsFS:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 1), "OUTLINE")
+        coordsFS:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 1), GetFontFlags())
         coordsFS:SetPoint("RIGHT", countFS, "LEFT", -8, 0)
         coordsFS:SetJustifyH("RIGHT")
         coordsFS:SetText(string.format("%.2f, %.2f", row.x, row.y))
@@ -3483,7 +3494,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
 
     if row.vaultLabel then
         local vl = rowFrame:CreateFontString(nil, "OVERLAY")
-        vl:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), "OUTLINE")
+        vl:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
         vl:SetPoint("RIGHT", countFS, "LEFT", -4, 0)
         vl:SetText(row.vaultLabel)
         vl:SetTextColor(hex(row.vaultColor or "#ffffff"))
@@ -3568,7 +3579,7 @@ function MR:BuildConfigFrame()
     tbar:SetScript("OnDragStop",  function() f:StopMovingOrSizing() end)
 
     local ttitle = tbar:CreateFontString(nil, "OVERLAY")
-    ttitle:SetFont(FONT_HEADERS, 11, "OUTLINE")
+    ttitle:SetFont(FONT_HEADERS, 11, GetFontFlags())
     ttitle:SetText(L["Config_Title"])
     ttitle:SetPoint("LEFT", tbar, "LEFT", 8, 0)
     f.titleText = ttitle
@@ -3630,34 +3641,18 @@ function MR:PopulateConfigFrame(f)
         yOff = OptionsCheckbox(body, yOff, label, getVal, setVal, r, g, b, 4, nil, cfgFs)
     end
     local function Btn(label, onClick) yOff = OptionsBtn(body, yOff, label, onClick, math.max(192, contentW), 8, cfgFs) end
-    local function MediaSelector(label, kind, getVal, setVal)
-        local sharedMedia = ns.GetSharedMedia and ns.GetSharedMedia()
-        local defaultLabel = kind == "font" and "Game Default" or "Midnight Default"
-        local options = { defaultLabel }
-        local seen = { [options[1]] = true }
-        if ns.GetSharedMediaList then
-            for _, name in ipairs(ns.GetSharedMediaList(kind)) do
-                if type(name) == "string" and name ~= "" and not seen[name] then
-                    options[#options + 1] = name
-                    seen[name] = true
-                end
-            end
-        end
-
+    local function ChoiceDropdown(label, choices, getVal, setVal, getResetValue)
         local current = getVal()
-        if current == ns.MEDIA_DEFAULT_TOKEN or current == nil then
-            current = options[1]
-        end
         local currentIndex = 1
-        for index, name in ipairs(options) do
-            if name == current then
+        for index, choice in ipairs(choices) do
+            if choice.value == current then
                 currentIndex = index
                 break
             end
         end
 
         local caption = body:CreateFontString(nil, "OVERLAY")
-        caption:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+        caption:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
         caption:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
         caption:SetPoint("TOPRIGHT", body, "TOPRIGHT", -8, yOff)
         caption:SetJustifyH("LEFT")
@@ -3668,115 +3663,238 @@ function MR:PopulateConfigFrame(f)
 
         local row = CreateFrame("Frame", nil, body)
         row:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
-        row:SetSize(contentW, 20)
+        row:SetSize(contentW, 26)
 
-        local function BuildArrow(text, anchor, rel, xOff)
-            local btn = CreateFrame("Button", nil, row, "BackdropTemplate")
-            btn:SetSize(20, 20)
-            btn:SetPoint(anchor, rel, anchor, xOff, 0)
+        local measure = row:CreateFontString(nil, "OVERLAY")
+        measure:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+        local widestLabel = 0
+        for _, choice in ipairs(choices) do
+            measure:SetText(choice.label or "")
+            widestLabel = math.max(widestLabel, measure:GetStringWidth() or 0)
+        end
+        measure:Hide()
+
+        local valueBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
+        valueBtn:SetSize(math.max(170, contentW - 28), 20)
+        valueBtn:SetPoint("LEFT", row, "LEFT", 0, 0)
+        valueBtn:SetBackdrop(MakeBackdrop())
+        valueBtn:SetBackdropColor(0.05, 0.12, 0.20, 0.95)
+        valueBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+        local valueText = valueBtn:CreateFontString(nil, "OVERLAY")
+        valueText:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+        valueText:SetPoint("LEFT", valueBtn, "LEFT", 8, 1)
+        valueText:SetPoint("RIGHT", valueBtn, "RIGHT", -22, 1)
+        valueText:SetJustifyH("LEFT")
+        valueText:SetWordWrap(false)
+        valueText:SetTextColor(0.76, 0.97, 0.94)
+
+        local caret = valueBtn:CreateFontString(nil, "OVERLAY")
+        caret:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        caret:SetPoint("RIGHT", valueBtn, "RIGHT", -7, 1)
+        caret:SetText("v")
+        caret:SetTextColor(0.78, 0.90, 0.92)
+
+        local popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+        popup:SetFrameStrata("DIALOG")
+        popup:SetFrameLevel(50)
+        popup:SetBackdrop(MakeBackdrop())
+        popup:SetBackdropColor(0.04, 0.09, 0.15, 0.98)
+        popup:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+        popup:Hide()
+        popup.buttons = {}
+
+        local dismiss = CreateFrame("Frame", nil, UIParent)
+        dismiss:SetAllPoints(UIParent)
+        dismiss:SetFrameStrata("DIALOG")
+        dismiss:SetFrameLevel(49)
+        dismiss:EnableMouse(true)
+        dismiss:Hide()
+        dismiss:SetScript("OnMouseDown", function()
+            popup:Hide()
+            dismiss:Hide()
+        end)
+
+        local function ApplySelection(index, commit)
+            currentIndex = index
+            local selected = choices[currentIndex] or choices[1]
+            valueText:SetText(selected.label)
+            if commit ~= false then
+                setVal(selected.value, selected)
+            end
+        end
+
+        local function EnsurePopupButton(index)
+            local btn = popup.buttons[index]
+            if btn then
+                return btn
+            end
+
+            btn = CreateFrame("Button", nil, popup, "BackdropTemplate")
+            btn:SetHeight(18)
             btn:SetBackdrop(MakeBackdrop())
-            btn:SetBackdropColor(0.05, 0.10, 0.18, 1)
-            btn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+            btn:SetBackdropColor(0.05, 0.12, 0.20, 0.94)
+            btn:SetBackdropBorderColor(0.12, 0.26, 0.32, 0.95)
 
-            local fs = btn:CreateFontString(nil, "OVERLAY")
-            fs:SetFont(FONT_HEADERS, 10, "OUTLINE")
-            fs:SetPoint("CENTER")
-            fs:SetText(text)
-            fs:SetTextColor(0.70, 0.88, 0.85)
+            btn._label = btn:CreateFontString(nil, "OVERLAY")
+            btn._label:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+            btn._label:SetPoint("LEFT", btn, "LEFT", 8, 1)
+            btn._label:SetPoint("RIGHT", btn, "RIGHT", -22, 1)
+            btn._label:SetJustifyH("LEFT")
 
-            btn:SetScript("OnEnter", function()
-                btn:SetBackdropColor(0.08, 0.22, 0.32, 1)
-                btn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
-                fs:SetTextColor(1, 1, 1)
+            btn._check = btn:CreateFontString(nil, "OVERLAY")
+            btn._check:SetFont(FONT_HEADERS, 10, GetFontFlags())
+            btn._check:SetPoint("RIGHT", btn, "RIGHT", -7, 1)
+
+            btn:SetScript("OnEnter", function(selfBtn)
+                selfBtn:SetBackdropColor(0.08, 0.18, 0.28, 0.98)
+                selfBtn:SetBackdropBorderColor(0.26, 0.78, 0.72, 1)
             end)
-            btn:SetScript("OnLeave", function()
-                btn:SetBackdropColor(0.05, 0.10, 0.18, 1)
-                btn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
-                fs:SetTextColor(0.70, 0.88, 0.85)
+            btn:SetScript("OnLeave", function(selfBtn)
+                local active = selfBtn._checked == true
+                selfBtn:SetBackdropColor(active and 0.10 or 0.05, active and 0.22 or 0.12, active and 0.30 or 0.20, active and 0.98 or 0.94)
+                selfBtn:SetBackdropBorderColor(active and 0.28 or 0.12, active and 0.86 or 0.26, active and 0.78 or 0.32, active and 1 or 0.95)
             end)
 
+            popup.buttons[index] = btn
             return btn
         end
 
-        local prev = BuildArrow("<", "LEFT", row, 0)
+        local function RefreshPopup()
+            local width = math.max(valueBtn:GetWidth(), math.ceil(widestLabel) + 52)
+            local rowHeight = 18
+            local spacing = 2
+            local visibleCount = #choices
+            popup:SetSize(width, math.max(visibleCount * (rowHeight + spacing) + 6, 24))
 
-        local valueBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
-        valueBtn:SetSize(math.max(140, contentW - 72), 20)
-        valueBtn:SetPoint("LEFT", prev, "RIGHT", 4, 0)
-        valueBtn:SetBackdrop(MakeBackdrop())
-        valueBtn:SetBackdropColor(0.03, 0.06, 0.11, 1)
-        valueBtn:SetBackdropBorderColor(0.16, 0.30, 0.34, 1)
+            for index, choice in ipairs(choices) do
+                local btn = EnsurePopupButton(index)
+                btn:ClearAllPoints()
+                btn:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3 - (index - 1) * (rowHeight + spacing))
+                btn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -3, -3 - (index - 1) * (rowHeight + spacing))
+                btn:SetHeight(rowHeight)
+                btn._label:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+                btn._check:SetFont(FONT_HEADERS, 10, GetFontFlags())
+                btn._label:SetText(choice.label)
+                btn._check:SetText(index == currentIndex and "v" or "")
+                btn._checked = index == currentIndex
+                btn:SetBackdropColor(btn._checked and 0.10 or 0.05, btn._checked and 0.22 or 0.12, btn._checked and 0.30 or 0.20, btn._checked and 0.98 or 0.94)
+                btn:SetBackdropBorderColor(btn._checked and 0.28 or 0.12, btn._checked and 0.86 or 0.26, btn._checked and 0.78 or 0.32, btn._checked and 1 or 0.95)
+                btn:SetScript("OnClick", function()
+                    ApplySelection(index, true)
+                    popup:Hide()
+                    dismiss:Hide()
+                end)
+                btn:Show()
+            end
 
-        local valueText = valueBtn:CreateFontString(nil, "OVERLAY")
-        valueText:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
-        valueText:SetPoint("LEFT", valueBtn, "LEFT", 6, 0)
-        valueText:SetPoint("RIGHT", valueBtn, "RIGHT", -6, 0)
-        valueText:SetJustifyH("LEFT")
-        valueText:SetWordWrap(false)
+            for index = visibleCount + 1, #popup.buttons do
+                popup.buttons[index]:Hide()
+            end
+        end
 
-        local nextBtn = BuildArrow(">", "LEFT", valueBtn, valueBtn:GetWidth() + 4)
+        valueBtn:SetScript("OnEnter", function(selfBtn)
+            selfBtn:SetBackdropColor(0.08, 0.18, 0.28, 0.98)
+            selfBtn:SetBackdropBorderColor(0.26, 0.78, 0.72, 1)
+        end)
+        valueBtn:SetScript("OnLeave", function(selfBtn)
+            selfBtn:SetBackdropColor(0.05, 0.12, 0.20, 0.95)
+            selfBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+        end)
+        valueBtn:SetScript("OnClick", function()
+            if popup:IsShown() then
+                popup:Hide()
+                dismiss:Hide()
+                return
+            end
+
+            RefreshPopup()
+            popup:ClearAllPoints()
+            local left = valueBtn:GetLeft() or 0
+            local popupWidth = popup:GetWidth() or valueBtn:GetWidth()
+            local screenWidth = UIParent and UIParent:GetWidth() or 0
+            local xOffset = 0
+            if screenWidth > 0 and left + popupWidth > screenWidth - 12 then
+                xOffset = math.min(0, (screenWidth - 12) - (left + popupWidth))
+            end
+            if left + xOffset < 12 then
+                xOffset = 12 - left
+            end
+            popup:SetPoint("TOPLEFT", valueBtn, "BOTTOMLEFT", xOffset, -2)
+            dismiss:Show()
+            popup:Show()
+        end)
 
         local resetBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
         resetBtn:SetSize(20, 20)
-        resetBtn:SetPoint("LEFT", nextBtn, "RIGHT", 4, 0)
+        resetBtn:SetPoint("RIGHT", row, "RIGHT", 0, 0)
         resetBtn:SetBackdrop(MakeBackdrop())
         resetBtn:SetBackdropColor(0.12, 0.04, 0.04, 1)
         resetBtn:SetBackdropBorderColor(0.45, 0.12, 0.12, 1)
 
         local resetText = resetBtn:CreateFontString(nil, "OVERLAY")
-        resetText:SetFont(FONT_HEADERS, 10, "OUTLINE")
+        resetText:SetFont(FONT_HEADERS, 10, GetFontFlags())
         resetText:SetPoint("CENTER", resetBtn, "CENTER", 0, 1)
         resetText:SetText("x")
         resetText:SetTextColor(0.75, 0.28, 0.28)
 
-        local function ApplySelection(index, commit)
-            currentIndex = index
-            local selected = options[currentIndex] or options[1]
-            valueText:SetText(selected)
-            if commit ~= false then
-                local isDefault = selected == options[1]
-                local name = isDefault and ns.MEDIA_DEFAULT_TOKEN or selected
-                local path
-                if name and name ~= ns.MEDIA_DEFAULT_TOKEN and sharedMedia then
-                    local mediaType = kind == "font" and sharedMedia.MediaType.FONT or sharedMedia.MediaType.BACKGROUND
-                    path = sharedMedia:Fetch(mediaType, name, true)
-                end
-                if isDefault and kind == "font" and ns.GetDefaultFontTexture then
-                    path = ns.GetDefaultFontTexture()
-                elseif isDefault and kind == "background" and ns.GetDefaultBackgroundTexture then
-                    path = ns.GetDefaultBackgroundTexture()
-                end
-                setVal(name, path)
-            end
-        end
-
-        prev:SetScript("OnClick", function()
-            local nextIndex = currentIndex - 1
-            if nextIndex < 1 then
-                nextIndex = #options
-            end
-            ApplySelection(nextIndex, true)
-        end)
-        nextBtn:SetScript("OnClick", function()
-            local nextIndex = currentIndex + 1
-            if nextIndex > #options then
-                nextIndex = 1
-            end
-            ApplySelection(nextIndex, true)
-        end)
-        valueBtn:SetScript("OnClick", function()
-            local nextIndex = currentIndex + 1
-            if nextIndex > #options then
-                nextIndex = 1
-            end
-            ApplySelection(nextIndex, true)
-        end)
         resetBtn:SetScript("OnClick", function()
+            local resetValue = getResetValue and getResetValue() or choices[1].value
+            for index, choice in ipairs(choices) do
+                if choice.value == resetValue then
+                    ApplySelection(index, true)
+                    RefreshPopup()
+                    return
+                end
+            end
             ApplySelection(1, true)
+            RefreshPopup()
         end)
 
         ApplySelection(currentIndex, false)
-        yOff = yOff - 26
+        yOff = yOff - 34
+    end
+
+    local function MediaSelector(label, kind, getVal, setVal)
+        local sharedMedia = ns.GetSharedMedia and ns.GetSharedMedia()
+        local defaultLabel = kind == "font" and "Game Default" or "Midnight Default"
+        local choices = {
+            { label = defaultLabel, value = ns.MEDIA_DEFAULT_TOKEN },
+        }
+        local seen = { [defaultLabel] = true }
+        if ns.GetSharedMediaList then
+            for _, name in ipairs(ns.GetSharedMediaList(kind)) do
+                if type(name) == "string" and name ~= "" and not seen[name] then
+                    choices[#choices + 1] = { label = name, value = name }
+                    seen[name] = true
+                end
+            end
+        end
+
+        ChoiceDropdown(label, choices,
+            function()
+                local current = getVal()
+                if current == nil or current == ns.MEDIA_DEFAULT_TOKEN then
+                    return ns.MEDIA_DEFAULT_TOKEN
+                end
+                return current
+            end,
+            function(value)
+                local path
+                if value and value ~= ns.MEDIA_DEFAULT_TOKEN and sharedMedia then
+                    local mediaType = kind == "font" and sharedMedia.MediaType.FONT or sharedMedia.MediaType.BACKGROUND
+                    path = sharedMedia:Fetch(mediaType, value, true)
+                end
+                if value == ns.MEDIA_DEFAULT_TOKEN and kind == "font" and ns.GetDefaultFontTexture then
+                    path = ns.GetDefaultFontTexture()
+                elseif value == ns.MEDIA_DEFAULT_TOKEN and kind == "background" and ns.GetDefaultBackgroundTexture then
+                    path = ns.GetDefaultBackgroundTexture()
+                end
+                setVal(value, path)
+            end,
+            function()
+                return ns.MEDIA_DEFAULT_TOKEN
+            end)
     end
     local function SetLayoutMode(enabled)
         MR.db.profile.characterWindowLayout = enabled
@@ -3836,7 +3954,7 @@ function MR:PopulateConfigFrame(f)
             btn:SetBackdropBorderColor(isActive and 0.22 or 0.16, isActive and 0.82 or 0.28, isActive and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             lbl:SetPoint("CENTER")
             lbl:SetText(tab.label)
             lbl:SetTextColor(isActive and 0.85 or 0.62, isActive and 1.0 or 0.75, isActive and 0.92 or 0.70)
@@ -3989,7 +4107,7 @@ function MR:PopulateConfigFrame(f)
             btn:SetBackdropBorderColor(active and 0.24 or 0.16, active and 0.82 or 0.28, active and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             lbl:SetPoint("CENTER")
             lbl:SetText(label)
             lbl:SetTextColor(active and 0.92 or 0.70, active and 1.0 or 0.78, active and 0.94 or 0.74)
@@ -4066,7 +4184,7 @@ function MR:PopulateConfigFrame(f)
             btn:SetBackdropBorderColor(active and 0.24 or 0.16, active and 0.82 or 0.28, active and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             lbl:SetPoint("CENTER")
             lbl:SetText(label)
             lbl:SetTextColor(active and 0.92 or 0.70, active and 1.0 or 0.78, active and 0.94 or 0.74)
@@ -4143,7 +4261,7 @@ function MR:PopulateConfigFrame(f)
             pb:SetBackdropColor(isActive and 0.12 or 0.05, isActive and 0.35 or 0.10, isActive and 0.32 or 0.18, 1)
             pb:SetBackdropBorderColor(isActive and 0.25 or 0.18, isActive and 0.85 or 0.40, isActive and 0.70 or 0.45, 1)
             local pfs = pb:CreateFontString(nil, "OVERLAY")
-            pfs:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            pfs:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             pfs:SetPoint("CENTER")
             pfs:SetText(p[1])
             pfs:SetTextColor(isActive and 0.2 or 0.6, isActive and 0.95 or 0.75, isActive and 0.75 or 0.65)
@@ -4190,6 +4308,31 @@ function MR:PopulateConfigFrame(f)
                     MR.db.profile.fontMediaPath = path
                 end
                 MR:ApplySharedMediaSettings()
+            end)
+        ChoiceDropdown(L["Config_FontStyle"] or "Font Style", {
+                { label = L["Config_FontStyleOutline"] or "Outline", value = "OUTLINE" },
+                { label = L["Config_FontStyleNone"] or "None", value = "" },
+                { label = L["Config_FontStyleThick"] or "Thick Outline", value = "THICKOUTLINE" },
+                { label = L["Config_FontStyleMono"] or "Monochrome", value = "MONOCHROME" },
+                { label = L["Config_FontStyleMonoOutline"] or "Monochrome Outline", value = "OUTLINE, MONOCHROME" },
+                { label = L["Config_FontStyleMonoThick"] or "Monochrome Thick Outline", value = "THICKOUTLINE, MONOCHROME" },
+            },
+            function()
+                if ns.GetFontFlags then
+                    return ns.GetFontFlags(MR.GetActiveMediaSettings and MR:GetActiveMediaSettings() or MR.db.profile)
+                end
+                return MR.GetMediaSetting and MR:GetMediaSetting("fontFlags") or MR.db.profile.fontFlags or "OUTLINE"
+            end,
+            function(value)
+                if MR.SetMediaSetting then
+                    MR:SetMediaSetting("fontFlags", value)
+                else
+                    MR.db.profile.fontFlags = value
+                end
+                MR:ApplySharedMediaSettings()
+            end,
+            function()
+                return "OUTLINE"
             end)
         MediaSelector(L["Config_BackgroundTexture"] or "Background texture", "background",
             function() return MR.GetMediaSetting and MR:GetMediaSetting("backgroundMedia") or MR.db.profile.backgroundMedia end,
@@ -4257,7 +4400,7 @@ function MR:PopulateConfigFrame(f)
             hideActive and 0.32 or 0.12,
             hideActive and 0.38 or 0.12, 1)
         local fs = btn:CreateFontString(nil, "OVERLAY")
-        fs:SetFont(FONT_ROWS, 8, "OUTLINE")
+        fs:SetFont(FONT_ROWS, 8, GetFontFlags())
         fs:SetPoint("CENTER", btn, "CENTER", 0, 0)
         fs:SetText(hideActive and "H" or "S")
         fs:SetTextColor(hideActive and 0.45 or 0.55, hideActive and 0.75 or 0.25, hideActive and 0.70 or 0.25)
@@ -4333,7 +4476,7 @@ function MR:PopulateConfigFrame(f)
     dragGhost:SetBackdropBorderColor(0.2, 0.9, 0.65, 1)
     dragGhost:Hide()
     local dragGhostLbl = dragGhost:CreateFontString(nil, "OVERLAY")
-    dragGhostLbl:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    dragGhostLbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
     dragGhostLbl:SetPoint("LEFT", dragGhost, "LEFT", 8, 0)
     dragGhostLbl:SetTextColor(0.3, 1, 0.75)
 
@@ -4486,7 +4629,7 @@ function MR:PopulateConfigFrame(f)
                 grip:SetBackdropColor(0.12, 0.22, 0.20, 0.6)
                 grip:SetBackdropBorderColor(0.30, 0.55, 0.48, 0.7)
                 local gripLbl = grip:CreateFontString(nil, "OVERLAY")
-                gripLbl:SetFont(FONT_HEADERS, 13, "OUTLINE")
+                gripLbl:SetFont(FONT_HEADERS, 13, GetFontFlags())
                 gripLbl:SetPoint("CENTER", grip, "CENTER", 0, 0)
                 gripLbl:SetText("=")
                 gripLbl:SetTextColor(0.50, 0.75, 0.68)
@@ -4529,7 +4672,7 @@ function MR:PopulateConfigFrame(f)
                 local colorSwatch = BuildColorSwatch(headerFr, key, mod, bgSwatch)
 
                 local lbl = headerFr:CreateFontString(nil, "OVERLAY")
-                lbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+                lbl:SetFont(FONT_ROWS, 10, GetFontFlags())
                 lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
                 lbl:SetPoint("RIGHT", colorSwatch, "LEFT", -2, 0)
                 lbl:SetText(mod.label)
@@ -4566,7 +4709,7 @@ function MR:PopulateConfigFrame(f)
             arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
             arrowBtn:SetBackdropBorderColor(0.15, 0.32, 0.38, 1)
             local arrowLbl = arrowBtn:CreateFontString(nil, "OVERLAY")
-            arrowLbl:SetFont(FONT_HEADERS, 10, "OUTLINE")
+            arrowLbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
             arrowLbl:SetPoint("CENTER", arrowBtn, "CENTER", 0, 1)
             arrowLbl:SetText(isExp and "v" or ">")
             arrowLbl:SetTextColor(0.45, 0.75, 0.70)
@@ -4597,7 +4740,7 @@ function MR:PopulateConfigFrame(f)
             grip:SetBackdropColor(0.12, 0.22, 0.20, 0.6)
             grip:SetBackdropBorderColor(0.30, 0.55, 0.48, 0.7)
             local gripLbl = grip:CreateFontString(nil, "OVERLAY")
-            gripLbl:SetFont(FONT_HEADERS, 13, "OUTLINE")
+            gripLbl:SetFont(FONT_HEADERS, 13, GetFontFlags())
             gripLbl:SetPoint("CENTER", grip, "CENTER", 0, 0)
             gripLbl:SetText("=")
             gripLbl:SetTextColor(0.50, 0.75, 0.68)
@@ -4632,7 +4775,7 @@ function MR:PopulateConfigFrame(f)
             local colorSwatch = BuildColorSwatch(headerFr, key, mod, bgSwatch)
 
             local lbl = headerFr:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, 10, GetFontFlags())
             lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
             lbl:SetPoint("RIGHT", colorSwatch, "LEFT", -2, 0)
             lbl:SetText(mod.label)
@@ -4669,7 +4812,7 @@ function MR:PopulateConfigFrame(f)
 
                     local cleanLabel = row.label:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
                     local rlbl = rowFr:CreateFontString(nil, "OVERLAY")
-                    rlbl:SetFont(FONT_ROWS, 9, "OUTLINE")
+                    rlbl:SetFont(FONT_ROWS, 9, GetFontFlags())
                     rlbl:SetPoint("LEFT", rowFr, "LEFT", 10, 0)
                     rlbl:SetPoint("RIGHT", rowFr, "RIGHT", -32, 0)
                     rlbl:SetJustifyH("LEFT")
@@ -4697,7 +4840,7 @@ function MR:PopulateConfigFrame(f)
                         enabled and 0.32 or 0.12,
                         enabled and 0.38 or 0.12, 1)
                     local eyeLbl = eyeBtn:CreateFontString(nil, "OVERLAY")
-                    eyeLbl:SetFont(FONT_ROWS, 9, "OUTLINE")
+                    eyeLbl:SetFont(FONT_ROWS, 9, GetFontFlags())
                     eyeLbl:SetPoint("CENTER", eyeBtn, "CENTER", 0, 0)
                     eyeLbl:SetText(enabled and "o" or "-")
                     eyeLbl:SetTextColor(

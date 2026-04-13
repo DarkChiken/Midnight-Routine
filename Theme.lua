@@ -7,6 +7,66 @@ local MEDIA_KIND_TO_LSM = {
     background = LSM and LSM.MediaType.BACKGROUND or "background",
 }
 
+local DEFAULT_FONT_FLAGS = "OUTLINE"
+local GetActiveMediaProfile
+local GetResolvedMediaSetting
+
+local function NormalizeFontFlags(flags)
+    if flags == nil then
+        return nil
+    end
+
+    if flags == false then
+        return ""
+    end
+
+    if type(flags) ~= "string" then
+        return DEFAULT_FONT_FLAGS
+    end
+
+    local normalized = flags:upper():gsub("%s+", "")
+    if normalized == "" or normalized == "NONE" then
+        return ""
+    end
+
+    local tokens = {}
+    for token in normalized:gmatch("[^,]+") do
+        tokens[token] = true
+    end
+
+    local hasMono = tokens.MONOCHROME and true or false
+    local hasThick = tokens.THICKOUTLINE and true or false
+    local hasOutline = hasThick or tokens.OUTLINE
+
+    if hasThick then
+        return hasMono and "THICKOUTLINE, MONOCHROME" or "THICKOUTLINE"
+    end
+
+    if hasOutline then
+        return hasMono and "OUTLINE, MONOCHROME" or "OUTLINE"
+    end
+
+    if hasMono then
+        return "MONOCHROME"
+    end
+
+    return DEFAULT_FONT_FLAGS
+end
+
+ns.NormalizeFontFlags = NormalizeFontFlags
+
+function ns.GetFontFlags(profile)
+    profile = profile or GetActiveMediaProfile()
+
+    local flags = (profile and profile.fontFlags) or GetResolvedMediaSetting("fontFlags")
+    flags = NormalizeFontFlags(flags)
+    if flags == nil then
+        return DEFAULT_FONT_FLAGS
+    end
+
+    return flags
+end
+
 local function ResolveDefaultFont()
     if type(STANDARD_TEXT_FONT) == "string" and STANDARD_TEXT_FONT ~= "" then
         return STANDARD_TEXT_FONT
@@ -84,7 +144,7 @@ function ns.GetSharedMediaList(kind)
     return LSM:List(mediaType) or {}
 end
 
-local function GetActiveMediaProfile()
+GetActiveMediaProfile = function()
     local addon = ns.MR
     if addon and addon.GetActiveMediaSettings then
         return addon:GetActiveMediaSettings()
@@ -93,7 +153,7 @@ local function GetActiveMediaProfile()
     return (addon and addon.db and addon.db.profile) or {}
 end
 
-local function GetResolvedMediaSetting(key)
+GetResolvedMediaSetting = function(key)
     local addon = ns.MR
     if addon and addon.GetMediaSetting then
         return addon:GetMediaSetting(key)
@@ -382,7 +442,7 @@ function ns.CloseButton(parent, onClose)
     btn:SetBackdropBorderColor(0.45, 0.12, 0.12, 1)
 
     local lbl = btn:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(ns.FONT_HEADERS, 11, "OUTLINE")
+    lbl:SetFont(ns.FONT_HEADERS, 11, ns.GetFontFlags())
     lbl:SetPoint("CENTER", btn, "CENTER", 0, 1)
     lbl:SetText("x")
     lbl:SetTextColor(0.75, 0.28, 0.28)
@@ -451,7 +511,7 @@ function ns.HeaderToggleButton(parent, getLabel, tooltipText, onClick)
     btn:SetBackdropBorderColor(0.15, 0.35, 0.40, 0.9)
 
     local lbl = btn:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(ns.FONT_HEADERS, 12, "OUTLINE")
+    lbl:SetFont(ns.FONT_HEADERS, 12, ns.GetFontFlags())
     lbl:SetPoint("CENTER", btn, "CENTER", 0, 1)
     lbl:SetTextColor(0.25, 0.80, 0.68)
 
@@ -531,7 +591,7 @@ end
 function ns.OptionsSectionLabel(body, yOff, text, pad, fontSize)
     pad = pad or 8
     local fs = body:CreateFontString(nil, "OVERLAY")
-    fs:SetFont(ns.FONT_ROWS, fontSize or 9, "OUTLINE")
+    fs:SetFont(ns.FONT_ROWS, fontSize or 9, ns.GetFontFlags())
     fs:SetText("|cff888888" .. text .. "|r")
     fs:SetPoint("TOPLEFT", body, "TOPLEFT", pad, yOff)
     fs:SetPoint("TOPRIGHT", body, "TOPRIGHT", -pad, yOff)
@@ -555,7 +615,7 @@ function ns.OptionsCheckbox(body, yOff, label, getVal, setVal, r, g, b, pad, onR
     end)
 
     local lbl = frame:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(ns.FONT_ROWS, fontSize or 10, "OUTLINE")
+    lbl:SetFont(ns.FONT_ROWS, fontSize or 10, ns.GetFontFlags())
     lbl:SetText(label)
     lbl:SetTextColor(r or 0.88, g or 0.88, b or 0.88)
     lbl:SetPoint("LEFT", frame, "RIGHT", 2, 0)
@@ -577,7 +637,7 @@ function ns.OptionsBtn(body, yOff, label, onClick, width, pad, fontSize)
     btn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
 
     local fs = btn:CreateFontString(nil, "OVERLAY")
-    fs:SetFont(ns.FONT_ROWS, fontSize or 10, "OUTLINE")
+    fs:SetFont(ns.FONT_ROWS, fontSize or 10, ns.GetFontFlags())
     fs:SetPoint("LEFT", btn, "LEFT", 6, 0)
     fs:SetWidth(width - 12)
     fs:SetJustifyH("LEFT")
@@ -611,7 +671,7 @@ function ns.OptionsSlider(body, yOff, label, min, max, step, getVal, setVal, fil
     end
 
     local lbl = body:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(ns.FONT_ROWS, fontSize or 9, "OUTLINE")
+    lbl:SetFont(ns.FONT_ROWS, fontSize or 9, ns.GetFontFlags())
     lbl:SetText("|cff" .. (disabled and "555555" or "888888") .. label .. "|r")
     lbl:SetPoint("TOPLEFT", body, "TOPLEFT", pad, yOff)
     lbl:SetPoint("TOPRIGHT", body, "TOPRIGHT", -pad, yOff)
@@ -650,7 +710,7 @@ function ns.OptionsSlider(body, yOff, label, min, max, step, getVal, setVal, fil
     valBox:SetBackdropBorderColor(0.25, 0.25, 0.3, disabled and 0.4 or 1)
 
     local valTxt = valBox:CreateFontString(nil, "OVERLAY")
-    valTxt:SetFont(ns.FONT_ROWS, fontSize or 9, "OUTLINE")
+    valTxt:SetFont(ns.FONT_ROWS, fontSize or 9, ns.GetFontFlags())
     valTxt:SetPoint("CENTER", valBox, "CENTER", 0, 0)
     valTxt:SetTextColor(disabled and 0.4 or 1, disabled and 0.4 or 1, disabled and 0.4 or 1)
 

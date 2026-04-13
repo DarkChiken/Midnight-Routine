@@ -37,6 +37,17 @@ local function RefreshFonts()
     FONT_ROWS = ns.FONT_ROWS or FONT_ROWS
 end
 
+local function GetFontFlags()
+    if ns.GetFontFlags then
+        local flags = ns.GetFontFlags()
+        if flags ~= nil then
+            return flags
+        end
+    end
+
+    return "OUTLINE"
+end
+
 local DEFAULT_W = 350
 local DEFAULT_H = 450
 local MIN_W = 250
@@ -525,7 +536,7 @@ local function BuildGatheringLocationsFrame(isRetry)
     )
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
     titleTxt:SetPoint("LEFT", titleIcon, "RIGHT", 5, 0)
     titleTxt:SetJustifyH("LEFT")
     titleTxt:SetText(L["ProfKnowledge_Title"])
@@ -668,7 +679,7 @@ local function BuildGatheringLocationsFrame(isRetry)
             local cr, cg, cb = GetProfessionColor(profession.key)
             local doneSources, totalSources, kpDone, kpTotal = ProfessionStats(profession)
             local header = content:CreateFontString(nil, "OVERLAY")
-            header:SetFont(FONT_ROWS, fontSize + 2, "OUTLINE")
+            header:SetFont(FONT_ROWS, fontSize + 2, GetFontFlags())
             header:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
             header:SetTextColor(cr, cg, cb, 1.0)
             header:SetText(string.format(L["ProfKnowledge_HeaderFormat"], profession.label, doneSources, totalSources, kpDone, kpTotal))
@@ -678,7 +689,7 @@ local function BuildGatheringLocationsFrame(isRetry)
                 if ShowInKnowledgeTracker(section) then
                     local sectionDone, sectionTotal = SectionStats(section)
                     local sectionHeader = content:CreateFontString(nil, "OVERLAY")
-                    sectionHeader:SetFont(FONT_ROWS, fontSize, "OUTLINE")
+                    sectionHeader:SetFont(FONT_ROWS, fontSize, GetFontFlags())
                     sectionHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -yOff)
                     sectionHeader:SetTextColor(0.85, 0.85, 0.88, 0.95)
                     sectionHeader:SetText(string.format(L["ProfKnowledge_SectionFormat"], section.label, sectionDone, sectionTotal))
@@ -707,7 +718,7 @@ local function BuildGatheringLocationsFrame(isRetry)
                             nameText:SetTextColor(done and 0.45 or 0.90, done and 0.45 or 0.90, done and 0.45 or 0.90)
 
                             local statusText = row:CreateFontString(nil, "OVERLAY")
-                            statusText:SetFont(FONT_ROWS, fontSize - 1, "OUTLINE")
+                            statusText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
                             statusText:SetPoint("RIGHT", row, "RIGHT", -2, 0)
                             statusText:SetWidth(78)
                             statusText:SetJustifyH("RIGHT")
@@ -772,7 +783,7 @@ local function BuildGatheringLocationsFrame(isRetry)
 
     if yOff == 0 then
         local emptyText = content:CreateFontString(nil, "OVERLAY")
-        emptyText:SetFont(FONT_ROWS, fontSize, "OUTLINE")
+        emptyText:SetFont(FONT_ROWS, fontSize, GetFontFlags())
         emptyText:SetPoint("TOPLEFT", content, "TOPLEFT", 10, -10)
         emptyText:SetPoint("TOPRIGHT", content, "TOPRIGHT", -10, -10)
         emptyText:SetJustifyH("LEFT")
@@ -940,7 +951,7 @@ local function BuildGatheringConfigFrame()
     tbar:SetScript("OnDragStart", function() frame:StartMoving() end)
     tbar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
     local ttitle = tbar:CreateFontString(nil, "OVERLAY")
-    ttitle:SetFont(FONT_HEADERS, 10, "OUTLINE")
+    ttitle:SetFont(FONT_HEADERS, 10, GetFontFlags())
     ttitle:SetText(L["ProfKnowledge_Config_Title"])
     ttitle:SetPoint("LEFT", tbar, "LEFT", 8, 0)
     CloseButton(tbar, function() frame:Hide() end)
@@ -1001,7 +1012,7 @@ PopulateGatheringConfig = function(frame)
             btn:SetBackdropBorderColor(isActive and 0.22 or 0.16, isActive and 0.82 or 0.28, isActive and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
             lbl:SetPoint("CENTER")
             lbl:SetText(tab.label)
             lbl:SetTextColor(isActive and 0.85 or 0.62, isActive and 1.0 or 0.75, isActive and 0.92 or 0.70)
@@ -1085,7 +1096,7 @@ PopulateGatheringConfig = function(frame)
                 end, profession.label .. L["Color_Reset_Hint"])
                 swatch:SetPoint("RIGHT", row, "RIGHT", 0, 0)
                 nameLbl = row:CreateFontString(nil, "OVERLAY")
-                nameLbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+                nameLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
                 nameLbl:SetPoint("LEFT", row, "LEFT", 0, 0)
                 nameLbl:SetPoint("RIGHT", swatch, "LEFT", -4, 0)
                 nameLbl:SetJustifyH("LEFT")

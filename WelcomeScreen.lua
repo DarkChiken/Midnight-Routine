@@ -26,6 +26,17 @@ local function RefreshFonts()
     FONT_HEADERS = ns.FONT_HEADERS or FONT_HEADERS or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
 end
 
+local function GetFontFlags()
+    if ns.GetFontFlags then
+        local flags = ns.GetFontFlags()
+        if flags ~= nil then
+            return flags
+        end
+    end
+
+    return "OUTLINE"
+end
+
 local function BuildWelcomeScreen()
     RefreshFonts()
     wipe(pendingEnabled)
@@ -60,14 +71,14 @@ local function BuildWelcomeScreen()
     icon:SetVertexColor(0.16, 0.78, 0.75, 1)
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 13, "OUTLINE")
+    titleTxt:SetFont(FONT_HEADERS, 13, GetFontFlags())
     titleTxt:SetPoint("LEFT", icon, "RIGHT", 7, 0)
     titleTxt:SetText(L["Welcome_Title"])
 
     local yOff = -46
 
     local heading = f:CreateFontString(nil, "OVERLAY")
-    heading:SetFont(FONT_HEADERS, 12, "OUTLINE")
+    heading:SetFont(FONT_HEADERS, 12, GetFontFlags())
     heading:SetPoint("TOPLEFT",  f, "TOPLEFT",  14, yOff)
     heading:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, yOff)
     heading:SetJustifyH("LEFT")
@@ -76,7 +87,7 @@ local function BuildWelcomeScreen()
     yOff = yOff - 18
 
     local hint = f:CreateFontString(nil, "OVERLAY")
-    hint:SetFont(FONT_ROWS, 10, "OUTLINE")
+    hint:SetFont(FONT_ROWS, 10, GetFontFlags())
     hint:SetPoint("TOPLEFT",  f, "TOPLEFT",  14, yOff)
     hint:SetPoint("TOPRIGHT", f, "TOPRIGHT", -14, yOff)
     hint:SetJustifyH("LEFT")
@@ -121,7 +132,7 @@ local function BuildWelcomeScreen()
             checkboxRefs[key] = cb
 
             local lbl = row:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, 11, "OUTLINE")
+            lbl:SetFont(FONT_ROWS, 11, GetFontFlags())
             lbl:SetPoint("LEFT",  cb,  "RIGHT",  4, 0)
             lbl:SetPoint("RIGHT", row, "RIGHT",  0, 0)
             lbl:SetJustifyH("LEFT")
@@ -157,14 +168,14 @@ local function BuildWelcomeScreen()
     end)
 
     local renownLbl = renownPanel:CreateFontString(nil, "OVERLAY")
-    renownLbl:SetFont(FONT_HEADERS, 12, "OUTLINE")
+    renownLbl:SetFont(FONT_HEADERS, 12, GetFontFlags())
     renownLbl:SetPoint("LEFT",  renownCb, "RIGHT", 4, 4)
     renownLbl:SetPoint("RIGHT", renownPanel, "RIGHT", -8, 0)
     renownLbl:SetJustifyH("LEFT")
     renownLbl:SetText(L["Welcome_Renown"])
 
     local renownDesc = renownPanel:CreateFontString(nil, "OVERLAY")
-    renownDesc:SetFont(FONT_ROWS, 10, "OUTLINE")
+    renownDesc:SetFont(FONT_ROWS, 10, GetFontFlags())
     renownDesc:SetPoint("TOPLEFT",  renownPanel, "TOPLEFT",  10, -42)
     renownDesc:SetPoint("BOTTOMRIGHT", renownPanel, "BOTTOMRIGHT", -10, 6)
     renownDesc:SetJustifyH("LEFT")
@@ -196,14 +207,14 @@ local function BuildWelcomeScreen()
     end)
 
     local raresLbl = raresPanel:CreateFontString(nil, "OVERLAY")
-    raresLbl:SetFont(FONT_HEADERS, 12, "OUTLINE")
+    raresLbl:SetFont(FONT_HEADERS, 12, GetFontFlags())
     raresLbl:SetPoint("LEFT",  raresCb, "RIGHT", 4, 4)
     raresLbl:SetPoint("RIGHT", raresPanel, "RIGHT", -8, 0)
     raresLbl:SetJustifyH("LEFT")
     raresLbl:SetText(L["Welcome_Rares"])
 
     local raresDesc = raresPanel:CreateFontString(nil, "OVERLAY")
-    raresDesc:SetFont(FONT_ROWS, 10, "OUTLINE")
+    raresDesc:SetFont(FONT_ROWS, 10, GetFontFlags())
     raresDesc:SetPoint("TOPLEFT",  raresPanel, "TOPLEFT",  10, -42)
     raresDesc:SetPoint("BOTTOMRIGHT", raresPanel, "BOTTOMRIGHT", -10, 6)
     raresDesc:SetJustifyH("LEFT")
@@ -235,14 +246,14 @@ local function BuildWelcomeScreen()
     end)
 
     local gatheringLbl = gatheringPanel:CreateFontString(nil, "OVERLAY")
-    gatheringLbl:SetFont(FONT_HEADERS, 12, "OUTLINE")
+    gatheringLbl:SetFont(FONT_HEADERS, 12, GetFontFlags())
     gatheringLbl:SetPoint("LEFT",  gatheringCb, "RIGHT", 4, 4)
     gatheringLbl:SetPoint("RIGHT", gatheringPanel, "RIGHT", -8, 0)
     gatheringLbl:SetJustifyH("LEFT")
     gatheringLbl:SetText(L["Welcome_ProfKnowledge"])
 
     local gatheringDesc = gatheringPanel:CreateFontString(nil, "OVERLAY")
-    gatheringDesc:SetFont(FONT_ROWS, 10, "OUTLINE")
+    gatheringDesc:SetFont(FONT_ROWS, 10, GetFontFlags())
     gatheringDesc:SetPoint("TOPLEFT",  gatheringPanel, "TOPLEFT",  10, -42)
     gatheringDesc:SetPoint("BOTTOMRIGHT", gatheringPanel, "BOTTOMRIGHT", -10, 6)
     gatheringDesc:SetJustifyH("LEFT")
@@ -263,7 +274,7 @@ local function BuildWelcomeScreen()
     enableAllBtn:SetBackdropBorderColor(0.18, 0.55, 0.60, 1)
 
     local eaLbl = enableAllBtn:CreateFontString(nil, "OVERLAY")
-    eaLbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+    eaLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
     eaLbl:SetPoint("CENTER")
     eaLbl:SetText(L["Welcome_Disable_All"])
 
@@ -297,7 +308,7 @@ local function BuildWelcomeScreen()
     suppressCb:SetChecked(false)
 
     local suppressLbl = f:CreateFontString(nil, "OVERLAY")
-    suppressLbl:SetFont(FONT_ROWS, 10, "OUTLINE")
+    suppressLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
     suppressLbl:SetPoint("LEFT", suppressCb, "RIGHT", 2, 0)
     suppressLbl:SetText(L["Welcome_SuppressAll"])
     suppressLbl:SetTextColor(0.6, 0.6, 0.6)
@@ -313,7 +324,7 @@ local function BuildWelcomeScreen()
     confirmBtn:SetBackdropBorderColor(0.15, 0.78, 0.42, 1)
 
     local confirmLbl = confirmBtn:CreateFontString(nil, "OVERLAY")
-    confirmLbl:SetFont(FONT_HEADERS, 12, "OUTLINE")
+    confirmLbl:SetFont(FONT_HEADERS, 12, GetFontFlags())
     confirmLbl:SetPoint("CENTER")
     confirmLbl:SetText(L["Welcome_Confirm"])
 
