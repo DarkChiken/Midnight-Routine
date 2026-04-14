@@ -3,6 +3,8 @@ local MR = ns.MR
 
 local SCAN_THROTTLE      = 2
 local DELVE_T8_MIN_LEVEL = 8
+local GILDED_STASH_SPELL_ID = 7591
+local GILDED_STASH_REQUIRED = 4
 local DELVERS_BOUNTY_ITEMS = {
     252415, 
     265714, 
@@ -96,10 +98,71 @@ end
 
 local bountifulRow
 local bountyRow
+local gildedStashRow
 local lastScan = 0
 
 local function IsBountyRowComplete(done)
     return (tonumber(done) or 0) >= 1
+end
+
+local function ExtractTooltipProgress(text)
+    if type(text) ~= "string" or text == "" then
+        return nil, nil
+    end
+
+    local fallbackCurrent, fallbackTotal
+    for current, total in text:gmatch("(%d+)%s*/%s*(%d+)") do
+        current = tonumber(current)
+        total = tonumber(total)
+        if current and total and total > 0 then
+            if total == GILDED_STASH_REQUIRED then
+                return current, total
+            end
+
+            if not fallbackCurrent then
+                fallbackCurrent = current
+                fallbackTotal = total
+            end
+        end
+    end
+
+    return fallbackCurrent, fallbackTotal
+end
+
+local function UpdateGildedStashProgress(mdb, row)
+    if type(mdb) ~= "table" or not row then
+        return
+    end
+
+    local widget = C_UIWidgetManager
+        and C_UIWidgetManager.GetSpellDisplayVisualizationInfo
+        and C_UIWidgetManager.GetSpellDisplayVisualizationInfo(GILDED_STASH_SPELL_ID)
+    local tooltip = widget and widget.spellInfo and widget.spellInfo.tooltip or nil
+    local fulfilled, required = ExtractTooltipProgress(tooltip)
+    local hasLiveData = fulfilled ~= nil
+
+    if hasLiveData then
+        required = required or GILDED_STASH_REQUIRED
+        fulfilled = math.max(0, math.min(fulfilled, required))
+        mdb["gilded_stash"] = fulfilled
+        mdb["gilded_stash_total"] = required
+        row.max = required
+        row.countText = nil
+        row.countColor = nil
+        row.note = L["Delves_GildedStash_Note"] or "Complete Tier 11 Delves to earn Gilded Stash."
+        return
+    end
+
+    row.max = (tonumber(mdb["gilded_stash_total"]) or 0) > 0 and mdb["gilded_stash_total"] or GILDED_STASH_REQUIRED
+    row.note = L["Delves_GildedStash_Note"] or "Complete Tier 11 Delves to earn Gilded Stash."
+
+    if (tonumber(mdb["gilded_stash"]) or 0) >= row.max then
+        row.countText = L["Done"] or "Done"
+        row.countColor = { 0.40, 0.85, 0.40 }
+    else
+        row.countText = nil
+        row.countColor = nil
+    end
 end
 
 MR:RegisterModule({
@@ -180,6 +243,8 @@ MR:RegisterModule({
                 bountyRow.countColor = nil
             end
         end
+
+        UpdateGildedStashProgress(mdb, gildedStashRow)
     end,
 
     rows = {
@@ -195,6 +260,38 @@ MR:RegisterModule({
             label = L["Delves_T8_Label"],
             max   = 1,
             note  = L["Delves_T8_Note"],
+        },
+        {
+            key   = "gilded_stash",
+            label = L["Delves_GildedStash_Label"] or "|cffc8956cGilded Stash:|r",
+            max   = GILDED_STASH_REQUIRED,
+            note  = L["Delves_GildedStash_Note"] or "Complete Tier 11 Delves to earn Gilded Stash.",
+            tooltipFunc = function(tip)
+                local mdb = MR.db.char.progress["delves"]
+                local tooltip = C_UIWidgetManager
+                    and C_UIWidgetManager.GetSpellDisplayVisualizationInfo
+                    and C_UIWidgetManager.GetSpellDisplayVisualizationInfo(GILDED_STASH_SPELL_ID)
+                tooltip = tooltip and tooltip.spellInfo and tooltip.spellInfo.tooltip or nil
+
+                tip:AddLine(" ")
+                if tooltip and tooltip ~= "" then
+                    for line in tooltip:gmatch("[^\n]+") do
+                        tip:AddLine(line, 0.9, 0.85, 0.6, true)
+                    end
+                elseif mdb and (tonumber(mdb["gilded_stash"]) or 0) > 0 then
+                    tip:AddLine(
+                        string.format(
+                            "%d / %d",
+                            tonumber(mdb["gilded_stash"]) or 0,
+                            tonumber(mdb["gilded_stash_total"]) or GILDED_STASH_REQUIRED
+                        ),
+                        0.9, 0.85, 0.6
+                    )
+                    tip:AddLine(L["Delves_GildedStash_Refresh"] or "Visit Silvermoon City to refresh Gilded Stash progress.", 0.6, 0.6, 0.6, true)
+                else
+                    tip:AddLine(L["Delves_GildedStash_Refresh"] or "Visit Silvermoon City to refresh Gilded Stash progress.", 0.6, 0.6, 0.6, true)
+                end
+            end,
         },
         {
             key     = "delve_bounty",
@@ -253,5 +350,8 @@ do
     end
     for _, r in ipairs(mod.rows) do
         if r.key == "delve_bounty" then bountyRow = r; break end
+    end
+    for _, r in ipairs(mod.rows) do
+        if r.key == "gilded_stash" then gildedStashRow = r; break end
     end
 end
