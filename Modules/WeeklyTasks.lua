@@ -35,6 +35,8 @@ local UATV_BRANCH_QUEST_IDS = {
 }
 
 local HALDURON_WEEKLIES = {
+    { quest = 93751, name = L["Halduron_WindrunnerSpire"]     },
+    { quest = 93752, name = L["Halduron_MurderRow"]           },
     { quest = 93753, name = L["Halduron_MagistersTerrace"]   },
     { quest = 93754, name = L["Halduron_MaisaraCaverns"]     },
     { quest = 93755, name = L["Halduron_DenOfNalorakk"]      },
