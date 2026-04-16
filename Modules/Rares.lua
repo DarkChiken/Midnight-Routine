@@ -253,6 +253,32 @@ local BuildRaresFrame
 local RefreshRaresFrame
 local PopulateRaresConfig
 
+local function ApplyRaresFrameUpdater(frame)
+    if not frame then return end
+
+    frame:SetScript("OnUpdate", function(self, dt)
+        if self.UpdatePanelHeaderVisibility then
+            self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
+        end
+
+        if MR.db and MR.db.profile and MR.db.profile.raresShimmer then
+            self.shimmerElapsed = (self.shimmerElapsed or 0) + (dt or 0)
+            local pulse = 0.06 + 0.04 * math.sin(self.shimmerElapsed * 2)
+            for _, tex in ipairs(self.shimmerTextures or {}) do
+                tex:SetAlpha(pulse)
+            end
+        end
+
+        self._raresRefreshElapsed = (self._raresRefreshElapsed or 0) + (dt or 0)
+        if self._raresRefreshElapsed >= 1.0 then
+            self._raresRefreshElapsed = 0
+            if RefreshRaresFrame then
+                RefreshRaresFrame()
+            end
+        end
+    end)
+end
+
 local function GetVisibleZones()
     local db  = MR.db and MR.db.profile or {}
     local key = GetCurrentZoneKey()
@@ -346,22 +372,11 @@ BuildRaresFrame = function()
             local duration = math.min(0.18, math.max(0.06, math.abs(delta) / 1600))
             local progress = math.min(self._mrAnimTick / duration, 1)
             local eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress))
-            self:SetHeight(startHeight + (delta * eased))
+                self:SetHeight(startHeight + (delta * eased))
             if progress >= 1 then
                 self:SetHeight(targetHeight)
                 self._mrAnimTick = nil
-                self:SetScript("OnUpdate", db.raresShimmer and function(frameSelf, tickDt)
-                    frameSelf.shimmerElapsed = frameSelf.shimmerElapsed + tickDt
-                    local pulse = 0.06 + 0.04 * math.sin(frameSelf.shimmerElapsed * 2)
-                    if frameSelf.UpdatePanelHeaderVisibility then
-                        frameSelf:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(frameSelf))
-                    end
-                    for _, tex in ipairs(frameSelf.shimmerTextures) do tex:SetAlpha(pulse) end
-                end or function(frameSelf)
-                    if frameSelf.UpdatePanelHeaderVisibility then
-                        frameSelf:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(frameSelf))
-                    end
-                end)
+                ApplyRaresFrameUpdater(self)
             end
         end)
     end
@@ -439,17 +454,10 @@ BuildRaresFrame = function()
     gearBtn:SetPoint("RIGHT", minBtn, "LEFT", -3, 0)
     UpdateMinBtn()
 
-    local totalDoneLabel = titleBar:CreateFontString(nil, "OVERLAY")
-    totalDoneLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
-    totalDoneLabel:SetTextColor(0.45, 0.45, 0.55)
-    totalDoneLabel:SetPoint("RIGHT", minBtn, "LEFT", -6, 0)
-    totalDoneLabel:SetWordWrap(false)
-    f.totalDoneLabel = totalDoneLabel
-
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
     titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
     titleTxt:SetPoint("LEFT",  titleIcon, "RIGHT", 5, 0)
-    titleTxt:SetPoint("RIGHT", totalDoneLabel, "LEFT", -6, 0)
+    titleTxt:SetPoint("RIGHT", gearBtn, "LEFT", -6, 0)
     titleTxt:SetJustifyH("LEFT")
     titleTxt:SetWordWrap(false)
     if singleZone then
@@ -622,23 +630,9 @@ BuildRaresFrame = function()
     f.UpdateScrollBar = UpdateScrollBar
 
     f.shimmerElapsed  = 0
+    f._raresRefreshElapsed = 0
     f.shimmerTextures = {}
-    if db.raresShimmer then
-        f:SetScript("OnUpdate", function(self, dt)
-            self.shimmerElapsed = self.shimmerElapsed + dt
-            local pulse = 0.06 + 0.04 * math.sin(self.shimmerElapsed * 2)
-            if self.UpdatePanelHeaderVisibility then
-                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
-            end
-            for _, tex in ipairs(self.shimmerTextures) do tex:SetAlpha(pulse) end
-        end)
-    else
-        f:SetScript("OnUpdate", function(self)
-            if self.UpdatePanelHeaderVisibility then
-                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
-            end
-        end)
-    end
+    ApplyRaresFrameUpdater(f)
 
     f.zoneData = {}
     local yOff = 2
@@ -649,7 +643,6 @@ BuildRaresFrame = function()
         local cr, cg, cb  = GetZoneColor(zone)
         local isCollapsed = (not singleZone) and collapsed[zone.key]
 
-        local zCount
         if not singleZone then
             local zHdr = CreateFrame("Button", nil, content, "BackdropTemplate")
             zHdr:SetPoint("TOPLEFT",  content, "TOPLEFT",  OUTER_PAD, -yOff)
@@ -675,11 +668,6 @@ BuildRaresFrame = function()
             zName:SetPoint("LEFT", arrow, "RIGHT", 5, 0)
             zName:SetTextColor(cr, cg, cb)
             zName:SetText(zone.label)
-
-            local zCount = zHdr:CreateFontString(nil, "OVERLAY")
-            zCount:SetFont(FONT_ROWS, 9, GetFontFlags())
-            zCount:SetPoint("RIGHT", zHdr, "RIGHT", -8, 0)
-            zCount:SetTextColor(0.5, 0.5, 0.5)
 
             yOff = yOff + ZONE_HDR_H
 
@@ -810,7 +798,6 @@ BuildRaresFrame = function()
 
         f.zoneData[zone.key] = {
             zone    = zone,
-            zCount  = zCount,
             barFill = barFill,
             barBg   = barBg,
             body    = body,
@@ -918,26 +905,11 @@ RefreshRaresFrame = function()
         end
     end
 
-    local grandDone  = 0
-    local grandTotal = 0
-
     for _, zone in ipairs(ZONES) do
         local zd = raresFrame.zoneData and raresFrame.zoneData[zone.key]
         if zd then
             local numDone, numTotal, status = GetZoneStatus(zone)
-            grandDone  = grandDone  + numDone
-            grandTotal = grandTotal + numTotal
             local cr, cg, cb = GetZoneColor(zone)
-
-            local cc
-            if numDone >= numTotal then cc = "e8c830"
-            elseif numDone > 0     then cc = "e07030"
-            else                        cc = "555566" end
-
-            if zd.zCount then
-                zd.zCount:SetText(string.format(
-                    "|cff%s%d|r |cff333344/|r |cff666688%d|r", cc, numDone, numTotal))
-            end
 
             local barW = zd.barBg:GetWidth()
             if barW and barW > 0 then
@@ -982,12 +954,6 @@ RefreshRaresFrame = function()
                 end
             end
         end
-    end
-
-    if raresFrame.totalDoneLabel then
-        local gc = grandDone >= grandTotal and "00e882" or "555566"
-        raresFrame.totalDoneLabel:SetText(
-            string.format("|cff%s%d|r |cff333344/%d|r", gc, grandDone, grandTotal))
     end
 
     if raresFrame.UpdateScrollBar then raresFrame.UpdateScrollBar() end
@@ -1119,20 +1085,10 @@ PopulateRaresConfig = function(f)
             function(v)
                 db.raresShimmer = v
                 if raresFrame then
-                    if v then
-                        raresFrame:SetScript("OnUpdate", function(self, dt)
-                            self.shimmerElapsed = (self.shimmerElapsed or 0) + dt
-                            local pulse = 0.06 + 0.04 * math.sin(self.shimmerElapsed * 2)
-                            if self.shimmerTextures then
-                                for _, tex in ipairs(self.shimmerTextures) do tex:SetAlpha(pulse) end
-                            end
-                        end)
-                    else
-                        raresFrame:SetScript("OnUpdate", nil)
-                        if raresFrame.shimmerTextures then
-                            for _, tex in ipairs(raresFrame.shimmerTextures) do tex:SetAlpha(0) end
-                        end
+                    if not v and raresFrame.shimmerTextures then
+                        for _, tex in ipairs(raresFrame.shimmerTextures) do tex:SetAlpha(0) end
                     end
+                    ApplyRaresFrameUpdater(raresFrame)
                 end
             end)
         Check(L["Config_HideKilled"],

@@ -80,6 +80,12 @@ crestRows = {
         label = CurrencyLabel(3378, nil),
     },
     {
+        key = "untainted_mana_crystals",
+        currencyId = 3356,
+        noMax = true,
+        label = CurrencyLabel(3356, nil),
+    },
+    {
         key = "voidlight_marl",
         currencyId = 3316,
         noMax = true,
