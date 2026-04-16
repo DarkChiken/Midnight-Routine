@@ -2215,7 +2215,7 @@ local function GetBottomHeaderCollapseTarget(frame)
     return anchor
 end
 
-local function ApplyMainFrameLayout(frame)
+local function ApplyMainFrameLayout(frame, preserveScreenPosition)
     if not frame then
         return
     end
@@ -2286,7 +2286,7 @@ local function ApplyMainFrameLayout(frame)
         end
     end
 
-    ApplyMainFrameAnchor(frame, GetMainHeaderPosition(), true)
+    ApplyMainFrameAnchor(frame, GetMainHeaderPosition(), preserveScreenPosition == true)
 end
 
 local function SetMainFrameChromeVisible(visible)
@@ -2506,6 +2506,7 @@ function MR:BuildUI()
     closeBtn:SetPoint("RIGHT", titleBar, "RIGHT", -BTN_MARGIN, 0)
     closeBtn:SetScript("OnClick", function()
         f:Hide()
+        MR.db.char.panelOpen = false
     end)
     self.closeBtn = closeBtn
 
@@ -4434,43 +4435,28 @@ function MR:PopulateConfigFrame(f)
         Checkbox(L["Config_OpenRenown"],
             function() return MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("renownOpen") end,
             function(v)
-                if v then
-                    if MR.EnsureRenownShown then
-                        MR:EnsureRenownShown()
-                    elseif MR.ToggleRenown then
-                        MR:ToggleRenown()
-                    end
-                elseif MR.HideRenown then
-                    MR:HideRenown()
+                if MR.SetManagedWindowOpen then
+                    MR:SetManagedWindowOpen("renownOpen", v)
                 end
+                if MR.ToggleRenown then MR:ToggleRenown() end
             end, "#d9b82e")
 
         Checkbox(L["Config_OpenRares"],
             function() return MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("raresOpen") end,
             function(v)
-                if v then
-                    if MR.EnsureRaresShown then
-                        MR:EnsureRaresShown()
-                    elseif MR.ToggleRares then
-                        MR:ToggleRares()
-                    end
-                elseif MR.HideRares then
-                    MR:HideRares()
+                if MR.SetManagedWindowOpen then
+                    MR:SetManagedWindowOpen("raresOpen", v)
                 end
+                if MR.ToggleRares then MR:ToggleRares() end
             end, "#e05050")
 
         Checkbox(L["Profession_Knowledge"],
             function() return MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("gatheringLocOpen") end,
             function(v)
-                if v then
-                    if MR.EnsureGatheringLocationsShown then
-                        MR:EnsureGatheringLocationsShown()
-                    elseif MR.ToggleGatheringLocations then
-                        MR:ToggleGatheringLocations()
-                    end
-                elseif MR.HideGatheringLocations then
-                    MR:HideGatheringLocations()
+                if MR.SetManagedWindowOpen then
+                    MR:SetManagedWindowOpen("gatheringLocOpen", v)
                 end
+                if MR.ToggleGatheringLocations then MR:ToggleGatheringLocations() end
             end, "#c9853f")
 
         Gap(4); Divider()
@@ -4635,7 +4621,7 @@ function MR:PopulateConfigFrame(f)
                     return
                 end
                 SetWindowLayoutValue("mainHeaderPosition", value)
-                ApplyMainFrameLayout(MR.frame)
+                ApplyMainFrameLayout(MR.frame, true)
                 MR:RefreshUI()
                 if MR.RebuildRaresFrame then
                     MR:RebuildRaresFrame()
