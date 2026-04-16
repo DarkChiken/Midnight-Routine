@@ -51,6 +51,7 @@ local DEFAULTS = {
         raresScale          = 1.0,
         raresAlpha          = 1.0,
         raresHideKilled     = false,
+        raresShowAllZones   = false,
         raresColors         = {},
         renownPos           = nil,
         renownLocked        = false,

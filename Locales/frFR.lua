@@ -318,6 +318,7 @@ L["Config_Display"] = "AFFICHAGE"
 L["Config_LockPosition"] = "Verrouiller la position"
 L["Config_ShimmerAnim"] = "Animation de scintillement"
 L["Config_HideKilled"] = "Masquer les tués d'aujourd'hui"
+L["Config_RaresShowAllZones"] = "Show All Zones"
 
 L["Config_SyncScale"]    = "Synchroniser l'échelle sur toutes les fenêtres"
 L["Config_SyncFontSize"] = "Synchroniser la taille de police sur toutes les fenêtres"

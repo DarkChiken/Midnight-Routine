@@ -323,6 +323,7 @@ L["Config_Display"] = "ANZEIGE"
 L["Config_LockPosition"] = "Position sperren"
 L["Config_ShimmerAnim"] = "Schimmer-Animation"
 L["Config_HideKilled"] = "Heute getötete ausblenden"
+L["Config_RaresShowAllZones"] = "Show All Zones"
 
 L["Config_SyncScale"]    = "Sync Skalierung für alle Fenster"
 L["Config_SyncFontSize"] = "Sync Schriftgröße für alle Fenster"

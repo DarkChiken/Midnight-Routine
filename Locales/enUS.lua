@@ -318,6 +318,7 @@ L["Config_Display"] = "DISPLAY"
 L["Config_LockPosition"] = "Lock Position"
 L["Config_ShimmerAnim"] = "Shimmer Animation"
 L["Config_HideKilled"] = "Hide Killed Today"
+L["Config_RaresShowAllZones"] = "Show All Zones"
 
 L["Config_SyncScale"]    = "Sync scale across all windows"
 L["Config_SyncFontSize"] = "Sync font size across all windows"

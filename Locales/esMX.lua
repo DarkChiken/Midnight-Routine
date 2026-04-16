@@ -318,6 +318,7 @@ L["Config_Display"] = "PANTALLA"
 L["Config_LockPosition"] = "Bloquear Posición"
 L["Config_ShimmerAnim"] = "Animación de brillo"
 L["Config_HideKilled"] = "Ocultar eliminados hoy"
+L["Config_RaresShowAllZones"] = "Show All Zones"
 
 L["Config_SyncScale"] = "Sincronizar escala en todas las ventanas"
 L["Config_SyncFontSize"] = "Sincronizar tamaño de fuente en todas las ventanas"

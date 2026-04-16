@@ -247,6 +247,7 @@ local raresFrame
 local raresCfgFrame
 local collapsed   = {}
 local lastZoneKey = nil
+local lastVisibleZoneMode = nil
 
 local BuildRaresFrame
 local RefreshRaresFrame
@@ -258,7 +259,7 @@ local function GetVisibleZones()
     local function zoneVisible(z)
         return not (db.raresHiddenZones and db.raresHiddenZones[z.key])
     end
-    if key and ZONE_BY_KEY[key] and zoneVisible(ZONE_BY_KEY[key]) then
+    if not db.raresShowAllZones and key and ZONE_BY_KEY[key] and zoneVisible(ZONE_BY_KEY[key]) then
         return { ZONE_BY_KEY[key] }
     end
     local result = {}
@@ -896,6 +897,27 @@ end
 RefreshRaresFrame = function()
     if not raresFrame or not raresFrame:IsShown() then return end
 
+    local db = MR.db and MR.db.profile or {}
+    if db.raresHideKilled and raresFrame.zoneData then
+        for _, zd in pairs(raresFrame.zoneData) do
+            local body = zd.body
+            if body and body.visibleRares then
+                for _, rare in ipairs(body.visibleRares) do
+                    local questId = rare[2]
+                    local flagged = questId and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
+                    if flagged then SyncRareKillRecord(questId) end
+                    local killStat = (questId and GetRareKillStatus(questId))
+                                     or (flagged and "today")
+                                     or nil
+                    if killStat == "today" then
+                        RebuildRaresFrame()
+                        return
+                    end
+                end
+            end
+        end
+    end
+
     local grandDone  = 0
     local grandTotal = 0
 
@@ -1116,6 +1138,13 @@ PopulateRaresConfig = function(f)
         Check(L["Config_HideKilled"],
             function() return db.raresHideKilled end,
             function(v) db.raresHideKilled = v; RebuildRaresFrame() end)
+        Check(L["Config_RaresShowAllZones"],
+            function() return db.raresShowAllZones end,
+            function(v)
+                db.raresShowAllZones = v
+                lastVisibleZoneMode = v and "all" or GetCurrentZoneKey()
+                RebuildRaresFrame()
+            end)
 
         Gap(4); Divider()
         Slider(L["WIDTH"], MIN_W, MAX_W, 10,
@@ -1292,6 +1321,7 @@ function MR:ToggleRares()
         if self.SetManagedWindowOpen then self:SetManagedWindowOpen("raresOpen", true) end
         raresFrame:SetScale((MR.db and MR.db.profile.raresScale) or 1.0)
         lastZoneKey = GetCurrentZoneKey()
+        lastVisibleZoneMode = (MR.db and MR.db.profile and MR.db.profile.raresShowAllZones) and "all" or lastZoneKey
         self:SyncAllRareKills()
         RefreshRaresFrame()
     end
@@ -1320,6 +1350,7 @@ function MR:EnsureRaresShown()
         raresFrame:Show()
         raresFrame:SetScale((MR.db and MR.db.profile.raresScale) or 1.0)
         lastZoneKey = GetCurrentZoneKey()
+        lastVisibleZoneMode = (MR.db and MR.db.profile and MR.db.profile.raresShowAllZones) and "all" or lastZoneKey
         self:SyncAllRareKills()
         RefreshRaresFrame()
         if self.SetManagedWindowOpen then self:SetManagedWindowOpen("raresOpen", true) end
@@ -1329,8 +1360,14 @@ end
 function MR:OnRaresZoneChanged()
     if not raresFrame or not raresFrame:IsShown() then return end
     local newKey = GetCurrentZoneKey()
-    if newKey == lastZoneKey then return end
+    local db = MR.db and MR.db.profile or {}
+    if not db.raresShowAllZones and newKey == lastZoneKey then return end
+    if db.raresShowAllZones and lastVisibleZoneMode == "all" then
+        lastZoneKey = newKey
+        return
+    end
     lastZoneKey = newKey
+    lastVisibleZoneMode = db.raresShowAllZones and "all" or newKey
     RebuildRaresFrame()
 end
 

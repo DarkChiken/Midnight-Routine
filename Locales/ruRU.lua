@@ -318,6 +318,7 @@ L["Config_Display"] = "ОТОБРАЖЕНИЕ"
 L["Config_LockPosition"] = "Закрепить позицию"
 L["Config_ShimmerAnim"] = "Анимация мерцания"
 L["Config_HideKilled"] = "Скрывать убитых сегодня"
+L["Config_RaresShowAllZones"] = "Show All Zones"
 
 L["Config_SyncScale"]    = "Синхронизировать масштаб всех окон"
 L["Config_SyncFontSize"] = "Синхронизировать размер шрифта всех окон"

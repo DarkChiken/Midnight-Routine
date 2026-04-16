@@ -318,6 +318,7 @@ L["Config_Display"] = "顯示"
 L["Config_LockPosition"] = "鎖定位置"
 L["Config_ShimmerAnim"] = "閃光動畫"
 L["Config_HideKilled"] = "隱藏今日已擊殺"
+L["Config_RaresShowAllZones"] = "Show All Zones"
 
 L["Config_SyncScale"]    = "同步所有視窗的縮放"
 L["Config_SyncFontSize"] = "同步所有視窗的文字大小"
