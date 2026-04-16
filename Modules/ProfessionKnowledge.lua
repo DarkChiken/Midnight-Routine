@@ -1163,6 +1163,7 @@ end
 
 function MR:EnsureGatheringLocationsShown()
     if not gatheringLocationsFrame then gatheringLocationsFrame = BuildGatheringLocationsFrame() else gatheringLocationsFrame:Show() end
+    if self.SetManagedWindowOpen then self:SetManagedWindowOpen("gatheringLocOpen", true) end
 end
 
 function MR:RefreshGatheringLocationsFrame()

@@ -2506,7 +2506,6 @@ function MR:BuildUI()
     closeBtn:SetPoint("RIGHT", titleBar, "RIGHT", -BTN_MARGIN, 0)
     closeBtn:SetScript("OnClick", function()
         f:Hide()
-        MR.db.char.panelOpen = false
     end)
     self.closeBtn = closeBtn
 
@@ -4435,28 +4434,43 @@ function MR:PopulateConfigFrame(f)
         Checkbox(L["Config_OpenRenown"],
             function() return MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("renownOpen") end,
             function(v)
-                if MR.SetManagedWindowOpen then
-                    MR:SetManagedWindowOpen("renownOpen", v)
+                if v then
+                    if MR.EnsureRenownShown then
+                        MR:EnsureRenownShown()
+                    elseif MR.ToggleRenown then
+                        MR:ToggleRenown()
+                    end
+                elseif MR.HideRenown then
+                    MR:HideRenown()
                 end
-                if MR.ToggleRenown then MR:ToggleRenown() end
             end, "#d9b82e")
 
         Checkbox(L["Config_OpenRares"],
             function() return MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("raresOpen") end,
             function(v)
-                if MR.SetManagedWindowOpen then
-                    MR:SetManagedWindowOpen("raresOpen", v)
+                if v then
+                    if MR.EnsureRaresShown then
+                        MR:EnsureRaresShown()
+                    elseif MR.ToggleRares then
+                        MR:ToggleRares()
+                    end
+                elseif MR.HideRares then
+                    MR:HideRares()
                 end
-                if MR.ToggleRares then MR:ToggleRares() end
             end, "#e05050")
 
         Checkbox(L["Profession_Knowledge"],
             function() return MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("gatheringLocOpen") end,
             function(v)
-                if MR.SetManagedWindowOpen then
-                    MR:SetManagedWindowOpen("gatheringLocOpen", v)
+                if v then
+                    if MR.EnsureGatheringLocationsShown then
+                        MR:EnsureGatheringLocationsShown()
+                    elseif MR.ToggleGatheringLocations then
+                        MR:ToggleGatheringLocations()
+                    end
+                elseif MR.HideGatheringLocations then
+                    MR:HideGatheringLocations()
                 end
-                if MR.ToggleGatheringLocations then MR:ToggleGatheringLocations() end
             end, "#c9853f")
 
         Gap(4); Divider()

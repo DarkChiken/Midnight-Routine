@@ -535,30 +535,27 @@ local function BuildWelcomeScreen()
             local prevGathering = MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("gatheringLocOpen") or false
 
             if pendingRenown ~= prevRenown then
-                if MR.SetManagedWindowOpen then
-                    MR:SetManagedWindowOpen("renownOpen", pendingRenown)
-                end
-                if pendingRenown and MR.ToggleRenown then
+                if pendingRenown and MR.EnsureRenownShown then
+                    MR:EnsureRenownShown()
+                elseif pendingRenown and MR.ToggleRenown then
                     MR:ToggleRenown()
                 elseif not pendingRenown and MR.HideRenown then
                     MR:HideRenown(false)
                 end
             end
             if pendingRares ~= prevRares then
-                if MR.SetManagedWindowOpen then
-                    MR:SetManagedWindowOpen("raresOpen", pendingRares)
-                end
-                if pendingRares and MR.ToggleRares then
+                if pendingRares and MR.EnsureRaresShown then
+                    MR:EnsureRaresShown()
+                elseif pendingRares and MR.ToggleRares then
                     MR:ToggleRares()
                 elseif not pendingRares and MR.HideRares then
                     MR:HideRares(false)
                 end
             end
             if pendingGathering ~= prevGathering then
-                if MR.SetManagedWindowOpen then
-                    MR:SetManagedWindowOpen("gatheringLocOpen", pendingGathering)
-                end
-                if pendingGathering and MR.ToggleGatheringLocations then
+                if pendingGathering and MR.EnsureGatheringLocationsShown then
+                    MR:EnsureGatheringLocationsShown()
+                elseif pendingGathering and MR.ToggleGatheringLocations then
                     MR:ToggleGatheringLocations()
                 elseif not pendingGathering and MR.HideGatheringLocations then
                     MR:HideGatheringLocations(false)
