@@ -94,6 +94,7 @@ local DEFAULTS = {
         altBoardSelectedExpansion = "midnight",
         altBoardHiddenCharacters = {},
         altBoardShowHidden = false,
+        altBoardView = "character",
         altBoardCollapsedModules = {},
         expansionModuleStates = {},
         expansionModuleOrder = {},
@@ -400,20 +401,32 @@ function MR:GetExpansionInfo(key)
     }
 end
 
+local _questNameCache = {}
+local _questNamePending = {}
+
 function MR:GetQuestName(questId, fallback)
     if not questId then
         return fallback
     end
 
+    if _questNameCache[questId] then
+        return _questNameCache[questId]
+    end
+
     if C_QuestLog and C_QuestLog.GetTitleForQuestID then
         local title = C_QuestLog.GetTitleForQuestID(questId)
         if title and title ~= "" then
+            _questNameCache[questId] = title
+            _questNamePending[questId] = nil
             return title
         end
     end
 
-    if C_QuestLog and C_QuestLog.RequestLoadQuestByID then
-        C_QuestLog.RequestLoadQuestByID(questId)
+    if not _questNamePending[questId] then
+        if C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+            C_QuestLog.RequestLoadQuestByID(questId)
+        end
+        _questNamePending[questId] = true
     end
 
     return fallback
@@ -495,8 +508,12 @@ function MR:SetSelectedExpansionKey(key, forAltBoard)
 
     if forAltBoard then
         self.db.profile.altBoardSelectedExpansion = key
-        if self.altBoardFrame and self.altBoardFrame:IsShown() and self.RefreshWarbandBoard then
-            self:RefreshWarbandBoard()
+        if self.altBoardFrame and self.altBoardFrame:IsShown() then
+            if self.RequestWarbandBoardRefresh then
+                self:RequestWarbandBoardRefresh(true)
+            elseif self.RefreshWarbandBoard then
+                self:RefreshWarbandBoard()
+            end
         end
         return
     end
@@ -736,6 +753,8 @@ function MR:GetWarbandWeeklyData()
                             quantity = tonumber(currencyInfo.quantity) or 0,
                             estimatedQuantity = estimated,
                             maxQuantity = maxQuantity,
+                            rechargingCycleDurationMS = tonumber(currencyInfo.rechargingCycleDurationMS) or 0,
+                            rechargingAmountPerCycle = tonumber(currencyInfo.rechargingAmountPerCycle) or 0,
                             lastUpdated = tonumber(currencyInfo.lastUpdated) or 0,
                         })
                     end

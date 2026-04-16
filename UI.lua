@@ -29,6 +29,7 @@ local ApplyBackgroundTexture = ns.ApplyBackgroundTexture
 
 local FONT_SIZE_MIN = 7
 local FONT_SIZE_MAX = 20
+local DAY_SECONDS = 24 * 60 * 60
 
 local ROW_HEIGHT    = 18
 local HEADER_HEIGHT = 18
@@ -502,6 +503,42 @@ local function WBReleaseWidgets(bucket)
     wipe(bucket)
 end
 
+function MR:RequestWarbandBoardRefresh(immediate)
+    if not (self and self.altBoardFrame and self.altBoardFrame:IsShown() and self.RefreshWarbandBoard) then
+        return
+    end
+
+    if immediate then
+        self._warbandBoardRefreshQueued = nil
+        self:RefreshWarbandBoard()
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    local lastRefreshAt = self._warbandBoardLastRefreshAt or 0
+    local minInterval = 0.75
+
+    if (now - lastRefreshAt) >= minInterval then
+        self:RefreshWarbandBoard()
+        return
+    end
+
+    if self._warbandBoardRefreshQueued then
+        return
+    end
+
+    self._warbandBoardRefreshQueued = true
+    C_Timer.After(minInterval, function()
+        if not MR then
+            return
+        end
+        MR._warbandBoardRefreshQueued = nil
+        if MR.altBoardFrame and MR.altBoardFrame:IsShown() and MR.RefreshWarbandBoard then
+            MR:RefreshWarbandBoard()
+        end
+    end)
+end
+
 local function WBFormatTimestamp(ts)
     if not ts or ts <= 0 then
         return L["AltBoard_NoScanRecorded"] or "No scan recorded"
@@ -799,12 +836,105 @@ local function WBConcentrationText(entry)
     return tostring(current)
 end
 
+local function WBConcentrationCurrent(entry)
+    return math.max(0, math.floor((tonumber(entry and entry.estimatedQuantity) or tonumber(entry and entry.quantity) or 0) + 0.0001))
+end
+
+local function WBConcentrationDailyGain(entry)
+    local cycleMS = tonumber(entry and entry.rechargingCycleDurationMS) or 0
+    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 0
+    if cycleMS <= 0 or amountPerCycle <= 0 then
+        return 0
+    end
+
+    return math.max(0, math.floor(((DAY_SECONDS * 1000) / cycleMS) * amountPerCycle + 0.0001))
+end
+
+local function WBConcentrationProjectedQuantity(entry, aheadSeconds)
+    local current = WBConcentrationCurrent(entry)
+    local maxQuantity = tonumber(entry and entry.maxQuantity) or 0
+    local cycleMS = tonumber(entry and entry.rechargingCycleDurationMS) or 0
+    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 0
+    local secondsAhead = tonumber(aheadSeconds) or 0
+
+    if maxQuantity > 0 and current >= maxQuantity then
+        return maxQuantity
+    end
+    if secondsAhead <= 0 or cycleMS <= 0 or amountPerCycle <= 0 then
+        return maxQuantity > 0 and math.min(current, maxQuantity) or current
+    end
+
+    local cycles = math.floor((secondsAhead * 1000) / cycleMS)
+    local projected = current + (cycles * amountPerCycle)
+    if maxQuantity > 0 then
+        projected = math.min(projected, maxQuantity)
+    end
+
+    return math.max(0, math.floor(projected + 0.0001))
+end
+
+local function WBConcentrationTimeToFull(entry)
+    local current = WBConcentrationCurrent(entry)
+    local maxQuantity = tonumber(entry and entry.maxQuantity) or 0
+    local cycleMS = tonumber(entry and entry.rechargingCycleDurationMS) or 0
+    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 0
+
+    if maxQuantity <= 0 or current >= maxQuantity then
+        return 0, GetServerTime()
+    end
+    if cycleMS <= 0 or amountPerCycle <= 0 then
+        return nil, nil
+    end
+
+    local remaining = math.max(0, maxQuantity - current)
+    local cyclesNeeded = math.ceil(remaining / amountPerCycle)
+    local seconds = math.max(0, math.floor((cyclesNeeded * cycleMS) / 1000 + 0.5))
+    return seconds, (GetServerTime() or time()) + seconds
+end
+
+local function WBFormatDurationShort(seconds)
+    if not seconds or seconds <= 0 then
+        return "0h"
+    end
+
+    local days = math.floor(seconds / DAY_SECONDS)
+    local hours = math.floor((seconds % DAY_SECONDS) / 3600)
+    local minutes = math.floor((seconds % 3600) / 60)
+
+    if days > 0 then
+        return string.format("%dd %dh", days, hours)
+    end
+    if hours > 0 then
+        return string.format("%dh %dm", hours, minutes)
+    end
+    return string.format("%dm", math.max(1, minutes))
+end
+
+local function WBFormatConcentrationFullAt(ts)
+    if not ts or ts <= 0 then
+        return "-"
+    end
+
+    return date("%d.%m %H:%M", ts)
+end
+
 local function WBConcentrationLabel()
     return rawget(L, "Concentration") or "Concentration"
 end
 
 local function WBAltLoginPrompt()
     return L["AltBoard_LoginAltPrompt"] or "Log into an alt for it to show here."
+end
+
+local function WBGetAltBoardView()
+    local view = MR and MR.db and MR.db.profile and MR.db.profile.altBoardView
+    return view == "concentration" and "concentration" or "character"
+end
+
+local function WBSetAltBoardView(view)
+    if MR and MR.db and MR.db.profile then
+        MR.db.profile.altBoardView = (view == "concentration") and "concentration" or "character"
+    end
 end
 
 local function WBCreateScrollArea(parent, topLeftAnchor, bottomRightAnchor)
@@ -853,10 +983,12 @@ local function WBCreateScrollArea(parent, topLeftAnchor, bottomRightAnchor)
             if currentScroll ~= 0 then
                 scroll:SetVerticalScroll(0)
             end
+            track:Hide()
             thumb:Hide()
             return
         end
 
+        track:Show()
         thumb:Show()
         local trackH = math.max(track:GetHeight(), 1)
         local thumbH = math.max(trackH * (viewH / contentH), 18)
@@ -950,15 +1082,201 @@ local function WBCreateScrollArea(parent, topLeftAnchor, bottomRightAnchor)
     return scroll, content, UpdateScrollBar, track
 end
 
+local function WBRefreshAltBoardTabs(frame)
+    if not frame or not frame.altTabs then
+        return
+    end
+
+    local activeView = WBGetAltBoardView()
+    for viewKey, tab in pairs(frame.altTabs) do
+        local active = viewKey == activeView
+        tab:SetBackdropColor(active and 0.09 or 0.05, active and 0.18 or 0.10, active and 0.28 or 0.18, active and 0.98 or 0.95)
+        tab:SetBackdropBorderColor(active and 0.28 or 0.18, active and 0.82 or 0.40, active and 0.78 or 0.45, 1)
+        if tab._label then
+            tab._label:SetTextColor(active and 0.96 or 0.70, active and 0.98 or 0.88, active and 1.00 or 0.85)
+        end
+    end
+end
+
+local function WBPopulateConcentrationOverview(frame, data)
+    if not frame or not frame.overviewContent then
+        return 0, 0
+    end
+
+    frame.overviewWidgets = frame.overviewWidgets or {}
+    WBReleaseWidgets(frame.overviewWidgets)
+
+    local contentWidth = math.max((frame.overviewScroll and frame.overviewScroll:GetWidth() or frame.rightPane:GetWidth() or 520) - 8, 320)
+    frame.overviewContent:SetWidth(contentWidth)
+
+    local totalCharacters = 0
+    local totalProfessions = 0
+    local yOff = 0
+
+    for _, charEntry in ipairs(data or {}) do
+        local concentrationEntries = type(charEntry.concentration) == "table" and charEntry.concentration or nil
+        if concentrationEntries and #concentrationEntries > 0 then
+            totalCharacters = totalCharacters + 1
+            totalProfessions = totalProfessions + #concentrationEntries
+
+            local card = CreateFrame("Frame", nil, frame.overviewContent, "BackdropTemplate")
+            card:SetPoint("TOPLEFT", frame.overviewContent, "TOPLEFT", 0, -yOff)
+            card:SetWidth(contentWidth)
+            card:SetBackdrop(MakeBackdrop())
+            card:SetBackdropColor(0.03, 0.06, 0.11, 0.96)
+            card:SetBackdropBorderColor(0.10, 0.18, 0.25, 1)
+
+            local cr, cg, cb = WBClassColor(charEntry)
+            local topAccent = card:CreateTexture(nil, "ARTWORK")
+            topAccent:SetPoint("TOPLEFT")
+            topAccent:SetPoint("TOPRIGHT")
+            topAccent:SetHeight(2)
+            topAccent:SetColorTexture(cr, cg, cb, 1)
+
+            local header = card:CreateFontString(nil, "OVERLAY")
+            header:SetFont(FONT_HEADERS, math.max(11, GetFontSize() + 1), GetFontFlags())
+            header:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -10)
+            header:SetText(charEntry.isCurrent and (charEntry.name .. "  |cff7ce7d8" .. (L["AltBoard_Current"] or "Current") .. "|r") or charEntry.name)
+            header:SetTextColor(0.94, 0.98, 1.00)
+
+            local meta = card:CreateFontString(nil, "OVERLAY")
+            meta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+            meta:SetPoint("TOPRIGHT", card, "TOPRIGHT", -12, -10)
+            meta:SetJustifyH("RIGHT")
+            meta:SetText(charEntry.realm ~= "" and charEntry.realm or (L["AltBoard_UnknownRealm"] or "Unknown Realm"))
+            meta:SetTextColor(0.64, 0.72, 0.82)
+
+            local rowY = 32
+            for _, concentrationEntry in ipairs(concentrationEntries) do
+                local rr, rg, rb = WBConcentrationColor(concentrationEntry)
+                local current = WBConcentrationCurrent(concentrationEntry)
+                local maxQuantity = tonumber(concentrationEntry.maxQuantity) or 0
+                local projected = WBConcentrationProjectedQuantity(concentrationEntry, DAY_SECONDS)
+                local dailyGain = math.max(0, projected - current)
+                local fullInSeconds, fullAt = WBConcentrationTimeToFull(concentrationEntry)
+
+                local row = CreateFrame("Frame", nil, card)
+                row:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -rowY)
+                row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -12, -rowY)
+                row:SetHeight(54)
+
+                local label = row:CreateFontString(nil, "OVERLAY")
+                label:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
+                label:SetPoint("TOPLEFT", row, "TOPLEFT", 0, 0)
+                label:SetPoint("TOPRIGHT", row, "TOPRIGHT", -110, 0)
+                label:SetJustifyH("LEFT")
+                label:SetText(concentrationEntry.label or (L["Unknown"] or "Unknown"))
+                label:SetTextColor(0.88, 0.92, 0.97)
+
+                local value = row:CreateFontString(nil, "OVERLAY")
+                value:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
+                value:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, 0)
+                value:SetJustifyH("RIGHT")
+                value:SetText(maxQuantity > 0 and string.format("%d / %d", current, maxQuantity) or tostring(current))
+                value:SetTextColor(rr, rg, rb)
+
+                local barBg = CreateFrame("Frame", nil, row, "BackdropTemplate")
+                barBg:SetPoint("TOPLEFT", row, "TOPLEFT", 0, -18)
+                barBg:SetPoint("TOPRIGHT", row, "TOPRIGHT", 0, -18)
+                barBg:SetHeight(8)
+                barBg:SetBackdrop(MakeBackdrop(false))
+                barBg:SetBackdropColor(0.08, 0.12, 0.18, 1)
+
+                local projectedFill = barBg:CreateTexture(nil, "ARTWORK")
+                projectedFill:SetPoint("TOPLEFT", barBg, "TOPLEFT", 0, 0)
+                projectedFill:SetPoint("BOTTOMLEFT", barBg, "BOTTOMLEFT", 0, 0)
+                projectedFill:SetColorTexture(rr, rg, rb, 0.22)
+
+                local currentFill = barBg:CreateTexture(nil, "OVERLAY")
+                currentFill:SetPoint("TOPLEFT", barBg, "TOPLEFT", 0, 0)
+                currentFill:SetPoint("BOTTOMLEFT", barBg, "BOTTOMLEFT", 0, 0)
+                currentFill:SetColorTexture(rr, rg, rb, 0.88)
+
+                local barWidth = math.max(contentWidth - 24, 1)
+                local currentPct = maxQuantity > 0 and math.min(1, current / maxQuantity) or 0
+                local projectedPct = maxQuantity > 0 and math.min(1, projected / maxQuantity) or currentPct
+                currentFill:SetWidth(barWidth * currentPct)
+                projectedFill:SetWidth(barWidth * projectedPct)
+
+                local gainText = row:CreateFontString(nil, "OVERLAY")
+                gainText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+                gainText:SetPoint("TOPLEFT", barBg, "BOTTOMLEFT", 0, -4)
+                gainText:SetJustifyH("LEFT")
+                gainText:SetText(string.format(L["AltBoard_ConcentrationProjected24h"] or "24h +%d", dailyGain))
+                gainText:SetTextColor(0.68, 0.77, 0.86)
+
+                local fullInText = row:CreateFontString(nil, "OVERLAY")
+                fullInText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+                fullInText:SetPoint("TOPRIGHT", barBg, "BOTTOMRIGHT", 0, -4)
+                fullInText:SetJustifyH("RIGHT")
+                if fullInSeconds == nil then
+                    fullInText:SetText(L["AltBoard_AwaitingRefresh"] or "Awaiting refresh")
+                elseif fullInSeconds <= 0 then
+                    fullInText:SetText(L["AltBoard_ConcentrationFull"] or "Fully replenished")
+                else
+                    fullInText:SetText(string.format(L["AltBoard_ConcentrationFullIn"] or "Full in %s", WBFormatDurationShort(fullInSeconds)))
+                end
+                fullInText:SetTextColor(0.68, 0.77, 0.86)
+
+                local fullAtText = row:CreateFontString(nil, "OVERLAY")
+                fullAtText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+                fullAtText:SetPoint("TOPLEFT", gainText, "BOTTOMLEFT", 0, -3)
+                fullAtText:SetPoint("TOPRIGHT", fullInText, "BOTTOMRIGHT", 0, -3)
+                fullAtText:SetJustifyH("RIGHT")
+                if fullInSeconds == nil then
+                    fullAtText:SetText("")
+                elseif fullInSeconds <= 0 then
+                    fullAtText:SetText(L["AltBoard_ConcentrationFullNow"] or "Full now")
+                else
+                    fullAtText:SetText(string.format(L["AltBoard_ConcentrationFullAt"] or "Full on %s", WBFormatConcentrationFullAt(fullAt)))
+                end
+                fullAtText:SetTextColor(0.52, 0.62, 0.72)
+
+                table.insert(frame.overviewWidgets, row)
+                rowY = rowY + 62
+            end
+
+            card:SetHeight(rowY + 4)
+            table.insert(frame.overviewWidgets, card)
+            yOff = yOff + card:GetHeight() + 14
+        end
+    end
+
+    if totalProfessions == 0 then
+        local empty = frame.overviewEmptyLabel
+        if empty then
+            empty:SetPoint("TOPLEFT", frame.overviewContent, "TOPLEFT", 8, -6)
+            empty:SetPoint("TOPRIGHT", frame.overviewContent, "TOPRIGHT", -8, -6)
+            empty:SetText(L["AltBoard_ConcentrationNone"] or "No concentration data on tracked characters yet.")
+            empty:Show()
+        end
+        frame.overviewContent:SetHeight(40)
+    else
+        if frame.overviewEmptyLabel then
+            frame.overviewEmptyLabel:Hide()
+        end
+        frame.overviewContent:SetHeight(math.max(yOff, 1))
+    end
+
+    if frame.overviewScrollUpdate then
+        frame.overviewScrollUpdate()
+    end
+
+    return totalCharacters, totalProfessions
+end
+
 function MR:RefreshWarbandBoard()
     local frame = self.altBoardFrame
     if not frame then return end
+    self._warbandBoardLastRefreshAt = GetTime and GetTime() or 0
     frame:SetScale(self.db.profile.scale or 1)
     local expansionInfo = GetExpansionDisplayInfo(true)
+    local activeView = WBGetAltBoardView()
 
     if frame.titleText then
         frame.titleText:SetText(L["AltBoard_Title"] or "Alt Weekly Board")
     end
+    WBRefreshAltBoardTabs(frame)
     if frame.expansionDropdown and frame.expansionDropdown.Update then
         frame.expansionDropdown:Update()
     end
@@ -1004,8 +1322,12 @@ function MR:RefreshWarbandBoard()
         end
     end
 
-    frame.summaryValue:SetText(string.format("%d / %d", totalDone, totalRows))
-    frame.summaryValue:SetTextColor(countColor(totalDone, math.max(totalRows, 1)))
+    if activeView == "concentration" then
+        frame.summaryValue:SetText("")
+    else
+        frame.summaryValue:SetText(string.format("%d / %d", totalDone, totalRows))
+        frame.summaryValue:SetTextColor(countColor(totalDone, math.max(totalRows, 1)))
+    end
 
     if #data <= 1 then
         frame.summarySub:SetText(string.format("%s  |  %s", expansionInfo.shortLabel or expansionInfo.label or expansionInfo.key, WBAltLoginPrompt()))
@@ -1022,12 +1344,29 @@ function MR:RefreshWarbandBoard()
         frame.heroMeta:SetText(WBAltLoginPrompt())
         frame.heroStatus:SetText("")
         WBReleaseWidgets(frame.heroConcentrationWidgets)
+        WBReleaseWidgets(frame.overviewWidgets)
         if frame.concentrationPane then
             frame.concentrationPane:SetHeight(42)
         end
         if frame.concentrationStatus then
             frame.concentrationStatus:SetText(WBAltLoginPrompt())
             frame.concentrationStatus:SetTextColor(0.68, 0.74, 0.84)
+        end
+        if frame.hero then frame.hero:Hide() end
+        if frame.concentrationPane then frame.concentrationPane:Hide() end
+        if frame.detailScroll then frame.detailScroll:Hide() end
+        if frame.overviewScroll then frame.overviewScroll:Show() end
+        if frame.overviewEmptyLabel then
+            frame.overviewEmptyLabel:SetPoint("TOPLEFT", frame.overviewContent, "TOPLEFT", 8, -6)
+            frame.overviewEmptyLabel:SetPoint("TOPRIGHT", frame.overviewContent, "TOPRIGHT", -8, -6)
+            frame.overviewEmptyLabel:SetText(L["AltBoard_ConcentrationNone"] or "No concentration data on tracked characters yet.")
+            frame.overviewEmptyLabel:Show()
+        end
+        if frame.overviewContent then
+            frame.overviewContent:SetHeight(40)
+        end
+        if frame.overviewScrollUpdate then
+            frame.overviewScrollUpdate()
         end
         frame.detailContent:SetHeight(1)
         return
@@ -1135,6 +1474,31 @@ function MR:RefreshWarbandBoard()
     if frame.leftScrollUpdate then
         frame.leftScrollUpdate()
     end
+
+    if activeView == "concentration" then
+        if frame.hero then frame.hero:Hide() end
+        if frame.concentrationPane then frame.concentrationPane:Hide() end
+        if frame.detailScroll then frame.detailScroll:Hide() end
+        if frame.overviewScroll then frame.overviewScroll:Show() end
+
+        local totalCharacters, totalProfessions = WBPopulateConcentrationOverview(frame, data)
+        frame.summarySub:SetText(string.format(
+            "%s  |  " .. (L["AltBoard_ConcentrationOverviewSub"] or "%d professions across %d characters"),
+            expansionInfo.shortLabel or expansionInfo.label or expansionInfo.key,
+            totalProfessions,
+            totalCharacters
+        ))
+        return
+    end
+
+    WBReleaseWidgets(frame.overviewWidgets)
+    if frame.overviewEmptyLabel then
+        frame.overviewEmptyLabel:Hide()
+    end
+    if frame.overviewScroll then frame.overviewScroll:Hide() end
+    if frame.hero then frame.hero:Show() end
+    if frame.concentrationPane then frame.concentrationPane:Show() end
+    if frame.detailScroll then frame.detailScroll:Show() end
 
     frame.heroName:SetText(selected.name)
     local syncAt = selected.lastSyncAt and selected.lastSyncAt > 0 and selected.lastSyncAt or selected.lastResetAt
@@ -1398,8 +1762,6 @@ function MR:ToggleWarbandBoard()
             local pt, _, rp, x, y = frame:GetPoint()
             SetWindowLayoutValue("warbandBoardPosition", { point = pt, relPoint = rp, x = x, y = y })
         end)
-        LeftAccent(titleBar, 0.15, 0.85, 0.80)
-
         local title = titleBar:CreateFontString(nil, "OVERLAY")
         title:SetFont(FONT_HEADERS, math.max(12, GetFontSize() + 2), GetFontFlags())
         title:SetPoint("LEFT", titleBar, "LEFT", 10, 0)
@@ -1485,9 +1847,49 @@ function MR:ToggleWarbandBoard()
         rightPane:SetBackdropColor(0.02, 0.05, 0.10, 0.96)
         rightPane:SetBackdropBorderColor(0.10, 0.18, 0.25, 1)
 
+        local tabBar = CreateFrame("Frame", nil, rightPane)
+        tabBar:SetPoint("TOPLEFT", rightPane, "TOPLEFT", 12, -12)
+        tabBar:SetPoint("TOPRIGHT", rightPane, "TOPRIGHT", -12, -12)
+        tabBar:SetHeight(24)
+
+        local function CreateAltBoardTab(label, viewKey)
+            local btn = CreateFrame("Button", nil, tabBar, "BackdropTemplate")
+            btn:SetSize(140, 22)
+            btn:SetBackdrop(MakeBackdrop())
+            btn:SetScript("OnClick", function()
+                WBSetAltBoardView(viewKey)
+                MR:RefreshWarbandBoard()
+            end)
+            btn:SetScript("OnEnter", function(selfBtn)
+                if WBGetAltBoardView() ~= viewKey then
+                    selfBtn:SetBackdropColor(0.08, 0.18, 0.28, 0.98)
+                    selfBtn:SetBackdropBorderColor(0.26, 0.78, 0.72, 1)
+                    if selfBtn._label then
+                        selfBtn._label:SetTextColor(1, 1, 1)
+                    end
+                end
+            end)
+            btn:SetScript("OnLeave", function()
+                WBRefreshAltBoardTabs(frame)
+            end)
+
+            local lbl = btn:CreateFontString(nil, "OVERLAY")
+            lbl:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+            lbl:SetPoint("CENTER", btn, "CENTER", 0, 0)
+            lbl:SetText(label)
+            btn._label = lbl
+            return btn
+        end
+
+        local characterTab = CreateAltBoardTab(L["AltBoard_TabCharacter"] or "Character", "character")
+        characterTab:SetPoint("LEFT", tabBar, "LEFT", 0, 0)
+
+        local concentrationTab = CreateAltBoardTab(L["AltBoard_TabConcentration"] or "Concentration", "concentration")
+        concentrationTab:SetPoint("LEFT", characterTab, "RIGHT", 8, 0)
+
         local hero = CreateFrame("Frame", nil, rightPane, "BackdropTemplate")
-        hero:SetPoint("TOPLEFT", rightPane, "TOPLEFT", 12, -12)
-        hero:SetPoint("TOPRIGHT", rightPane, "TOPRIGHT", -12, -12)
+        hero:SetPoint("TOPLEFT", tabBar, "BOTTOMLEFT", 0, -12)
+        hero:SetPoint("TOPRIGHT", tabBar, "BOTTOMRIGHT", 0, -12)
         hero:SetHeight(74)
         hero:SetBackdrop(MakeBackdrop())
         hero:SetBackdropColor(0.05, 0.11, 0.20, 0.98)
@@ -1547,14 +1949,33 @@ function MR:ToggleWarbandBoard()
         )
         detailContent:SetSize(520, 1)
 
+        local overviewScroll, overviewContent, overviewScrollUpdate = WBCreateScrollArea(
+            rightPane,
+            { "TOPLEFT", tabBar, "BOTTOMLEFT", 0, -12 },
+            { "BOTTOMRIGHT", rightPane, "BOTTOMRIGHT", -10, 10 }
+        )
+        overviewContent:SetSize(520, 1)
+        overviewScroll:Hide()
+
+        local overviewEmptyLabel = overviewContent:CreateFontString(nil, "OVERLAY")
+        overviewEmptyLabel:SetFont(FONT_ROWS, math.max(9, GetFontSize()), GetFontFlags())
+        overviewEmptyLabel:SetJustifyH("LEFT")
+        overviewEmptyLabel:SetTextColor(0.68, 0.74, 0.84)
+        overviewEmptyLabel:Hide()
+
         frame.charButtons = {}
         frame.detailWidgets = {}
+        frame.overviewWidgets = {}
         frame.charRail = charRail
         frame.leftScroll = leftScroll
         frame.leftScrollUpdate = leftScrollUpdate
         frame.detailScroll = detailScroll
         frame.detailScrollUpdate = detailScrollUpdate
         frame.detailContent = detailContent
+        frame.overviewScroll = overviewScroll
+        frame.overviewScrollUpdate = overviewScrollUpdate
+        frame.overviewContent = overviewContent
+        frame.overviewEmptyLabel = overviewEmptyLabel
         frame.summaryValue = summaryValue
         frame.summarySub = summarySub
         frame.expansionDropdown = expansionDropdown
@@ -1571,6 +1992,12 @@ function MR:ToggleWarbandBoard()
         frame.titleText = title
         frame.leftLabel = leftLabel
         frame.showHiddenLabel = showHiddenLabel
+        frame.tabBar = tabBar
+        frame.altTabs = {
+            character = characterTab,
+            concentration = concentrationTab,
+        }
+        frame.rightPane = rightPane
 
         self.altBoardFrame = frame
     end
@@ -2800,8 +3227,8 @@ function MR:RefreshUI()
         end
     end
 
-    if self.altBoardFrame and self.altBoardFrame:IsShown() and self.RefreshWarbandBoard then
-        self:RefreshWarbandBoard()
+    if self.altBoardFrame and self.altBoardFrame:IsShown() and self.RequestWarbandBoardRefresh then
+        self:RequestWarbandBoardRefresh(false)
     end
 
     self._moduleStatsCache = nil
