@@ -2187,8 +2187,8 @@ function MR:OnEnteringWorld()
     local shouldHideFrames = self._instanceFramesHidden == true
 
     self:MaybeShowWelcomeScreen()
-    if self.OnRenownUpdate then
-        self:RegisterBucketEvent({
+    if self.OnRenownUpdate and not self._renownUpdateBucketHandle then
+        self._renownUpdateBucketHandle = self:RegisterBucketEvent({
             "MAJOR_FACTION_RENOWN_LEVEL_CHANGED",
             "UPDATE_FACTION",
             "COMBAT_TEXT_UPDATE",
@@ -2206,9 +2206,19 @@ function MR:OnEnteringWorld()
         end
     end
     if self.db.profile.peekOnHover and self.ApplyPeekOnHover then
-        self:ScheduleTimer(function() self:ApplyPeekOnHover(true) end, 2.5)
+        if self._enteringWorldPeekTimer then
+            self:CancelTimer(self._enteringWorldPeekTimer)
+        end
+        self._enteringWorldPeekTimer = self:ScheduleTimer(function()
+            self._enteringWorldPeekTimer = nil
+            self:ApplyPeekOnHover(true)
+        end, 2.5)
     end
-    self:ScheduleTimer(function()
+    if self._enteringWorldRefreshTimer then
+        self:CancelTimer(self._enteringWorldRefreshTimer)
+    end
+    self._enteringWorldRefreshTimer = self:ScheduleTimer(function()
+        self._enteringWorldRefreshTimer = nil
         self:CheckWeeklyReset()
         self:CheckDailyReset()
         self:RefreshPlayerProfessions()
@@ -2218,7 +2228,13 @@ function MR:OnEnteringWorld()
             self:RefreshGatheringLocationsFrame()
         end
     end, 0.5)
-    self:ScheduleTimer(function() self:Scan() end, 5)
+    if self._enteringWorldScanTimer then
+        self:CancelTimer(self._enteringWorldScanTimer)
+    end
+    self._enteringWorldScanTimer = self:ScheduleTimer(function()
+        self._enteringWorldScanTimer = nil
+        self:Scan()
+    end, 5)
     self:Scan()
 end
 
