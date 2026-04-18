@@ -1267,13 +1267,11 @@ function MR:ToggleRares()
     if raresFrame and raresFrame:IsShown() then
         self:HideRares()
     else
-        if raresFrame then
-            raresFrame:Hide()
-            raresFrame = nil
+        if not raresFrame then
+            raresFrame = BuildRaresFrame()
+            MR.raresFrame = raresFrame
         end
-        raresFrame = BuildRaresFrame()
         raresFrame:Show()
-        MR.raresFrame = raresFrame
         if self.SetManagedWindowOpen then self:SetManagedWindowOpen("raresOpen", true) end
         raresFrame:SetScale((MR.db and MR.db.profile.raresScale) or 1.0)
         lastZoneKey = GetCurrentZoneKey()
@@ -1295,22 +1293,17 @@ function MR:EnsureRaresShown()
     if MR.db and MR.db.profile.raresCollapsed then
         for k, v in pairs(MR.db.profile.raresCollapsed) do collapsed[k] = v end
     end
-    if raresFrame and raresFrame:IsShown() then
-
-        RebuildRaresFrame()
-    else
-
-        if raresFrame then raresFrame:Hide(); raresFrame = nil end
+    if not raresFrame then
         raresFrame = BuildRaresFrame()
         MR.raresFrame = raresFrame
-        raresFrame:Show()
-        raresFrame:SetScale((MR.db and MR.db.profile.raresScale) or 1.0)
-        lastZoneKey = GetCurrentZoneKey()
-        lastVisibleZoneMode = (MR.db and MR.db.profile and MR.db.profile.raresShowAllZones) and "all" or lastZoneKey
-        self:SyncAllRareKills()
-        RefreshRaresFrame()
-        if self.SetManagedWindowOpen then self:SetManagedWindowOpen("raresOpen", true) end
     end
+    raresFrame:Show()
+    raresFrame:SetScale((MR.db and MR.db.profile.raresScale) or 1.0)
+    lastZoneKey = GetCurrentZoneKey()
+    lastVisibleZoneMode = (MR.db and MR.db.profile and MR.db.profile.raresShowAllZones) and "all" or lastZoneKey
+    self:SyncAllRareKills()
+    RefreshRaresFrame()
+    if self.SetManagedWindowOpen then self:SetManagedWindowOpen("raresOpen", true) end
 end
 
 function MR:OnRaresZoneChanged()
@@ -1339,6 +1332,10 @@ function MR:SyncAllRareKills()
 end
 
 function MR:RefreshRares()
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        return
+    end
+
     if self.ShouldDeferForCombat and self:ShouldDeferForCombat("rares") then
         return
     end

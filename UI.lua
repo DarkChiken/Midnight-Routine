@@ -2370,9 +2370,10 @@ function MR:BuildUI()
     end
     f:SetScale(MR.db.profile.scale or 1)
     self.frame = f
-
     f:SetScript("OnShow", function()
-        MR:Scan()
+        if MR._refreshUIDirty or MR._mainPanelNeedsRefresh then
+            MR:RefreshUI()
+        end
     end)
 
     local scrollBg = f:CreateTexture(nil, "BACKGROUND")
@@ -3047,135 +3048,57 @@ function MR:EnsureDetachedFrame(mod)
     frame._dragger = dragger
     frame._widgets = {}
     frame._modKey = mod.key
+    frame:SetScript("OnShow", function()
+        if MR._refreshUIDirty or frame._needsRefresh then
+            MR:RefreshUI()
+        end
+    end)
     self.detachedFrames[mod.key] = frame
     return frame
 end
 
-function MR:RefreshUI()
-    if self.ShouldDeferForCombat and self:ShouldDeferForCombat("refreshUI") then
-        return
+function MR:HasVisibleDetachedFrames()
+    if not self.detachedFrames then
+        return false
     end
 
-    if not self.frame or not self.content then return end
-
-    RecalcLayout()
-    self._moduleStatsCache = BuildModuleStatsCache(self)
-    local expansionInfo = GetExpansionDisplayInfo(false)
-
-    if self.titleText then
-        self.titleText:SetText(L["Title"] or "Routine")
-    end
-    if self.expansionDropdown and self.expansionDropdown.Update then
-        self.expansionDropdown:Update()
-    end
-    ApplyMainFrameLayout(self.frame)
-
-    for _, w in ipairs(self.widgets or {}) do
-        w:Hide(); w:SetParent(nil)
-    end
-    self.widgets         = {}
-    self.sectionRegistry = {}
-    self._timerRows      = {}
-
-    local allDone, allTotal = 0, 0
-
-    local frameW   = MR.db.profile.width or 260
-    local usableW  = frameW - 9
-    local MIN_COL  = 200
-    local numCols  = math.max(1, math.floor(usableW / MIN_COL))
-    local colW     = math.floor(usableW / numCols)
-
-    local visibleMods = {}
-    for _, mod in ipairs(MR:GetOrderedModules()) do
-        local modVisible = not mod.isVisible or mod:isVisible()
-        if MR:IsModuleEnabled(mod.key) and modVisible and not MR:IsModuleDetached(mod.key) then
-            local stats = GetModuleStats(self, mod)
-            local totalRows = stats and stats.totalRows or 0
-            local doneRows = stats and stats.doneRows or 0
-            local shownRows = stats and stats.shownRows or 0
-            if shownRows > 0 then
-                local h = stats and stats.height or 0
-                table.insert(visibleMods, { mod = mod, h = h })
-                allTotal = allTotal + shownRows
-                allDone = allDone + math.min(doneRows, shownRows)
-            end
+    for _, frame in pairs(self.detachedFrames) do
+        if frame and frame:IsShown() then
+            return true
         end
     end
 
-    local cols = {}
-    for i = 1, numCols do cols[i] = 0 end
+    return false
+end
 
-    local totalModH = 0
-    for _, entry in ipairs(visibleMods) do totalModH = totalModH + entry.h end
-
-    local modColAssign = {}
-    local curCol = 1
-    for _, entry in ipairs(visibleMods) do
-        if curCol < numCols and cols[curCol] >= totalModH / numCols then
-            curCol = curCol + 1
-        end
-        table.insert(modColAssign, { mod = entry.mod, col = curCol, yOff = cols[curCol] })
-        cols[curCol] = cols[curCol] + entry.h
+function MR:CanRefreshUIImmediately()
+    if self._instanceFramesHidden then
+        return false
     end
 
-    for _, assign in ipairs(modColAssign) do
-        local xOff = (assign.col - 1) * colW
-        self:BuildSection(assign.mod, assign.yOff, xOff, colW, assign.col)
+    if self.frame and self.frame:IsShown() then
+        return true
     end
 
-    for c = 2, numCols do
-        local sep = CreateFrame("Frame", nil, self.content)
-        sep:SetWidth(1)
-        sep:SetPoint("TOPLEFT",    self.content, "TOPLEFT",    (c - 1) * colW, 0)
-        sep:SetPoint("BOTTOMLEFT", self.content, "BOTTOMLEFT", (c - 1) * colW, 0)
-        local sepTex = sep:CreateTexture(nil, "ARTWORK")
-        sepTex:SetAllPoints()
-        sepTex:SetColorTexture(1, 1, 1, 0.08)
-        table.insert(self.widgets, sep)
-    end
+    return self:HasVisibleDetachedFrames()
+end
 
-    self.titleCount:SetText(string.format("%d / %d", allDone, allTotal))
-    self.titleCount:SetTextColor(countColor(allDone, allTotal))
-
-    local totalH = 0
-    for c = 1, numCols do if cols[c] > totalH then totalH = cols[c] end end
-
-    self.content:SetWidth(usableW)
-
-    self.content:SetHeight(math.max(totalH, 1))
-    local userH = MR.db.profile.height or 400
-    self.frame:SetHeight(math.max(PANEL_MIN_HEIGHT, math.min(userH, PANEL_MAX_HEIGHT)))
-
-    if self.scroll then
-        local maxScroll = math.max(math.max(totalH, 1) - self.scroll:GetHeight(), 0)
-        local cur = self.scroll:GetVerticalScroll()
-        if cur > maxScroll then
-            self.scroll:SetVerticalScroll(maxScroll)
-        end
-    end
-
-    if self.UpdateScrollBar then self.UpdateScrollBar() end
-
-    if MR.db.profile.minimized then
-        StopMainFrameAnimation()
-        SetMainFrameChromeVisible(false)
-        self.frame:SetHeight(GetMainFrameCollapsedHeight())
-        if self.UpdateMinimizeVisual then self.UpdateMinimizeVisual() end
-    else
-        SetMainFrameChromeVisible(true)
-    end
-
+function MR:RefreshVisibleDetachedFrames()
     self.detachedFrames = self.detachedFrames or {}
     local seenDetached = {}
+    local allowShowing = not self._instanceFramesHidden and not self:IsManagedWindowsBundleHidden()
+
     for _, mod in ipairs(MR:GetOrderedModules()) do
         local modVisible = not mod.isVisible or mod:isVisible()
         local detached = MR:IsModuleDetached(mod.key)
         local frame = self.detachedFrames[mod.key]
         local stats = GetModuleStats(self, mod)
         local shownRows = stats and stats.shownRows or 0
+
         if detached and MR:IsModuleEnabled(mod.key) and modVisible and shownRows > 0 then
             frame = self:EnsureDetachedFrame(mod)
             seenDetached[mod.key] = true
+
             local savedSize = self:GetDetachedModuleSize(mod.key)
             local alpha = self.db.profile.frameAlpha or 1.0
             frame:SetScale(self.db.profile.scale or 1.0)
@@ -3191,47 +3114,234 @@ function MR:RefreshUI()
             if frame._dragAccent then
                 frame._dragAccent:SetAlpha(alpha)
             end
-            for _, w in ipairs(frame._widgets or {}) do
-                w:Hide()
-                w:SetParent(nil)
-            end
-            frame._widgets = {}
 
-            local scrollWidth = frame.scroll and frame.scroll:GetWidth() or (frame:GetWidth() - 8)
-            frame.content:SetWidth(math.max(scrollWidth, 1))
-            local sectionHeight = self:BuildSection(mod, 0, 0, math.max(scrollWidth, 1), 1, frame.content, frame._widgets, { detached = true })
-            frame.content:SetHeight(math.max(sectionHeight, 1))
-            if frame.scroll then
-                local maxScroll = math.max(frame.content:GetHeight() - frame.scroll:GetHeight(), 0)
-                if frame.scroll:GetVerticalScroll() > maxScroll then
-                    frame.scroll:SetVerticalScroll(maxScroll)
+            local shouldRefreshFrame = allowShowing or frame:IsShown()
+            if shouldRefreshFrame then
+                for _, w in ipairs(frame._widgets or {}) do
+                    w:Hide()
+                    w:SetParent(nil)
                 end
-            end
-            if not MR:IsModuleOpen(mod.key) then
-                frame:SetHeight(HEADER_HEIGHT + 12)
-            elseif not (savedSize and savedSize.height) then
-                frame:SetHeight(math.max(sectionHeight + 12, HEADER_HEIGHT + 48))
+                frame._widgets = {}
+
+                local scrollWidth = frame.scroll and frame.scroll:GetWidth() or (frame:GetWidth() - 8)
+                frame.content:SetWidth(math.max(scrollWidth, 1))
+                local sectionHeight = self:BuildSection(mod, 0, 0, math.max(scrollWidth, 1), 1, frame.content, frame._widgets, { detached = true })
+                frame.content:SetHeight(math.max(sectionHeight, 1))
+                if frame.scroll then
+                    local maxScroll = math.max(frame.content:GetHeight() - frame.scroll:GetHeight(), 0)
+                    if frame.scroll:GetVerticalScroll() > maxScroll then
+                        frame.scroll:SetVerticalScroll(maxScroll)
+                    end
+                end
+                if not MR:IsModuleOpen(mod.key) then
+                    frame:SetHeight(HEADER_HEIGHT + 12)
+                elseif not (savedSize and savedSize.height) then
+                    frame:SetHeight(math.max(sectionHeight + 12, HEADER_HEIGHT + 48))
+                end
+                frame._needsRefresh = nil
+            else
+                frame._needsRefresh = true
             end
 
-            if not self._instanceFramesHidden and not self:IsManagedWindowsBundleHidden() then
+            if allowShowing then
                 frame:Show()
+            else
+                frame:Hide()
             end
         elseif frame then
+            frame._needsRefresh = true
             frame:Hide()
         end
     end
 
     for key, frame in pairs(self.detachedFrames) do
         if not seenDetached[key] then
+            frame._needsRefresh = true
             frame:Hide()
         end
     end
+end
+
+function MR:RefreshUI()
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self._refreshUIDirty = true
+        return
+    end
+
+    if self.ShouldDeferForCombat and self:ShouldDeferForCombat("refreshUI") then
+        self._refreshUIDirty = true
+        return
+    end
+
+    if not self.frame or not self.content then
+        self._refreshUIDirty = true
+        return
+    end
+
+    if not self:CanRefreshUIImmediately() then
+        self._refreshUIDirty = true
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    local minRefreshInterval = 0.15
+
+    if self._refreshUIInProgress then
+        self._refreshUIPending = true
+        return
+    end
+
+    if self._lastRefreshUIAt and (now - self._lastRefreshUIAt) < minRefreshInterval then
+        self._refreshUIPending = true
+        if not self._refreshUITimer then
+            local delay = math.max(minRefreshInterval - (now - self._lastRefreshUIAt), 0.01)
+            self._refreshUITimer = self:ScheduleTimer(function()
+                self._refreshUITimer = nil
+                if self._refreshUIPending then
+                    self._refreshUIPending = nil
+                    self:RefreshUI()
+                end
+            end, delay)
+        end
+        return
+    end
+
+    self._refreshUIInProgress = true
+    self._refreshUIDirty = nil
+
+    RecalcLayout()
+    self._moduleStatsCache = BuildModuleStatsCache(self)
+    local expansionInfo = GetExpansionDisplayInfo(false)
+    local refreshMain = self.frame and self.frame:IsShown()
+
+    if not refreshMain then
+        self._mainPanelNeedsRefresh = true
+    end
+
+    if refreshMain then
+        self._mainPanelNeedsRefresh = nil
+
+        if self.titleText then
+            self.titleText:SetText(L["Title"] or "Routine")
+        end
+        if self.expansionDropdown and self.expansionDropdown.Update then
+            self.expansionDropdown:Update()
+        end
+        ApplyMainFrameLayout(self.frame)
+
+        for _, w in ipairs(self.widgets or {}) do
+            w:Hide(); w:SetParent(nil)
+        end
+        self.widgets         = {}
+        self.sectionRegistry = {}
+        self._timerRows      = {}
+
+        local allDone, allTotal = 0, 0
+
+        local frameW   = MR.db.profile.width or 260
+        local usableW  = frameW - 9
+        local MIN_COL  = 200
+        local numCols  = math.max(1, math.floor(usableW / MIN_COL))
+        local colW     = math.floor(usableW / numCols)
+
+        local visibleMods = {}
+        for _, mod in ipairs(MR:GetOrderedModules()) do
+            local modVisible = not mod.isVisible or mod:isVisible()
+            if MR:IsModuleEnabled(mod.key) and modVisible and not MR:IsModuleDetached(mod.key) then
+                local stats = GetModuleStats(self, mod)
+                local totalRows = stats and stats.totalRows or 0
+                local doneRows = stats and stats.doneRows or 0
+                local shownRows = stats and stats.shownRows or 0
+                if shownRows > 0 then
+                    local h = stats and stats.height or 0
+                    table.insert(visibleMods, { mod = mod, h = h })
+                    allTotal = allTotal + shownRows
+                    allDone = allDone + math.min(doneRows, shownRows)
+                end
+            end
+        end
+
+        local cols = {}
+        for i = 1, numCols do cols[i] = 0 end
+
+        local totalModH = 0
+        for _, entry in ipairs(visibleMods) do totalModH = totalModH + entry.h end
+
+        local modColAssign = {}
+        local curCol = 1
+        for _, entry in ipairs(visibleMods) do
+            if curCol < numCols and cols[curCol] >= totalModH / numCols then
+                curCol = curCol + 1
+            end
+            table.insert(modColAssign, { mod = entry.mod, col = curCol, yOff = cols[curCol] })
+            cols[curCol] = cols[curCol] + entry.h
+        end
+
+        for _, assign in ipairs(modColAssign) do
+            local xOff = (assign.col - 1) * colW
+            self:BuildSection(assign.mod, assign.yOff, xOff, colW, assign.col)
+        end
+
+        for c = 2, numCols do
+            local sep = CreateFrame("Frame", nil, self.content)
+            sep:SetWidth(1)
+            sep:SetPoint("TOPLEFT",    self.content, "TOPLEFT",    (c - 1) * colW, 0)
+            sep:SetPoint("BOTTOMLEFT", self.content, "BOTTOMLEFT", (c - 1) * colW, 0)
+            local sepTex = sep:CreateTexture(nil, "ARTWORK")
+            sepTex:SetAllPoints()
+            sepTex:SetColorTexture(1, 1, 1, 0.08)
+            table.insert(self.widgets, sep)
+        end
+
+        self.titleCount:SetText(string.format("%d / %d", allDone, allTotal))
+        self.titleCount:SetTextColor(countColor(allDone, allTotal))
+
+        local totalH = 0
+        for c = 1, numCols do if cols[c] > totalH then totalH = cols[c] end end
+
+        self.content:SetWidth(usableW)
+
+        self.content:SetHeight(math.max(totalH, 1))
+        local userH = MR.db.profile.height or 400
+        self.frame:SetHeight(math.max(PANEL_MIN_HEIGHT, math.min(userH, PANEL_MAX_HEIGHT)))
+
+        if self.scroll then
+            local maxScroll = math.max(math.max(totalH, 1) - self.scroll:GetHeight(), 0)
+            local cur = self.scroll:GetVerticalScroll()
+            if cur > maxScroll then
+                self.scroll:SetVerticalScroll(maxScroll)
+            end
+        end
+
+        if self.UpdateScrollBar then self.UpdateScrollBar() end
+
+        if MR.db.profile.minimized then
+            StopMainFrameAnimation()
+            SetMainFrameChromeVisible(false)
+            self.frame:SetHeight(GetMainFrameCollapsedHeight())
+            if self.UpdateMinimizeVisual then self.UpdateMinimizeVisual() end
+        else
+            SetMainFrameChromeVisible(true)
+        end
+    end
+
+    self:RefreshVisibleDetachedFrames()
 
     if self.altBoardFrame and self.altBoardFrame:IsShown() and self.RequestWarbandBoardRefresh then
         self:RequestWarbandBoardRefresh(false)
     end
 
     self._moduleStatsCache = nil
+    self._lastRefreshUIAt = GetTime and GetTime() or now
+    self._refreshUIInProgress = nil
+
+    if self._refreshUIPending and not self._refreshUITimer then
+        self._refreshUIPending = nil
+        self._refreshUITimer = self:ScheduleTimer(function()
+            self._refreshUITimer = nil
+            self:RefreshUI()
+        end, minRefreshInterval)
+    end
 end
 
 function MR:ApplySharedMediaSettings()

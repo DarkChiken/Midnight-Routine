@@ -1167,6 +1167,11 @@ function MR:EnsureGatheringLocationsShown()
 end
 
 function MR:RefreshGatheringLocationsFrame()
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self._deferredInstanceGatheringRefresh = true
+        return
+    end
+
     if self.ShouldDeferForCombat and self:ShouldDeferForCombat("gatheringFrame") then
         return
     end

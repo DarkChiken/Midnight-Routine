@@ -821,6 +821,14 @@ function MR:SetAltBoardCharacterHidden(charKey, hidden)
 end
 
 function MR:SetProgress(moduleKey, rowKey, value, maxVal)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        if not self.db.char.progress[moduleKey] then
+            self.db.char.progress[moduleKey] = {}
+        end
+        self.db.char.progress[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
+        return
+    end
+
     if self:ShouldDeferForCombat("refreshUI") then
         self:QueueDeferredProgressUpdate(moduleKey, rowKey, value, maxVal)
         return
@@ -1519,8 +1527,323 @@ local function WriteProgress(progress, modKey, rowKey, val, overrides)
     return true
 end
 
+local function ValuesEqual(a, b)
+    if a == b then
+        return true
+    end
+
+    if type(a) ~= type(b) then
+        return false
+    end
+
+    if type(a) ~= "table" then
+        return false
+    end
+
+    for key, value in pairs(a) do
+        if not ValuesEqual(value, b[key]) then
+            return false
+        end
+    end
+
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function UpdateCurrencyProgressForRow(self, progress, mod, row)
+    local info = C_CurrencyInfo.GetCurrencyInfo(row.currencyId)
+    if not info then
+        return false
+    end
+
+    local dirty = false
+    local wallet  = info.quantity or 0
+    local weekly  = info.quantityEarnedThisWeek or 0
+    local weeklyCap = (info.maxWeeklyQuantity and info.maxWeeklyQuantity > 0)
+                      and info.maxWeeklyQuantity or nil
+    local dynamicCap = nil
+    local raw = wallet
+
+    if info.maxQuantity and info.maxQuantity > 0 then
+        dynamicCap = info.maxQuantity
+        if info.useTotalEarnedForMaxQty and info.totalEarned ~= nil then
+            raw = info.totalEarned
+        else
+            raw = wallet
+        end
+    elseif weeklyCap then
+        dynamicCap = weeklyCap
+        raw = weekly
+    end
+
+    if dynamicCap and row.max ~= dynamicCap then
+        row.max = dynamicCap
+        dirty = true
+    end
+
+    if not progress[mod.key] then progress[mod.key] = {} end
+    local walletKey = row.key .. "_wallet"
+    if progress[mod.key][walletKey] ~= wallet then
+        progress[mod.key][walletKey] = wallet
+        dirty = true
+    end
+
+    local val = row.noMax and raw or math.min(raw, row.max or raw)
+    if WriteProgress(progress, mod.key, row.key, val, self.db.char.manualOverrides) then
+        dirty = true
+    end
+
+    return dirty
+end
+
+local function UpdateQuestProgressForRow(self, progress, mod, row)
+    local done = 0
+    if row.questIds then
+        for _, qid in ipairs(row.questIds) do
+            if C_QuestLog.IsQuestFlaggedCompleted(qid) then
+                done = done + 1
+            end
+        end
+    end
+
+    local value = math.min(done, row.max or done)
+    return WriteProgress(progress, mod.key, row.key, value, self.db.char.manualOverrides)
+end
+
+local function UpdateItemProgressForRow(self, progress, mod, row)
+    local count = 0
+    if C_Item and C_Item.GetItemCount then
+        count = C_Item.GetItemCount(row.itemId, false, false, true) or 0
+    elseif GetItemCount then
+        count = GetItemCount(row.itemId, false, false) or 0
+    end
+
+    local value = row.noMax and count or math.min(count, row.max or count)
+    return WriteProgress(progress, mod.key, row.key, value, self.db.char.manualOverrides)
+end
+
+function MR:RequestScan(delay)
+    delay = tonumber(delay) or 0
+
+    if delay > 0 then
+        if self._requestedScanTimer then
+            self:CancelTimer(self._requestedScanTimer)
+        end
+        self._requestedScanTimer = self:ScheduleTimer(function()
+            self._requestedScanTimer = nil
+            self:Scan()
+        end, delay)
+        return
+    end
+
+    self:Scan()
+end
+
+function MR:RefreshCurrencyProgress(currencyId, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+    local progress = self.db.char.progress
+    local dirty = false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.currencyId and (currencyId == nil or row.currencyId == currencyId) then
+                if UpdateCurrencyProgressForRow(self, progress, mod, row) then
+                    dirty = true
+                end
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:RefreshQuestProgress(questId, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+    local progress = self.db.char.progress
+    local dirty = false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.questIds then
+                local shouldUpdate = questId == nil
+                if not shouldUpdate then
+                    for _, qid in ipairs(row.questIds) do
+                        if qid == questId then
+                            shouldUpdate = true
+                            break
+                        end
+                    end
+                end
+
+                if shouldUpdate then
+                    if row.turnInTracked and row.allowQuestFlagBackfill then
+                        local currentValue = progress[mod.key] and progress[mod.key][row.key] or 0
+                        if currentValue <= 0 and UpdateQuestProgressForRow(self, progress, mod, row) then
+                            dirty = true
+                        end
+                    elseif not row.turnInTracked then
+                        if UpdateQuestProgressForRow(self, progress, mod, row) then
+                            dirty = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:RefreshItemProgress(itemId, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+    local progress = self.db.char.progress
+    local dirty = false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.itemId and not row.noItemProgress and (itemId == nil or row.itemId == itemId) then
+                if UpdateItemProgressForRow(self, progress, mod, row) then
+                    dirty = true
+                end
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:RefreshModuleScans(moduleKeys, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress and moduleKeys) then
+        return false
+    end
+
+    local ran = false
+    local dirty = false
+    for _, moduleKey in ipairs(moduleKeys) do
+        local mod = self.moduleByKey and self.moduleByKey[moduleKey]
+        if mod and mod.onScan then
+            if not self.db.char.progress[moduleKey] then
+                self.db.char.progress[moduleKey] = {}
+            end
+            local beforeProgress = DeepCopy(self.db.char.progress[moduleKey])
+            local beforeRows = {}
+            for _, row in ipairs(mod.rows or {}) do
+                beforeRows[row.key] = {
+                    countColor = DeepCopy(row.countColor),
+                    countText = row.countText,
+                    isVisible = row.isVisible and row.isVisible() or nil,
+                    max = row.max,
+                    note = row.note,
+                    vaultColor = row.vaultColor,
+                    vaultLabel = row.vaultLabel,
+                }
+            end
+
+            local changed = mod.onScan(mod) == true
+            if not changed and not ValuesEqual(beforeProgress, self.db.char.progress[moduleKey]) then
+                changed = true
+            end
+            if not changed then
+                for _, row in ipairs(mod.rows or {}) do
+                    local beforeRow = beforeRows[row.key]
+                    local afterRow = {
+                        countColor = DeepCopy(row.countColor),
+                        countText = row.countText,
+                        isVisible = row.isVisible and row.isVisible() or nil,
+                        max = row.max,
+                        note = row.note,
+                        vaultColor = row.vaultColor,
+                        vaultLabel = row.vaultLabel,
+                    }
+                    if not ValuesEqual(beforeRow, afterRow) then
+                        changed = true
+                        break
+                    end
+                end
+            end
+
+            if changed then
+                dirty = true
+            end
+            ran = true
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
 function MR:Scan()
     if self:ShouldDeferForCombat("scan") then
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    local minScanInterval = 0.25
+
+    if self._requestedScanTimer then
+        self:CancelTimer(self._requestedScanTimer)
+        self._requestedScanTimer = nil
+    end
+
+    if self._scanInProgress then
+        self._scanPending = true
+        return
+    end
+
+    if self._lastScanAt and (now - self._lastScanAt) < minScanInterval then
+        self._scanPending = true
+        if not self._scanThrottleTimer then
+            local delay = math.max(minScanInterval - (now - self._lastScanAt), 0.01)
+            self._scanThrottleTimer = self:ScheduleTimer(function()
+                self._scanThrottleTimer = nil
+                if self._scanPending then
+                    self._scanPending = nil
+                    self:Scan()
+                end
+            end, delay)
+        end
         return
     end
 
@@ -1528,6 +1851,7 @@ function MR:Scan()
         return
     end
 
+    self._scanInProgress = true
     self.db.char.lastSyncAt = GetServerTime()
     local concentrationChanged = self:RefreshProfessionConcentration()
 
@@ -1537,73 +1861,22 @@ function MR:Scan()
     for _, mod in ipairs(self.modules) do
         for _, row in ipairs(mod.rows) do
             if row.questIds and not row.turnInTracked then
-                local done = 0
-                for _, qid in ipairs(row.questIds) do
-                    if C_QuestLog.IsQuestFlaggedCompleted(qid) then done = done + 1 end
-                end
-                if WriteProgress(progress, mod.key, row.key, math.min(done, row.max or done), self.db.char.manualOverrides) then
+                if UpdateQuestProgressForRow(self, progress, mod, row) then
                     dirty = true
                 end
             elseif row.questIds and row.turnInTracked and row.allowQuestFlagBackfill then
                 local currentValue = progress[mod.key] and progress[mod.key][row.key] or 0
-                if currentValue <= 0 then
-                    for _, qid in ipairs(row.questIds) do
-                        if C_QuestLog.IsQuestFlaggedCompleted(qid) then
-                            if WriteProgress(progress, mod.key, row.key, 1, self.db.char.manualOverrides) then
-                                dirty = true
-                            end
-                            break
-                        end
-                    end
+                if currentValue <= 0 and UpdateQuestProgressForRow(self, progress, mod, row) then
+                    dirty = true
                 end
             end
             if row.currencyId then
-                local info = C_CurrencyInfo.GetCurrencyInfo(row.currencyId)
-                if info then
-                    local wallet  = info.quantity or 0
-                    local weekly  = info.quantityEarnedThisWeek or 0
-                    local weeklyCap = (info.maxWeeklyQuantity and info.maxWeeklyQuantity > 0)
-                                      and info.maxWeeklyQuantity or nil
-                    local dynamicCap = nil
-                    local raw = wallet
-
-                    if info.maxQuantity and info.maxQuantity > 0 then
-                        dynamicCap = info.maxQuantity
-                        if info.useTotalEarnedForMaxQty and info.totalEarned ~= nil then
-                            raw = info.totalEarned
-                        else
-                            raw = wallet
-                        end
-                    elseif weeklyCap then
-                        dynamicCap = weeklyCap
-                        raw = weekly
-                    end
-
-                    if dynamicCap and row.max ~= dynamicCap then
-                        row.max = dynamicCap
-                        dirty = true
-                    end
-
-                    if not progress[mod.key] then progress[mod.key] = {} end
-                    local walletKey = row.key .. "_wallet"
-                    if progress[mod.key][walletKey] ~= wallet then
-                        progress[mod.key][walletKey] = wallet
-                        dirty = true
-                    end
-
-                    local val = row.noMax and raw or math.min(raw, row.max or raw)
-                    if WriteProgress(progress, mod.key, row.key, val, self.db.char.manualOverrides) then dirty = true end
+                if UpdateCurrencyProgressForRow(self, progress, mod, row) then
+                    dirty = true
                 end
             end
             if row.itemId and not row.noItemProgress then
-                local count = 0
-                if C_Item and C_Item.GetItemCount then
-                    count = C_Item.GetItemCount(row.itemId, false, false, true) or 0
-                elseif GetItemCount then
-                    count = GetItemCount(row.itemId, false, false) or 0
-                end
-
-                if WriteProgress(progress, mod.key, row.key, row.noMax and count or math.min(count, row.max or count), self.db.char.manualOverrides) then
+                if UpdateItemProgressForRow(self, progress, mod, row) then
                     dirty = true
                 end
             end
@@ -1641,6 +1914,17 @@ function MR:Scan()
     if self.SyncAllRareKills then self:SyncAllRareKills() end
     if self.RefreshRares  then self:RefreshRares()  end
     if self.RefreshRenown then self:RefreshRenown() end
+
+    self._lastScanAt = GetTime and GetTime() or now
+    self._scanInProgress = nil
+
+    if self._scanPending and not self._scanThrottleTimer then
+        self._scanPending = nil
+        self._scanThrottleTimer = self:ScheduleTimer(function()
+            self._scanThrottleTimer = nil
+            self:Scan()
+        end, minScanInterval)
+    end
 end
 
 local STATIC_TURN_IN_COMPLETIONS = {
@@ -1823,7 +2107,7 @@ function MR:DoWeeklyReset()
     end
     self.db.char.raresKills = {}
     self:RefreshUI()
-    self:ScheduleTimer(function() self:Scan() end, 20)
+    self:RequestScan(20)
     print(L["Weekly_Reset"] or "|cff2ae7c6MidnightRoutine:|r Weekly reset applied.")
 end
 
@@ -1863,9 +2147,7 @@ function MR:ResetAllSettings()
         self:RefreshUI()
     end
 
-    self:ScheduleTimer(function()
-        self:Scan()
-    end, 0.05)
+    self:RequestScan(0.05)
 end
 
 function MR:MigrateLegacySettings()
@@ -1905,6 +2187,19 @@ function MR:ShouldHideFramesInCurrentInstance()
     local inInstance, instanceType = IsInInstance()
     if not inInstance then return false end
     return INSTANCE_HIDE_TYPES[instanceType] == true
+end
+
+function MR:ShouldSuspendBackgroundWorkInCurrentInstance()
+    return self:ShouldHideFramesInCurrentInstance()
+end
+
+function MR:ResumeDeferredInstanceWork()
+    if self._deferredInstanceGatheringRefresh then
+        self._deferredInstanceGatheringRefresh = nil
+        if self.RefreshGatheringLocationsFrame then
+            self:RefreshGatheringLocationsFrame()
+        end
+    end
 end
 
 function MR:CaptureManagedWindowState()
@@ -2082,24 +2377,24 @@ function MR:UpdateInstanceFrameVisibility()
     if self:IsManagedWindowsBundleHidden() then
         self:HideManagedWindows(false)
     end
+    self:ResumeDeferredInstanceWork()
 end
 
 function MR:OnEnable()
     self:RegisterBucketEvent({
+        "AREA_POIS_UPDATED",
+    }, 0.75, "OnAreaPoisUpdated")
+
+    self:RegisterBucketEvent({
         "QUEST_LOG_UPDATE",
         "UNIT_QUEST_LOG_CHANGED",
-        "QUEST_TURNED_IN",
-        "QUEST_DATA_LOAD_RESULT",
         "GOSSIP_SHOW",
         "GOSSIP_CLOSED",
         "QUEST_DETAIL",
-        "QUEST_ACCEPTED",
+        "QUEST_DATA_LOAD_RESULT",
         "QUEST_PROGRESS",
         "QUEST_COMPLETE",
-        "LFG_COMPLETION_REWARD",
-        "CURRENCY_DISPLAY_UPDATE",
-        "AREA_POIS_UPDATED",
-    }, 1, "Scan")
+    }, 0.5, "OnQuestDataChanged")
 
     self:RegisterBucketEvent({
         "SKILL_LINES_CHANGED",
@@ -2115,11 +2410,17 @@ function MR:OnEnable()
     self:RegisterBucketEvent({
         "CHALLENGE_MODE_COMPLETED",
         "WEEKLY_REWARDS_UPDATE",
+        "LFG_COMPLETION_REWARD",
     }, 1, "OnVaultEvent")
 
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "OnSpellCast")
     self:RegisterEvent("ENCOUNTER_END",            "OnEncounterEnd")
     self:RegisterEvent("BOSS_KILL",                "OnBossKill")
+    self:RegisterEvent("CURRENCY_DISPLAY_UPDATE",  "OnCurrencyDisplayUpdate")
+    self:RegisterEvent("QUEST_TURNED_IN",          "OnQuestTurnedIn")
+    self:RegisterEvent("QUEST_ACCEPTED",           "OnQuestAccepted")
+    self:RegisterEvent("QUEST_REMOVED",            "OnQuestRemoved")
+    self:RegisterEvent("BAG_UPDATE_DELAYED",       "OnBagUpdateDelayed")
     self:RegisterEvent("PLAYER_ENTERING_WORLD",    "OnEnteringWorld")
 
     self:ScheduleRepeatingTimer("CheckWeeklyReset", 60)
@@ -2169,13 +2470,15 @@ function MR:OnEnteringWorld()
         self:SetManagedWindowOpen("renownOpen", false)
     end
 
-    if not self.frame then
-        self:BuildUI()
-    else
-        self:RefreshUI()
-    end
-    if self.frame and self.db.char.panelOpen == false then
-        self.frame:Hide()
+    local shouldHideFrames = self:ShouldHideFramesInCurrentInstance()
+
+    if not shouldHideFrames then
+        if not self.frame then
+            self:BuildUI()
+        end
+        if self.frame and self.db.char.panelOpen == false then
+            self.frame:Hide()
+        end
     end
     if temporarilyHidden then
         self:HideManagedWindows()
@@ -2184,7 +2487,15 @@ function MR:OnEnteringWorld()
     end
 
     self:UpdateInstanceFrameVisibility()
-    local shouldHideFrames = self._instanceFramesHidden == true
+    shouldHideFrames = self._instanceFramesHidden == true
+
+    if shouldHideFrames then
+        self:RequestScan(0.35)
+        if self.RefreshGatheringLocationsFrame then
+            self._deferredInstanceGatheringRefresh = true
+        end
+        return
+    end
 
     self:MaybeShowWelcomeScreen()
     if self.OnRenownUpdate and not self._renownUpdateBucketHandle then
@@ -2222,7 +2533,7 @@ function MR:OnEnteringWorld()
         self:CheckWeeklyReset()
         self:CheckDailyReset()
         self:RefreshPlayerProfessions()
-        self:RefreshUI()
+        self:RequestScan(0.35)
         self:UpdateInstanceFrameVisibility()
         if self.RefreshGatheringLocationsFrame then
             self:RefreshGatheringLocationsFrame()
@@ -2233,9 +2544,87 @@ function MR:OnEnteringWorld()
     end
     self._enteringWorldScanTimer = self:ScheduleTimer(function()
         self._enteringWorldScanTimer = nil
-        self:Scan()
+        self:RequestScan()
     end, 5)
-    self:Scan()
+    self:RequestScan(0.35)
+end
+
+function MR:OnCurrencyDisplayUpdate(_, currencyID)
+    local dirty = self:RefreshCurrencyProgress(currencyID, false)
+
+    if currencyID == 3290 and self.RefreshDelvesLiveProgress then
+        if self._delvesLiveProgressTimer then
+            self:CancelTimer(self._delvesLiveProgressTimer)
+        end
+        self._delvesLiveProgressTimer = self:ScheduleTimer(function()
+            self._delvesLiveProgressTimer = nil
+            self:RefreshDelvesLiveProgress(true)
+        end, 2)
+    end
+
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnQuestDataChanged()
+    local dirty = false
+    if self:RefreshQuestProgress(nil, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnAreaPoisUpdated()
+    self:RefreshModuleScans({ "delves" }, true)
+end
+
+function MR:OnQuestTurnedIn(_, questID)
+    local dirty = false
+    if self:RefreshQuestProgress(questID, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnQuestAccepted(_, questID)
+    local dirty = false
+    if self:RefreshQuestProgress(questID, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnQuestRemoved(_, questID)
+    local dirty = false
+    if self:RefreshQuestProgress(questID, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnBagUpdateDelayed()
+    self:RefreshItemProgress()
 end
 
 function MR:OnProfessionChange()
@@ -2255,13 +2644,12 @@ function MR:OnSpellCast(_, unit, _, spellID)
 end
 
 function MR:OnVaultEvent()
-    self:ScheduleTimer(function() self:Scan() end, 1.5)
+    self:RefreshModuleScans({ "great_vault", "delves" }, true)
 end
 
 function MR:OnZoneChanged()
     self:UpdateInstanceFrameVisibility()
-    self:Scan()
-    self:RefreshUI()
+    self:RefreshModuleScans({ "delves", "s1_weekly" }, true)
     if self.OnRaresZoneChanged then
         self:OnRaresZoneChanged()
     end
@@ -2272,14 +2660,14 @@ function MR:OnEncounterEnd(_, _, encounterName, _, _, success)
         if encounterName and self.SyncCurrentWorldBossKillByName then
             self:SyncCurrentWorldBossKillByName(encounterName)
         end
-        self:ScheduleTimer(function() self:Scan() end, 1.5)
+        self:RefreshModuleScans({ "great_vault", "delves", "world_bosses" }, true)
     end
 end
 
 function MR:OnBossKill(_, bossName)
     if bossName and self.SyncCurrentWorldBossKillByName then
         self:SyncCurrentWorldBossKillByName(bossName)
-        self:ScheduleTimer(function() self:Scan() end, 1.5)
+        self:RefreshModuleScans({ "world_bosses", "great_vault" }, true)
     end
 end
 

@@ -131,8 +131,14 @@ end
 
 local function UpdateGildedStashProgress(mdb, row)
     if type(mdb) ~= "table" or not row then
-        return
+        return false
     end
+
+    local oldValue = tonumber(mdb["gilded_stash"]) or 0
+    local oldTotal = tonumber(mdb["gilded_stash_total"]) or 0
+    local oldMax = tonumber(row.max) or 0
+    local oldCountText = row.countText
+    local oldNote = row.note
 
     local widget = C_UIWidgetManager
         and C_UIWidgetManager.GetSpellDisplayVisualizationInfo
@@ -150,7 +156,11 @@ local function UpdateGildedStashProgress(mdb, row)
         row.countText = nil
         row.countColor = nil
         row.note = L["Delves_GildedStash_Note"] or "Complete Tier 11 Delves to earn Gilded Stash."
-        return
+        return oldValue ~= fulfilled
+            or oldTotal ~= required
+            or oldMax ~= required
+            or oldCountText ~= row.countText
+            or oldNote ~= row.note
     end
 
     row.max = (tonumber(mdb["gilded_stash_total"]) or 0) > 0 and mdb["gilded_stash_total"] or GILDED_STASH_REQUIRED
@@ -163,6 +173,12 @@ local function UpdateGildedStashProgress(mdb, row)
         row.countText = nil
         row.countColor = nil
     end
+
+    return oldValue ~= (tonumber(mdb["gilded_stash"]) or 0)
+        or oldTotal ~= (tonumber(mdb["gilded_stash_total"]) or 0)
+        or oldMax ~= (tonumber(row.max) or 0)
+        or oldCountText ~= row.countText
+        or oldNote ~= row.note
 end
 
 MR:RegisterModule({
@@ -354,4 +370,26 @@ do
     for _, r in ipairs(mod.rows) do
         if r.key == "gilded_stash" then gildedStashRow = r; break end
     end
+end
+
+function MR:RefreshDelvesLiveProgress(refreshUI)
+    local mod = self and self.moduleByKey and self.moduleByKey["delves"]
+    if not (mod and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+    local progress = self.db.char.progress
+    if not progress[mod.key] then
+        progress[mod.key] = {}
+    end
+
+    local changed = UpdateGildedStashProgress(progress[mod.key], gildedStashRow)
+    if changed then
+        self._moduleStatsCache = nil
+        if refreshUI then
+            self:RefreshUI()
+        end
+    end
+
+    return changed
 end

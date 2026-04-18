@@ -1260,6 +1260,10 @@ function MR:EnsureRenownShown()
 end
 
 function MR:RefreshRenown()
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        return
+    end
+
     if self.ShouldDeferForCombat and self:ShouldDeferForCombat("renown") then
         return
     end
