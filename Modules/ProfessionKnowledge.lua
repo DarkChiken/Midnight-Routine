@@ -1195,12 +1195,17 @@ end
 
 local eventFrame = CreateFrame("Frame")
 eventFrame:RegisterEvent("ADDON_LOADED")
+eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:SetScript("OnEvent", function(_, event, addonName)
     if event == "ADDON_LOADED" and addonName == "MidnightRoutine" then
         if MR.db then
             gatheringMinimized = MR.db.profile.gatheringMinimized or false
-            if MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("gatheringLocOpen") then MR:ShowGatheringLocations() end
         end
         eventFrame:UnregisterEvent("ADDON_LOADED")
+    elseif event == "PLAYER_LOGIN" then
+        if MR.db and MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("gatheringLocOpen") then
+            MR:ShowGatheringLocations()
+        end
+        eventFrame:UnregisterEvent("PLAYER_LOGIN")
     end
 end)
