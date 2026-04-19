@@ -3344,6 +3344,30 @@ function MR:RefreshUI()
     end
 end
 
+local function ReleaseConfigWidgetTree(frame)
+    if not frame then
+        return
+    end
+
+    local children = { frame:GetChildren() }
+    for _, child in ipairs(children) do
+        ReleaseConfigWidgetTree(child)
+    end
+
+    if frame.GetObjectType and frame:GetObjectType() == "Button" then
+        frame:SetScript("OnClick", nil)
+        frame:SetScript("OnEnter", nil)
+        frame:SetScript("OnLeave", nil)
+        frame:SetScript("OnMouseDown", nil)
+        frame:SetScript("OnMouseUp", nil)
+    end
+
+    frame:SetScript("OnUpdate", nil)
+    frame:EnableMouse(false)
+    frame:Hide()
+    frame:SetParent(nil)
+end
+
 function MR:ApplySharedMediaSettings()
     if ns.ApplySharedMedia then
         ns.ApplySharedMedia(self.GetActiveMediaSettings and self:GetActiveMediaSettings() or (self.db and self.db.profile))
@@ -4129,28 +4153,7 @@ end
 
 function MR:PopulateConfigFrame(f)
     if f.body then
-        local children = { f.body:GetChildren() }
-        for _, child in ipairs(children) do
-            local grandchildren = { child:GetChildren() }
-            for _, gc in ipairs(grandchildren) do
-                if gc:GetObjectType() == "Button" then
-                    gc:SetScript("OnClick", nil)
-                    gc:SetScript("OnEnter", nil)
-                    gc:SetScript("OnLeave", nil)
-                end
-                gc:EnableMouse(false)
-                gc:Hide()
-            end
-            if child:GetObjectType() == "Button" then
-                child:SetScript("OnClick", nil)
-                child:SetScript("OnEnter", nil)
-                child:SetScript("OnLeave", nil)
-            end
-            child:EnableMouse(false)
-            child:Hide()
-        end
-        f.body:Hide()
-        f.body:SetParent(UIParent)
+        ReleaseConfigWidgetTree(f.body)
         f.body = nil
     end
 
@@ -4921,6 +4924,23 @@ function MR:PopulateConfigFrame(f)
 
     if not MR._cfgExpanded then MR._cfgExpanded = {} end
 
+    local function ApplyToggleButtonState(btn, fs, active)
+        if not (btn and fs) then
+            return
+        end
+
+        btn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+        btn:SetBackdropBorderColor(
+            active and 0.15 or 0.35,
+            active and 0.32 or 0.12,
+            active and 0.38 or 0.12, 1)
+        fs:SetText(active and "H" or "S")
+        fs:SetTextColor(
+            active and 0.45 or 0.55,
+            active and 0.75 or 0.25,
+            active and 0.70 or 0.25)
+    end
+
     local function BuildHideCompleteBtn(parent, key, anchorRight)
         local hideActive = MR:IsModuleHideComplete(key)
         local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
@@ -4939,11 +4959,11 @@ function MR:PopulateConfigFrame(f)
         local fs = btn:CreateFontString(nil, "OVERLAY")
         fs:SetFont(FONT_ROWS, 8, GetFontFlags())
         fs:SetPoint("CENTER", btn, "CENTER", 0, 0)
-        fs:SetText(hideActive and "H" or "S")
-        fs:SetTextColor(hideActive and 0.45 or 0.55, hideActive and 0.75 or 0.25, hideActive and 0.70 or 0.25)
+        ApplyToggleButtonState(btn, fs, hideActive)
         btn:SetScript("OnClick", function()
-            MR:SetModuleHideComplete(key, not MR:IsModuleHideComplete(key))
-            MR:PopulateConfigFrame(f)
+            local active = not MR:IsModuleHideComplete(key)
+            MR:SetModuleHideComplete(key, active)
+            ApplyToggleButtonState(btn, fs, active)
         end)
         btn:SetScript("OnEnter", function()
             btn:SetBackdropColor(0.08, 0.22, 0.32, 1)
@@ -5385,10 +5405,37 @@ function MR:PopulateConfigFrame(f)
                         enabled and 0.85 or 0.25,
                         enabled and 0.70 or 0.25)
 
+                    local function ApplyRowToggleState(isEnabled)
+                        rdot:SetAlpha(isEnabled and 0.8 or 0.25)
+                        if not isEnabled then
+                            rlbl:SetTextColor(0.35, 0.35, 0.35)
+                        else
+                            local rRowCustom = MR:GetRowColor(key, rkey)
+                            local rHeaderCustom = MR.db.profile.headerColors and MR.db.profile.headerColors[key]
+                            local rEffective = rRowCustom or rHeaderCustom
+                            if rEffective then
+                                rlbl:SetTextColor(hex(rEffective))
+                            else
+                                rlbl:SetTextColor(0.80, 0.80, 0.80)
+                            end
+                        end
+                        eyeBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                        eyeBtn:SetBackdropBorderColor(
+                            isEnabled and 0.15 or 0.35,
+                            isEnabled and 0.32 or 0.12,
+                            isEnabled and 0.38 or 0.12, 1)
+                        eyeLbl:SetText(isEnabled and "o" or "-")
+                        eyeLbl:SetTextColor(
+                            isEnabled and 0.25 or 0.55,
+                            isEnabled and 0.85 or 0.25,
+                            isEnabled and 0.70 or 0.25)
+                    end
+
                     eyeBtn:SetScript("OnClick", function()
-                        MR:SetRowEnabled(key, rkey, not MR:IsRowEnabled(key, rkey))
+                        enabled = not MR:IsRowEnabled(key, rkey)
+                        MR:SetRowEnabled(key, rkey, enabled)
                         MR:RefreshUI()
-                        MR:PopulateConfigFrame(f)
+                        ApplyRowToggleState(enabled)
                     end)
                     eyeBtn:SetScript("OnEnter", function()
                         eyeBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
@@ -5399,15 +5446,7 @@ function MR:PopulateConfigFrame(f)
                         GameTooltip:Show()
                     end)
                     eyeBtn:SetScript("OnLeave", function()
-                        eyeBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
-                        eyeBtn:SetBackdropBorderColor(
-                            enabled and 0.15 or 0.35,
-                            enabled and 0.32 or 0.12,
-                            enabled and 0.38 or 0.12, 1)
-                        eyeLbl:SetTextColor(
-                            enabled and 0.25 or 0.55,
-                            enabled and 0.85 or 0.25,
-                            enabled and 0.70 or 0.25)
+                        ApplyRowToggleState(enabled)
                         GameTooltip:Hide()
                     end)
 
