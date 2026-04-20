@@ -58,6 +58,11 @@ local ARCANTINA_WEEKLIES = {
     { quest = 92327, name = L["Arcantina_AGenerationalMoment"] },
 }
 
+local VOID_ASSAULT_WEEKLIES = {
+    { quest = 94385, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+    { quest = 94386, name = L["Zone_ZulAman"] or "Zul'Aman" },
+}
+
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
     [2395] = true,
@@ -266,6 +271,8 @@ MR:RegisterModule({
         db[mod.key]["arcantina_active_names"] = nil
         db[mod.key]["arcantina_completed_name"] = nil
         db[mod.key]["arcantina_completed_names"] = nil
+        db[mod.key]["void_assault_active_name"] = nil
+        db[mod.key]["void_assault_completed_name"] = nil
 
         local completedAssignments, activeAssignments = CollectSpecialAssignments()
         local totalAssignments = math.max(#completedAssignments + #activeAssignments, 1)
@@ -329,6 +336,31 @@ MR:RegisterModule({
                     row.countText = nil
                     row.countColor = nil
                     row.note = L["Weekly_SA_Note"]
+                end
+                break
+            end
+        end
+
+        local completedVoidAssaultWeeklies, activeVoidAssaultWeeklies = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
+        if #activeVoidAssaultWeeklies > 0 then
+            db[mod.key]["void_assault_active_name"] = activeVoidAssaultWeeklies[1].name
+        end
+        if #completedVoidAssaultWeeklies > 0 then
+            db[mod.key]["void_assault_completed_name"] = completedVoidAssaultWeeklies[1].name
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "void_assaults" then
+                local metaDone = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842) or false
+                if metaDone or #completedVoidAssaultWeeklies > 0 then
+                    row.countText = db[mod.key]["void_assault_completed_name"] or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif #activeVoidAssaultWeeklies > 0 then
+                    row.countText = db[mod.key]["void_assault_active_name"]
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
                 end
                 break
             end
@@ -497,6 +529,47 @@ MR:RegisterModule({
     end,
 
     rows = {
+        --[[
+        {
+            key      = "void_assaults",
+            label    = L["Weekly_VoidAssaults_Label"] or "|cff2ae7c6Void Assaults:|r",
+            max      = 1,
+            note     = L["Weekly_VoidAssaults_Note"] or "Complete the active Void Assault weekly in Eversong Woods or Zul'Aman for a Spark of Radiance.",
+            questIds = { 95842, 94385, 94386 },
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
+                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local completedName = s1db["void_assault_completed_name"]
+                local activeName = s1db["void_assault_active_name"]
+
+                tip:AddLine(" ")
+                if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842)) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (completedName or completedVariants[1].name or (L["Done"] or "Done")), 0.4, 0.85, 0.4)
+                elseif activeName or #activeVariants > 0 then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (activeName or activeVariants[1].name), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_VoidAssaults"] or "|cffaaaaaa? No Void Assault weekly detected.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_VoidAssaults"] or "  Visit the active assault zone in Eversong Woods or Zul'Aman.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "ritual_sites",
+            label    = L["Weekly_RitualSites_Label"] or "|cff2ae7c6Ritual Sites:|r",
+            max      = 1,
+            note     = L["Weekly_RitualSites_Note"] or "Complete a Ritual Site in Midnight for a Spark of Radiance.",
+            questIds = { 95843 },
+        },
+        {
+            key      = "elementary_voidcore",
+            label    = L["Weekly_Voidforge_Label"] or "|cff2ae7c6An Elementary Voidcore:|r",
+            max      = 1,
+            note     = L["Weekly_Voidforge_Note"] or "Collect 3 Elementary Voidcore Shards for Decimus. This repeating construction quest advances the Voidforge unlock.",
+            questIds = { 94625 },
+        },
+        ]]
         {
             key      = "arcantina_weekly",
             label    = L["Weekly_Arcantina_Label"],
