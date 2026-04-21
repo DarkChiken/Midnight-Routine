@@ -529,7 +529,6 @@ MR:RegisterModule({
     end,
 
     rows = {
-        --[[
         {
             key      = "void_assaults",
             label    = L["Weekly_VoidAssaults_Label"] or "|cff2ae7c6Void Assaults:|r",
@@ -561,6 +560,19 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_RitualSites_Note"] or "Complete a Ritual Site in Midnight for a Spark of Radiance.",
             questIds = { 95843 },
+            tooltipFunc = function(tip)
+                tip:AddLine(" ")
+                if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_RitualSites_Label"] or "Ritual Sites"), 0.4, 0.85, 0.4)
+                elseif IsQuestCurrentlyActive(95843) then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_RitualSites_Label"] or "Ritual Sites"), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_RitualSites"] or "|cffaaaaaa? Ritual Sites weekly not yet detected.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_RitualSites"] or "  Complete a Ritual Site in the active location to reveal this week's progress.", 0.7, 0.7, 0.7)
+                end
+            end,
         },
         {
             key      = "elementary_voidcore",
@@ -568,8 +580,20 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_Voidforge_Note"] or "Collect 3 Elementary Voidcore Shards for Decimus. This repeating construction quest advances the Voidforge unlock.",
             questIds = { 94625 },
+            tooltipFunc = function(tip)
+                tip:AddLine(" ")
+                if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(94625) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 0.4, 0.85, 0.4)
+                elseif IsQuestCurrentlyActive(94625) then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_Voidforge"] or "|cffaaaaaa? An Elementary Voidcore is not yet active.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_Voidforge"] or "  Visit Decimus in Voidstorm when the Voidforge construction quest is available.", 0.7, 0.7, 0.7)
+                end
+            end,
         },
-        ]]
         {
             key      = "arcantina_weekly",
             label    = L["Weekly_Arcantina_Label"],

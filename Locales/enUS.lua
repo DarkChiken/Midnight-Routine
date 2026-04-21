@@ -511,6 +511,20 @@ L["Subfaction_BloodKnights"] = "Blood Knights"
 L["Farstriders"] = "Farstriders"
 L["Subfaction_ShadesOfTheRow"] = "Shades of the Row"
 
+-- 12.0.5
+L["Weekly_VoidAssaults_Label"] = "|cff2ae7c6Void Assaults:|r"
+L["Weekly_VoidAssaults_Note"] = "Complete the active Void Assault weekly in Eversong Woods or Zul'Aman for a Spark of Radiance."
+L["Weekly_RitualSites_Label"] = "|cff2ae7c6Ritual Sites:|r"
+L["Weekly_RitualSites_Note"] = "Complete a Ritual Site in Midnight for a Spark of Radiance."
+L["Weekly_Voidforge_Label"] = "|cff2ae7c6An Elementary Voidcore:|r"
+L["Weekly_Voidforge_Note"] = "Collect 3 Elementary Voidcore Shards for Decimus. This repeating construction quest advances the Voidforge unlock."
+L["Tooltip_No_VoidAssaults"] = "|cffaaaaaa? Void Assault weekly not yet detected.|r"
+L["Tooltip_Visit_VoidAssaults"] = "  Visit the active assault zone in Eversong Woods or Zul'Aman."
+L["Tooltip_No_RitualSites"] = "|cffaaaaaa? Ritual Sites weekly not yet detected.|r"
+L["Tooltip_Visit_RitualSites"] = "  Complete a Ritual Site in the active location to reveal this week's progress."
+L["Tooltip_No_Voidforge"] = "|cffaaaaaa? An Elementary Voidcore is not yet active.|r"
+L["Tooltip_Visit_Voidforge"] = "  Visit Decimus in Voidstorm when the Voidforge construction quest is available."
+
 -- WorldEvents
 L["DMF_Title"] = "Darkmoon Faire"
 L["DMF_Dungeon_Label"] = "|cffcc99ffDungeon: A Treatise on Strategy:|r"
