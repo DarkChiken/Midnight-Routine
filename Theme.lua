@@ -561,16 +561,156 @@ function ns.SaveFramePos(frame, key)
     end)
 end
 
-function ns.RestoreFramePos(frame, key, defaultX, defaultY)
+function ns.GetManagedHeaderPosition()
     local addon = ns.MR
-    local pos = addon and addon.GetWindowLayoutValue and addon:GetWindowLayoutValue(key)
-        or (addon and addon.db and addon.db.profile and addon.db.profile[key])
+    if addon and addon.GetManagedHeaderPosition then
+        return addon:GetManagedHeaderPosition()
+    end
+
+    return "top"
+end
+
+function ns.IsManagedHeaderBottom()
+    return ns.GetManagedHeaderPosition() == "bottom"
+end
+
+function ns.IsManagedAnimatedMinimizeEnabled()
+    local addon = ns.MR
+    return addon and addon.IsManagedAnimatedMinimizeEnabled and addon:IsManagedAnimatedMinimizeEnabled() == true
+end
+
+function ns.CaptureManagedFrameAnchor(frame, anchorMode, fallback)
+    if not frame then
+        return fallback
+    end
+
+    local left, top, bottom = frame:GetLeft(), frame:GetTop(), frame:GetBottom()
+    if anchorMode == "bottom" and left and bottom then
+        return { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left, y = bottom }
+    end
+
+    if left and top then
+        return { point = "TOPLEFT", relPoint = "BOTTOMLEFT", x = left, y = top }
+    end
+
+    if fallback and fallback.point then
+        return {
+            point = fallback.point,
+            relPoint = fallback.relPoint or fallback.point,
+            x = fallback.x or 0,
+            y = fallback.y or 0,
+        }
+    end
+
+    local point, _, relPoint, x, y = frame:GetPoint()
+    if point then
+        return { point = point, relPoint = relPoint or point, x = x or 0, y = y or 0 }
+    end
+
+    return nil
+end
+
+function ns.ApplyManagedFrameAnchor(frame, pos)
+    if not (frame and pos and pos.point) then
+        return false
+    end
+
+    frame:ClearAllPoints()
+    frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
+    return true
+end
+
+function ns.RestoreManagedFramePos(frame, key, defaultX, defaultY, fallbackPos)
+    local addon = ns.MR
+    local pos
+    if addon and addon.GetWindowLayoutValue and key then
+        pos = addon:GetWindowLayoutValue(key)
+    elseif addon and addon.db and addon.db.profile and key then
+        pos = addon.db.profile[key]
+    end
+
+    pos = pos or fallbackPos
     if pos and pos.point then
-        frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x, pos.y)
+        ns.ApplyManagedFrameAnchor(frame, pos)
+        return pos
+    end
+
+    local defaultPos = {
+        point = "CENTER",
+        relPoint = "CENTER",
+        x = defaultX or 0,
+        y = defaultY or 0,
+    }
+    ns.ApplyManagedFrameAnchor(frame, defaultPos)
+    return defaultPos
+end
+
+function ns.SaveManagedFramePos(frame, key, anchorMode, fallbackPos)
+    local addon = ns.MR
+    if not (addon and addon.SetWindowLayoutValue and key) then
+        return nil
+    end
+
+    local pos = ns.CaptureManagedFrameAnchor(frame, anchorMode, fallbackPos)
+    if pos then
+        addon:SetWindowLayoutValue(key, pos)
+    end
+    return pos
+end
+
+function ns.SyncManagedFramePos(frame, key, anchorMode, fallbackPos)
+    local pos = ns.SaveManagedFramePos(frame, key, anchorMode, fallbackPos)
+    if pos then
+        ns.ApplyManagedFrameAnchor(frame, pos)
+    end
+    return pos
+end
+
+function ns.AnimateManagedFrameHeight(frame, targetHeight, onFinished, onUpdate, driverFrame)
+    if not frame then
         return
     end
 
-    frame:SetPoint("CENTER", UIParent, "CENTER", defaultX or 0, defaultY or 0)
+    local driver = driverFrame or frame
+    if not ns.IsManagedAnimatedMinimizeEnabled() then
+        frame:SetHeight(targetHeight)
+        if onFinished then onFinished(frame) end
+        return
+    end
+
+    local startHeight = frame:GetHeight() or targetHeight
+    local delta = targetHeight - startHeight
+    if math.abs(delta) < 1 then
+        frame:SetHeight(targetHeight)
+        if onFinished then onFinished(frame) end
+        return
+    end
+
+    driver._mrAnimTick = 0
+    driver:SetScript("OnUpdate", function(self, dt)
+        if onUpdate then
+            onUpdate(frame, dt)
+        end
+
+        self._mrAnimTick = (self._mrAnimTick or 0) + (dt or 0)
+        local duration = math.min(0.18, math.max(0.06, math.abs(delta) / 1600))
+        local progress = math.min(self._mrAnimTick / duration, 1)
+        local eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress))
+        frame:SetHeight(startHeight + (delta * eased))
+        if progress >= 1 then
+            frame:SetHeight(targetHeight)
+            self._mrAnimTick = nil
+            if onFinished then
+                onFinished(frame)
+            else
+                self:SetScript("OnUpdate", nil)
+            end
+        end
+    end)
+end
+
+function ns.RestoreFramePos(frame, key, defaultX, defaultY)
+    ns.RestoreManagedFramePos(frame, key, defaultX, defaultY)
 end
 
 function ns.OptionsGap(body, yOff, height)

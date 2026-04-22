@@ -187,12 +187,71 @@ MR:RegisterModule({
     labelColor  = "#c8956c",
     resetType   = "weekly",
     defaultOpen = false,
+    scanReturnsChanged = true,
 
     onScan = function(mod)
         local now = GetTime()
         local db  = MR.db.char.progress
         if not db[mod.key] then db[mod.key] = {} end
         local mdb = db[mod.key]
+        local beforeProgress = {}
+        for key, value in pairs(mdb) do
+            beforeProgress[key] = value
+        end
+        local beforeRows = {
+            bountiful_count = bountifulRow and {
+                countText = bountifulRow.countText,
+                countColor = bountifulRow.countColor and { unpack(bountifulRow.countColor) } or nil,
+                max = bountifulRow.max,
+                note = bountifulRow.note,
+            } or nil,
+            delve_bounty = bountyRow and {
+                countText = bountyRow.countText,
+                countColor = bountyRow.countColor and { unpack(bountyRow.countColor) } or nil,
+                max = bountyRow.max,
+                note = bountyRow.note,
+            } or nil,
+            gilded_stash = gildedStashRow and {
+                countText = gildedStashRow.countText,
+                countColor = gildedStashRow.countColor and { unpack(gildedStashRow.countColor) } or nil,
+                max = gildedStashRow.max,
+                note = gildedStashRow.note,
+            } or nil,
+        }
+        local function HasChanges()
+            for key, value in pairs(mdb) do
+                if beforeProgress[key] ~= value then
+                    return true
+                end
+            end
+            for key in pairs(beforeProgress) do
+                if mdb[key] ~= beforeProgress[key] then
+                    return true
+                end
+            end
+            for rowKey, beforeRow in pairs(beforeRows) do
+                local row = rowKey == "bountiful_count" and bountifulRow
+                    or rowKey == "delve_bounty" and bountyRow
+                    or gildedStashRow
+                if beforeRow and row then
+                    local beforeColor = beforeRow.countColor
+                    local afterColor = row.countColor
+                    local sameColor = (beforeColor == afterColor)
+                        or (type(beforeColor) == "table" and type(afterColor) == "table"
+                            and (beforeColor[1] or 0) == (afterColor[1] or 0)
+                            and (beforeColor[2] or 0) == (afterColor[2] or 0)
+                            and (beforeColor[3] or 0) == (afterColor[3] or 0)
+                            and (beforeColor[4] or 0) == (afterColor[4] or 0))
+                    if beforeRow.countText ~= row.countText
+                        or beforeRow.max ~= row.max
+                        or beforeRow.note ~= row.note
+                        or not sameColor then
+                        return true
+                    end
+                end
+            end
+            return false
+        end
 
         local exp = GetPlayerExpansion()
         if exp then
@@ -214,7 +273,7 @@ MR:RegisterModule({
             bountifulRow.countColor = nil
         end
 
-        if (now - lastScan) < SCAN_THROTTLE then return end
+        if (now - lastScan) < SCAN_THROTTLE then return HasChanges() end
         lastScan = now
 
         local buckets = MR.GetWeeklyRewardActivityBuckets and MR:GetWeeklyRewardActivityBuckets() or nil
@@ -261,6 +320,7 @@ MR:RegisterModule({
         end
 
         UpdateGildedStashProgress(mdb, gildedStashRow)
+        return HasChanges()
     end,
 
     rows = {

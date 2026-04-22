@@ -113,6 +113,19 @@ local function NormalizeActivityText(text)
     return text:lower():gsub("[^%a%d]", "")
 end
 
+local function ColorsEqual(a, b)
+    if a == b then
+        return true
+    end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    return (a[1] or 0) == (b[1] or 0)
+        and (a[2] or 0) == (b[2] or 0)
+        and (a[3] or 0) == (b[3] or 0)
+        and (a[4] or 0) == (b[4] or 0)
+end
+
 local function ResolveVariantName(variant)
     if not variant then
         return nil
@@ -299,10 +312,24 @@ MR:RegisterModule({
     labelColor  = "#2ae7c6",
     resetType   = "weekly",
     defaultOpen = true,
+    scanReturnsChanged = true,
 
     onScan = function(mod)
         local db = MR.db.char.progress
         if not db[mod.key] then db[mod.key] = {} end
+        local beforeProgress = {}
+        for key, value in pairs(db[mod.key]) do
+            beforeProgress[key] = value
+        end
+        local beforeRows = {}
+        for _, row in ipairs(mod.rows) do
+            beforeRows[row.key] = {
+                countText = row.countText,
+                countColor = row.countColor and { unpack(row.countColor) } or nil,
+                max = row.max,
+                note = row.note,
+            }
+        end
         db[mod.key]["special_assignment"] = 0
         db[mod.key]["sa_active_name"] = nil
         db[mod.key]["sa_active_names"] = nil
@@ -605,7 +632,28 @@ MR:RegisterModule({
                 break
             end
         end
-
+        for key, value in pairs(db[mod.key]) do
+            if beforeProgress[key] ~= value then
+                return true
+            end
+        end
+        for key in pairs(beforeProgress) do
+            if db[mod.key][key] ~= beforeProgress[key] then
+                return true
+            end
+        end
+        for _, row in ipairs(mod.rows) do
+            local beforeRow = beforeRows[row.key]
+            if beforeRow then
+                if beforeRow.countText ~= row.countText
+                    or beforeRow.max ~= row.max
+                    or beforeRow.note ~= row.note
+                    or not ColorsEqual(beforeRow.countColor, row.countColor) then
+                    return true
+                end
+            end
+        end
+        return false
     end,
 
     rows = {

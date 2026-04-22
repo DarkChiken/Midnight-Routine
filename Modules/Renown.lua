@@ -4,7 +4,11 @@ local MR = ns.MR
 local FONT_HEADERS = ns.FONT_HEADERS
 local FONT_ROWS = ns.FONT_ROWS
 local StyledFrame = ns.StyledFrame
-local RestoreFramePos = ns.RestoreFramePos
+local RestoreManagedFramePos = ns.RestoreManagedFramePos
+local SaveManagedFramePos = ns.SaveManagedFramePos
+local SyncManagedFramePos = ns.SyncManagedFramePos
+local AnimateManagedFrameHeight = ns.AnimateManagedFrameHeight
+local IsManagedHeaderBottom = ns.IsManagedHeaderBottom
 local TopAccent = ns.TopAccent
 local LeftAccent = ns.LeftAccent
 local TitleBar = ns.TitleBar
@@ -257,7 +261,7 @@ local function BuildRenownFrame()
     local PAD       = 12
     local HEADER_H  = 24
     local minimized = db.renownMinimized or false
-    local headerBottom = MR.GetManagedHeaderPosition and MR:GetManagedHeaderPosition() == "bottom"
+    local headerBottom = IsManagedHeaderBottom()
     local hidden    = db.renownHiddenFactions or {}
     local visCount  = 0
     for _, fac in ipairs(GetOrderedFactions()) do
@@ -270,7 +274,7 @@ local function BuildRenownFrame()
     f:SetBackdropColor(0.02, 0.03, 0.08, 0.97)
     f:SetBackdropBorderColor(0.55, 0.42, 0.08, 1)
 
-    RestoreFramePos(f, "renownPos", 300, 0)
+    RestoreManagedFramePos(f, "renownPos", 300, 0)
     f.topAccent = TopAccent(f)
     f.leftAccent = nil
 
@@ -288,16 +292,7 @@ local function BuildRenownFrame()
     titleBar:SetScript("OnDragStart", function() f:StartMoving() end)
     titleBar:SetScript("OnDragStop", function()
         f:StopMovingOrSizing()
-        if headerBottom then
-            local left = f:GetLeft()
-            local bottom = f:GetBottom()
-            if left and bottom and MR.db then
-                MR:SetWindowLayoutValue("renownPos", { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left, y = bottom })
-                return
-            end
-        end
-        local pt, _, rp, x, y = f:GetPoint()
-        if MR.db then MR:SetWindowLayoutValue("renownPos", { point = pt, relPoint = rp, x = x, y = y }) end
+        SaveManagedFramePos(f, "renownPos", headerBottom and "bottom" or "top")
     end)
     if MR.ApplyPanelHeaderAutoHide then MR:ApplyPanelHeaderAutoHide(f, titleBar) end
 
@@ -489,24 +484,24 @@ local function BuildRenownFrame()
     f:SetMovable(not db.renownLocked)
     f:SetScale(db.renownScale or 1.0)
 
-    if db.renownShimmer ~= false then
-        f:SetScript("OnUpdate", function(self, dt)
-            self.shimmerElapsed = self.shimmerElapsed + dt
-            local pulse = 0.06 + 0.04 * math.sin(self.shimmerElapsed * 2)
-            if self.UpdatePanelHeaderVisibility then
-                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
+    local function RestoreRenownOnUpdate(frame)
+        frame:SetScript("OnUpdate", db.renownShimmer ~= false and function(selfFrame, tickDt)
+            selfFrame.shimmerElapsed = selfFrame.shimmerElapsed + tickDt
+            local pulse = 0.06 + 0.04 * math.sin(selfFrame.shimmerElapsed * 2)
+            if selfFrame.UpdatePanelHeaderVisibility then
+                selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
             end
-            for _, row in pairs(self.factionRows) do
+            for _, row in pairs(selfFrame.factionRows) do
                 row.shimmer:SetAlpha(pulse)
             end
-        end)
-    else
-        f:SetScript("OnUpdate", function(self)
-            if self.UpdatePanelHeaderVisibility then
-                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
+        end or function(selfFrame)
+            if selfFrame.UpdatePanelHeaderVisibility then
+                selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
             end
         end)
     end
+
+    RestoreRenownOnUpdate(f)
 
     ApplyMinimized = function(isMin)
         if MR.db then MR.db.profile.renownMinimized = isMin end
@@ -531,102 +526,11 @@ local function BuildRenownFrame()
         end
 
         if isMin then
-            if headerBottom then
-                local left = f:GetLeft()
-                local bottom = f:GetBottom()
-                if left and bottom then
-                    f:ClearAllPoints()
-                    f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
-                    if MR.db then
-                        MR:SetWindowLayoutValue("renownPos", { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left, y = bottom })
-                    end
-                end
-            else
-                local left = f:GetLeft()
-                local top  = f:GetTop()
-                if left and top then
-                    f:ClearAllPoints()
-                    f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
-                    if MR.db then
-                        MR:SetWindowLayoutValue("renownPos", { point = "TOPLEFT", relPoint = "BOTTOMLEFT", x = left, y = top })
-                    end
-                end
-            end
-            if MR.IsManagedAnimatedMinimizeEnabled and MR:IsManagedAnimatedMinimizeEnabled() then
-                local startHeight = f:GetHeight()
-                local targetHeight = HEADER_H
-                local delta = targetHeight - startHeight
-                f._mrAnimTick = 0
-                f:SetScript("OnUpdate", function(self, dt)
-                    self._mrAnimTick = (self._mrAnimTick or 0) + (dt or 0)
-                    local duration = math.min(0.18, math.max(0.06, math.abs(delta) / 1600))
-                    local progress = math.min(self._mrAnimTick / duration, 1)
-                    local eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress))
-                    self:SetHeight(startHeight + (delta * eased))
-                    if progress >= 1 then
-                        self:SetHeight(targetHeight)
-                        self._mrAnimTick = nil
-                        self:SetScript("OnUpdate", db.renownShimmer ~= false and function(selfFrame, tickDt)
-                            selfFrame.shimmerElapsed = selfFrame.shimmerElapsed + tickDt
-                            local pulse = 0.06 + 0.04 * math.sin(selfFrame.shimmerElapsed * 2)
-                            if selfFrame.UpdatePanelHeaderVisibility then
-                                selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
-                            end
-                            for _, row in pairs(selfFrame.factionRows) do
-                                row.shimmer:SetAlpha(pulse)
-                            end
-                        end or function(selfFrame)
-                            if selfFrame.UpdatePanelHeaderVisibility then
-                                selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
-                            end
-                        end)
-                    end
-                end)
-            else
-                f:SetHeight(HEADER_H)
-            end
+            SyncManagedFramePos(f, "renownPos", headerBottom and "bottom" or "top")
+            AnimateManagedFrameHeight(f, HEADER_H, RestoreRenownOnUpdate)
         else
-            if headerBottom then
-                local left = f:GetLeft()
-                local bottom = f:GetBottom()
-                if left and bottom then
-                    f:ClearAllPoints()
-                    f:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
-                end
-            end
-            if MR.IsManagedAnimatedMinimizeEnabled and MR:IsManagedAnimatedMinimizeEnabled() then
-                local startHeight = f:GetHeight()
-                local targetHeight = totalH
-                local delta = targetHeight - startHeight
-                f._mrAnimTick = 0
-                f:SetScript("OnUpdate", function(self, dt)
-                    self._mrAnimTick = (self._mrAnimTick or 0) + (dt or 0)
-                    local duration = math.min(0.18, math.max(0.06, math.abs(delta) / 1600))
-                    local progress = math.min(self._mrAnimTick / duration, 1)
-                    local eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress))
-                    self:SetHeight(startHeight + (delta * eased))
-                    if progress >= 1 then
-                        self:SetHeight(targetHeight)
-                        self._mrAnimTick = nil
-                        self:SetScript("OnUpdate", db.renownShimmer ~= false and function(selfFrame, tickDt)
-                            selfFrame.shimmerElapsed = selfFrame.shimmerElapsed + tickDt
-                            local pulse = 0.06 + 0.04 * math.sin(selfFrame.shimmerElapsed * 2)
-                            if selfFrame.UpdatePanelHeaderVisibility then
-                                selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
-                            end
-                            for _, row in pairs(selfFrame.factionRows) do
-                                row.shimmer:SetAlpha(pulse)
-                            end
-                        end or function(selfFrame)
-                            if selfFrame.UpdatePanelHeaderVisibility then
-                                selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
-                            end
-                        end)
-                    end
-                end)
-            else
-                f:SetHeight(totalH)
-            end
+            SyncManagedFramePos(f, "renownPos", headerBottom and "bottom" or "top")
+            AnimateManagedFrameHeight(f, totalH, RestoreRenownOnUpdate)
             RefreshRenownFrame()
         end
     end

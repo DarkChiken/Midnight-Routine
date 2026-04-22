@@ -16,6 +16,10 @@ local LeftAccent = ns.LeftAccent
 local TitleBar = ns.TitleBar
 local CloseButton = ns.CloseButton
 local RestoreFramePos = ns.RestoreFramePos
+local RestoreManagedFramePos = ns.RestoreManagedFramePos
+local CaptureManagedFrameAnchor = ns.CaptureManagedFrameAnchor
+local ApplyManagedFrameAnchor = ns.ApplyManagedFrameAnchor
+local AnimateManagedFrameHeight = ns.AnimateManagedFrameHeight
 local WrapColor = ns.WrapColor
 local SetDotColor = ns.SetDotColor
 local OptionsGap = ns.OptionsGap
@@ -2137,25 +2141,33 @@ local function SetStoredMainFrameCollapsedAnchor(pos)
     })
 end
 
-local function CaptureMainFrameAnchor(frame, anchorMode)
-    if not frame then
-        return nil
-    end
-
-    local left, top, bottom = frame:GetLeft(), frame:GetTop(), frame:GetBottom()
-    if not left then
-        return GetWindowLayoutValue("position")
-    end
-
-    if anchorMode == "bottom" and bottom then
-        return { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left, y = bottom }
-    end
-
-    if top then
-        return { point = "TOPLEFT", relPoint = "BOTTOMLEFT", x = left, y = top }
+local function GetStoredMainFrameActiveAnchor()
+    if MR and MR.db and MR.db.profile and MR.db.profile.minimized then
+        return GetStoredMainFrameCollapsedAnchor()
     end
 
     return GetWindowLayoutValue("position")
+end
+
+local function SetStoredMainFrameActiveAnchor(pos)
+    if not pos or not pos.point then
+        return
+    end
+
+    if MR and MR.db and MR.db.profile and MR.db.profile.minimized then
+        SetStoredMainFrameCollapsedAnchor(pos)
+    else
+        SetWindowLayoutValue("position", {
+            point = pos.point,
+            relPoint = pos.relPoint or pos.point,
+            x = pos.x or 0,
+            y = pos.y or 0,
+        })
+    end
+end
+
+local function CaptureMainFrameAnchor(frame, anchorMode)
+    return CaptureManagedFrameAnchor(frame, anchorMode, GetStoredMainFrameActiveAnchor())
 end
 
 local function ApplyMainFrameAnchor(frame, anchorMode, preserveScreenPosition)
@@ -2163,21 +2175,15 @@ local function ApplyMainFrameAnchor(frame, anchorMode, preserveScreenPosition)
         return
     end
 
-    local pos = preserveScreenPosition and CaptureMainFrameAnchor(frame, anchorMode) or GetWindowLayoutValue("position")
+    local pos = preserveScreenPosition and CaptureMainFrameAnchor(frame, anchorMode) or GetStoredMainFrameActiveAnchor()
     if not pos or not pos.point then
         frame:ClearAllPoints()
         frame:SetPoint("CENTER")
         return
     end
 
-    frame:ClearAllPoints()
-    frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
-    SetWindowLayoutValue("position", {
-        point = pos.point,
-        relPoint = pos.relPoint or pos.point,
-        x = pos.x or 0,
-        y = pos.y or 0,
-    })
+    ApplyManagedFrameAnchor(frame, pos)
+    SetStoredMainFrameActiveAnchor(pos)
 end
 
 local function ApplyExplicitMainFrameAnchor(frame, pos)
@@ -2185,8 +2191,7 @@ local function ApplyExplicitMainFrameAnchor(frame, pos)
         return
     end
 
-    frame:ClearAllPoints()
-    frame:SetPoint(pos.point, UIParent, pos.relPoint or pos.point, pos.x or 0, pos.y or 0)
+    ApplyManagedFrameAnchor(frame, pos)
 end
 
 local function GetBottomHeaderCollapseTarget(frame)
@@ -2323,24 +2328,10 @@ local function AnimateMainFrameHeight(targetHeight, onFinished)
 
     StopMainFrameAnimation()
     mainFrameAnimator:Show()
-    local elapsed = 0
-    local duration = math.min(0.18, math.max(0.06, math.abs(delta) / 1600))
-    mainFrameAnimator:SetScript("OnUpdate", function(_, dt)
-        if not MR or not MR.frame then
-            StopMainFrameAnimation()
-            return
-        end
-
-        elapsed = elapsed + (dt or 0)
-        local progress = math.min(elapsed / duration, 1)
-        local eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress))
-        frame:SetHeight(startHeight + (delta * eased))
-        if progress >= 1 then
-            frame:SetHeight(targetHeight)
-            StopMainFrameAnimation()
-            if onFinished then onFinished() end
-        end
-    end)
+    AnimateManagedFrameHeight(frame, targetHeight, function()
+        StopMainFrameAnimation()
+        if onFinished then onFinished() end
+    end, nil, mainFrameAnimator)
 end
 
 function MR:BuildUI()
@@ -2362,12 +2353,7 @@ function MR:BuildUI()
     f:SetMovable(true)
     f:SetClampedToScreen(true)
 
-    local p = (MR.db.profile.minimized and GetStoredMainFrameCollapsedAnchor()) or GetWindowLayoutValue("position")
-    if p and p.point then
-        f:SetPoint(p.point, UIParent, p.relPoint or p.point, p.x or 0, p.y or 0)
-    else
-        f:SetPoint("CENTER")
-    end
+    RestoreManagedFramePos(f, nil, 0, 0, GetStoredMainFrameActiveAnchor())
     f:SetScale(MR.db.profile.scale or 1)
     self.frame = f
     f:SetScript("OnShow", function()
@@ -2396,13 +2382,9 @@ function MR:BuildUI()
         f:StopMovingOrSizing()
         local pos = CaptureMainFrameAnchor(f, GetMainHeaderPosition())
         if pos then
-            if MR.db.profile.minimized then
-                SetStoredMainFrameCollapsedAnchor(pos)
-            else
-                SetWindowLayoutValue("position", pos)
-                if IsMainHeaderAtBottom() then
-                    MR._mainFrameMovedSinceExpand = true
-                end
+            SetStoredMainFrameActiveAnchor(pos)
+            if (not MR.db.profile.minimized) and IsMainHeaderAtBottom() then
+                MR._mainFrameMovedSinceExpand = true
             end
         end
     end)
@@ -4443,13 +4425,7 @@ function MR:PopulateConfigFrame(f)
         end
         MR:RefreshUI()
         if MR.frame then
-            MR.frame:ClearAllPoints()
-            local p = GetWindowLayoutValue("position")
-            if p and p.point then
-                MR.frame:SetPoint(p.point, UIParent, p.relPoint or p.point, p.x or 0, p.y or 0)
-            else
-                MR.frame:SetPoint("CENTER")
-            end
+            ApplyMainFrameLayout(MR.frame)
         end
         if MR.raresFrame then
             MR.raresFrame:ClearAllPoints()

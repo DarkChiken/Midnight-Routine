@@ -266,6 +266,7 @@ MR:RegisterModule({
     labelColor  = "#cc3333",
     resetType   = "weekly",
     defaultOpen = true,
+    scanReturnsChanged = true,
     onScan = function(mod)
         local progress = MR.db.char.progress
         if not progress[mod.key] then

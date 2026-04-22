@@ -4,7 +4,11 @@ local MR = ns.MR
 local FONT_HEADERS = ns.FONT_HEADERS
 local FONT_ROWS = ns.FONT_ROWS
 local StyledFrame = ns.StyledFrame
-local RestoreFramePos = ns.RestoreFramePos
+local RestoreManagedFramePos = ns.RestoreManagedFramePos
+local SaveManagedFramePos = ns.SaveManagedFramePos
+local SyncManagedFramePos = ns.SyncManagedFramePos
+local AnimateManagedFrameHeight = ns.AnimateManagedFrameHeight
+local IsManagedHeaderBottom = ns.IsManagedHeaderBottom
 local LeftAccent = ns.LeftAccent
 local TopAccent = ns.TopAccent
 local TitleBar = ns.TitleBar
@@ -437,34 +441,12 @@ local function BuildGatheringLocationsFrame(isRetry)
     local width = db.gatheringWidth or DEFAULT_W
     local height = db.gatheringHeight or DEFAULT_H
     local minimized = db.gatheringMinimized or false
-    local headerBottom = MR.GetManagedHeaderPosition and MR:GetManagedHeaderPosition() == "bottom"
+    local headerBottom = IsManagedHeaderBottom()
     gatheringMinimized = minimized
 
     local function ApplyFrameHeight(frame, targetHeight)
-        if not (MR.IsManagedAnimatedMinimizeEnabled and MR:IsManagedAnimatedMinimizeEnabled()) then
-            frame:SetHeight(targetHeight)
-            return
-        end
-
-        local startHeight = frame:GetHeight() or targetHeight
-        local delta = targetHeight - startHeight
-        if math.abs(delta) < 1 then
-            frame:SetHeight(targetHeight)
-            return
-        end
-
-        frame._mrAnimTick = 0
-        frame:SetScript("OnUpdate", function(self, dt)
-            self._mrAnimTick = (self._mrAnimTick or 0) + (dt or 0)
-            local duration = math.min(0.18, math.max(0.06, math.abs(delta) / 1600))
-            local progress = math.min(self._mrAnimTick / duration, 1)
-            local eased = 1 - ((1 - progress) * (1 - progress) * (1 - progress))
-            self:SetHeight(startHeight + (delta * eased))
-            if progress >= 1 then
-                self:SetHeight(targetHeight)
-                self._mrAnimTick = nil
-                self:SetScript("OnUpdate", nil)
-            end
+        AnimateManagedFrameHeight(frame, targetHeight, function(self)
+            self:SetScript("OnUpdate", nil)
         end)
     end
 
@@ -472,7 +454,7 @@ local function BuildGatheringLocationsFrame(isRetry)
     frame:SetSize(width, minimized and TITLE_H or height)
     frame:SetBackdropColor(0.03, 0.05, 0.08, 0.97 * alpha)
     frame:SetBackdropBorderColor(0.22, 0.18, 0.28, alpha)
-    RestoreFramePos(frame, "gatheringLocPos", 860, 0)
+    RestoreManagedFramePos(frame, "gatheringLocPos", 860, 0)
     frame.leftAccent = nil
     frame.topAccent = TopAccent(frame, 0.80, 0.53, 0.20)
     if frame.leftAccent then frame.leftAccent:SetAlpha(alpha) end
@@ -492,26 +474,7 @@ local function BuildGatheringLocationsFrame(isRetry)
     titleBar:SetScript("OnDragStart", function() if not db.gatheringLocked then frame:StartMoving() end end)
     titleBar:SetScript("OnDragStop", function()
         frame:StopMovingOrSizing()
-        if headerBottom then
-            local left = frame:GetLeft()
-            local bottom = frame:GetBottom()
-            if left and bottom and MR.db then
-                MR:SetWindowLayoutValue("gatheringLocPos", { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left, y = bottom })
-                return
-            end
-        else
-            local left = frame:GetLeft()
-            local top = frame:GetTop()
-            if left and top and MR.db then
-                MR:SetWindowLayoutValue("gatheringLocPos", { point = "TOPLEFT", relPoint = "BOTTOMLEFT", x = left, y = top })
-                return
-            end
-        end
-
-        local point, _, relPoint, x, y = frame:GetPoint()
-        if MR.db then
-            MR:SetWindowLayoutValue("gatheringLocPos", { point = point, relPoint = relPoint, x = x, y = y })
-        end
+        SaveManagedFramePos(frame, "gatheringLocPos", headerBottom and "bottom" or "top")
     end)
     if MR.ApplyPanelHeaderAutoHide then MR:ApplyPanelHeaderAutoHide(frame, titleBar) end
 
@@ -858,40 +821,13 @@ local function BuildGatheringLocationsFrame(isRetry)
         if minBtn.RefreshLabel then minBtn:RefreshLabel() end
 
         if gatheringMinimized then
-            if headerBottom then
-                local left = frame:GetLeft()
-                local bottom = frame:GetBottom()
-                if left and bottom then
-                    frame:ClearAllPoints()
-                    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
-                    if MR.db then
-                        MR:SetWindowLayoutValue("gatheringLocPos", { point = "BOTTOMLEFT", relPoint = "BOTTOMLEFT", x = left, y = bottom })
-                    end
-                end
-            else
-                local left = frame:GetLeft()
-                local top  = frame:GetTop()
-                if left and top then
-                    frame:ClearAllPoints()
-                    frame:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", left, top)
-                    if MR.db then
-                        MR:SetWindowLayoutValue("gatheringLocPos", { point = "TOPLEFT", relPoint = "BOTTOMLEFT", x = left, y = top })
-                    end
-                end
-            end
+            SyncManagedFramePos(frame, "gatheringLocPos", headerBottom and "bottom" or "top")
             if frame._scroll then frame._scroll:Hide() end
             if frame._scrollTrack then frame._scrollTrack:Hide() end
             if frame._dragger then frame._dragger:Hide() end
             ApplyFrameHeight(frame, TITLE_H)
         else
-            if headerBottom then
-                local left = frame:GetLeft()
-                local bottom = frame:GetBottom()
-                if left and bottom then
-                    frame:ClearAllPoints()
-                    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", left, bottom)
-                end
-            end
+            SyncManagedFramePos(frame, "gatheringLocPos", headerBottom and "bottom" or "top")
             if frame._scroll then frame._scroll:Show() end
             if frame._scrollTrack then frame._scrollTrack:Show() end
             if frame._dragger then frame._dragger:Show() end
