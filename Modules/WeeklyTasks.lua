@@ -63,6 +63,11 @@ local VOID_ASSAULT_WEEKLIES = {
     { quest = 94386, name = L["Zone_ZulAman"] or "Zul'Aman" },
 }
 
+local RITUAL_SITE_WEEKLIES = {
+    { quest = 94880, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+    { quest = 94878, name = L["Zone_ZulAman"] or "Zul'Aman" },
+}
+
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
     [2395] = true,
@@ -98,6 +103,14 @@ end
 
 local function GetMapName(_, fallback)
     return fallback
+end
+
+local function NormalizeActivityText(text)
+    if type(text) ~= "string" then
+        return ""
+    end
+
+    return text:lower():gsub("[^%a%d]", "")
 end
 
 local function ResolveVariantName(variant)
@@ -232,6 +245,37 @@ local function CollectQuestVariants(variants)
     return completed, active
 end
 
+local function FindActivityZoneFromAreaPois(matchTerms)
+    if not (C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap and C_AreaPoiInfo.GetAreaPOIInfo) then
+        return nil, nil
+    end
+
+    local zones = {
+        { mapId = 2395, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+        { mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
+    }
+
+    for _, zone in ipairs(zones) do
+        local poiIds = C_AreaPoiInfo.GetAreaPOIForMap(zone.mapId)
+        if poiIds then
+            for _, poiId in ipairs(poiIds) do
+                local info = C_AreaPoiInfo.GetAreaPOIInfo(zone.mapId, poiId)
+                local poiName = info and info.name
+                local normalized = NormalizeActivityText(poiName)
+                if normalized ~= "" then
+                    for _, term in ipairs(matchTerms) do
+                        if normalized:find(term, 1, true) then
+                            return zone.name, poiName
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return nil, nil
+end
+
 function MR:DebugSpecialAssignments()
     print("|cff2ae7c6[MidnightRoutine]|r Special Assignment debug:")
 
@@ -272,7 +316,11 @@ MR:RegisterModule({
         db[mod.key]["arcantina_completed_name"] = nil
         db[mod.key]["arcantina_completed_names"] = nil
         db[mod.key]["void_assault_active_name"] = nil
+        db[mod.key]["void_assault_active_poi_name"] = nil
         db[mod.key]["void_assault_completed_name"] = nil
+        db[mod.key]["ritual_site_active_name"] = nil
+        db[mod.key]["ritual_site_active_poi_name"] = nil
+        db[mod.key]["ritual_site_completed_name"] = nil
 
         local completedAssignments, activeAssignments = CollectSpecialAssignments()
         local totalAssignments = math.max(#completedAssignments + #activeAssignments, 1)
@@ -342,9 +390,13 @@ MR:RegisterModule({
         end
 
         local completedVoidAssaultWeeklies, activeVoidAssaultWeeklies = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
+        local activeVoidAssaultZone, activeVoidAssaultPoiName = FindActivityZoneFromAreaPois({ "voidstrike", "voidincursion", "voidassault" })
         if #activeVoidAssaultWeeklies > 0 then
             db[mod.key]["void_assault_active_name"] = activeVoidAssaultWeeklies[1].name
+        elseif activeVoidAssaultZone then
+            db[mod.key]["void_assault_active_name"] = activeVoidAssaultZone
         end
+        db[mod.key]["void_assault_active_poi_name"] = activeVoidAssaultPoiName
         if #completedVoidAssaultWeeklies > 0 then
             db[mod.key]["void_assault_completed_name"] = completedVoidAssaultWeeklies[1].name
         end
@@ -355,8 +407,36 @@ MR:RegisterModule({
                 if metaDone or #completedVoidAssaultWeeklies > 0 then
                     row.countText = db[mod.key]["void_assault_completed_name"] or (L["Done"] or "Done")
                     row.countColor = { 0.4, 0.85, 0.4 }
-                elseif #activeVoidAssaultWeeklies > 0 then
+                elseif db[mod.key]["void_assault_active_name"] then
                     row.countText = db[mod.key]["void_assault_active_name"]
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
+        local completedRitualSiteWeeklies, activeRitualSiteWeeklies = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
+        local activeRitualSiteZone, activeRitualSitePoiName = FindActivityZoneFromAreaPois({ "ritualsite" })
+        if #activeRitualSiteWeeklies > 0 then
+            db[mod.key]["ritual_site_active_name"] = activeRitualSiteWeeklies[1].name
+        elseif activeRitualSiteZone then
+            db[mod.key]["ritual_site_active_name"] = activeRitualSiteZone
+        end
+        db[mod.key]["ritual_site_active_poi_name"] = activeRitualSitePoiName
+        if #completedRitualSiteWeeklies > 0 then
+            db[mod.key]["ritual_site_completed_name"] = completedRitualSiteWeeklies[1].name
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "ritual_sites" then
+                if db[mod.key]["ritual_site_completed_name"] or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
+                    row.countText = db[mod.key]["ritual_site_completed_name"] or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif db[mod.key]["ritual_site_active_name"] then
+                    row.countText = db[mod.key]["ritual_site_active_name"]
                     row.countColor = { 1, 0.9, 0.3 }
                 else
                     row.countText = nil
@@ -540,6 +620,7 @@ MR:RegisterModule({
                 local s1db = MR.db.char.progress["s1_weekly"] or {}
                 local completedName = s1db["void_assault_completed_name"]
                 local activeName = s1db["void_assault_active_name"]
+                local activePoiName = s1db["void_assault_active_poi_name"]
 
                 tip:AddLine(" ")
                 if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842)) then
@@ -548,6 +629,9 @@ MR:RegisterModule({
                 elseif activeName or #activeVariants > 0 then
                     tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
                     tip:AddLine("  " .. (activeName or activeVariants[1].name), 1, 0.9, 0.3)
+                    if activePoiName then
+                        tip:AddLine("    " .. activePoiName, 0.65, 0.82, 1)
+                    end
                 else
                     tip:AddLine(L["Tooltip_No_VoidAssaults"] or "|cffaaaaaa? No Void Assault weekly detected.|r", 1, 1, 1)
                     tip:AddLine(L["Tooltip_Visit_VoidAssaults"] or "  Visit the active assault zone in Eversong Woods or Zul'Aman.", 0.7, 0.7, 0.7)
@@ -559,15 +643,24 @@ MR:RegisterModule({
             label    = L["Weekly_RitualSites_Label"] or "|cff2ae7c6Ritual Sites:|r",
             max      = 1,
             note     = L["Weekly_RitualSites_Note"] or "Complete a Ritual Site in Midnight for a Spark of Radiance.",
-            questIds = { 95843 },
+            questIds = { 95843, 94880, 94878 },
             tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
+                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local completedName = s1db["ritual_site_completed_name"]
+                local activeName = s1db["ritual_site_active_name"]
+                local activePoiName = s1db["ritual_site_active_poi_name"]
+
                 tip:AddLine(" ")
-                if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843) then
+                if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (L["Weekly_RitualSites_Label"] or "Ritual Sites"), 0.4, 0.85, 0.4)
-                elseif IsQuestCurrentlyActive(95843) then
+                    tip:AddLine("  " .. (completedName or completedVariants[1].name or (L["Done"] or "Done")), 0.4, 0.85, 0.4)
+                elseif activeName or #activeVariants > 0 or IsQuestCurrentlyActive(95843) then
                     tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (L["Weekly_RitualSites_Label"] or "Ritual Sites"), 1, 0.9, 0.3)
+                    tip:AddLine("  " .. (activeName or activeVariants[1].name or (L["Weekly_RitualSites_Label"] or "Ritual Sites")), 1, 0.9, 0.3)
+                    if activePoiName then
+                        tip:AddLine("    " .. activePoiName, 0.65, 0.82, 1)
+                    end
                 else
                     tip:AddLine(L["Tooltip_No_RitualSites"] or "|cffaaaaaa? Ritual Sites weekly not yet detected.|r", 1, 1, 1)
                     tip:AddLine(L["Tooltip_Visit_RitualSites"] or "  Complete a Ritual Site in the active location to reveal this week's progress.", 0.7, 0.7, 0.7)

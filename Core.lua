@@ -2581,7 +2581,7 @@ function MR:OnQuestDataChanged()
 end
 
 function MR:OnAreaPoisUpdated()
-    self:RefreshModuleScans({ "delves" }, true)
+    self:RefreshModuleScans({ "delves", "s1_weekly" }, true)
 end
 
 function MR:OnQuestTurnedIn(_, questID)
