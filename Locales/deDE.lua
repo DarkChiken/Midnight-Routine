@@ -516,6 +516,10 @@ L["Tooltip_No_RitualSites"] = "|cffaaaaaa? Wöchentlich Ritualstätten noch nich
 L["Tooltip_Visit_RitualSites"] = "Schließe eine Ritualstätte am aktuellen Standort ab, um den Fortschritt dieser Woche anzuzeigen."
 L["Tooltip_No_Voidforge"] = "|cffaaaaaa? Ein Elementaren Leerenkern ist noch nicht aktiv.|r"
 L["Tooltip_Visit_Voidforge"] = "Besuche Decimus in Voidstorm, sobald die Quest zum Bau der Leerenschmiede verfügbar ist."
+L["Weekly_AbyssAnglers_Label"] = "|cff2ae7c6Abyss-Angler:|r"
+L["Weekly_AbyssAnglers_Note"] = "Schließe einen Tauchgang der Abyss-Angler in Zul'Aman ab. Dies deckt die neue wöchentlich begrenzte Aktivität mit bis zu 3 Käufen von Verschmolzener Vitalität ab."
+L["Tooltip_No_AbyssAnglers"] = "|cffaaaaaa? Abyss-Angler wurden diese Woche noch nicht erkannt.|r"
+L["Tooltip_Visit_AbyssAnglers"] = "Besuche Tiefentaucher Jeju vor der Küste von Zul'Aman, um einen Tauchgang zu starten."
 
 -- WorldEvents
 L["DMF_Title"] = "Dunkelmond-Jahrmarkt"

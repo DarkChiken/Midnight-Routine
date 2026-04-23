@@ -511,6 +511,10 @@ L["Tooltip_No_RitualSites"] = "|cffaaaaaa? Ritual Sites weekly not yet detected.
 L["Tooltip_Visit_RitualSites"] = "  Complete a Ritual Site in the active location to reveal this week's progress."
 L["Tooltip_No_Voidforge"] = "|cffaaaaaa? An Elementary Voidcore is not yet active.|r"
 L["Tooltip_Visit_Voidforge"] = "  Visit Decimus in Voidstorm when the Voidforge construction quest is available."
+L["Weekly_AbyssAnglers_Label"] = "|cff2ae7c6Pescadores del Abismo:|r"
+L["Weekly_AbyssAnglers_Note"] = "Completa una inmersión de Pescadores del Abismo en Zul'Aman. Esto cubre la nueva actividad con límite semanal vinculada a hasta 3 compras de Vitalidad Fusionada."
+L["Tooltip_No_AbyssAnglers"] = "|cffaaaaaa? Pescadores del Abismo aún no detectados esta semana.|r"
+L["Tooltip_Visit_AbyssAnglers"] = "  Visita a Buceador Profundo Jeju frente a la costa de Zul'Aman para iniciar una inmersión."
 
 -- WorldEvents
 L["DMF_Title"] = "Feria de la Luna Negra"

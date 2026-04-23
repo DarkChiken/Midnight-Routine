@@ -511,6 +511,10 @@ L["Tooltip_No_RitualSites"] = "|cffaaaaaa? Ritual Sites weekly not yet detected.
 L["Tooltip_Visit_RitualSites"] = "  Complete a Ritual Site in the active location to reveal this week's progress."
 L["Tooltip_No_Voidforge"] = "|cffaaaaaa? An Elementary Voidcore is not yet active.|r"
 L["Tooltip_Visit_Voidforge"] = "  Visit Decimus in Voidstorm when the Voidforge construction quest is available."
+L["Weekly_AbyssAnglers_Label"] = "|cff2ae7c6Pêcheurs des Abysses :|r"
+L["Weekly_AbyssAnglers_Note"] = "Terminez une plongée des Pêcheurs des Abysses à Zul'Aman. Cela couvre la nouvelle activité à limite hebdomadaire liée à jusqu'à 3 achats de Vitalité fusionnée."
+L["Tooltip_No_AbyssAnglers"] = "|cffaaaaaa? Les Pêcheurs des Abysses n'ont pas encore été détectés cette semaine.|r"
+L["Tooltip_Visit_AbyssAnglers"] = "  Rendez visite à Plongeur des profondeurs Jeju au large de Zul'Aman pour commencer une plongée."
 
 -- WorldEvents
 L["DMF_Title"] = "Foire de Sombrelune"

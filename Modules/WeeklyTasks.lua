@@ -68,6 +68,9 @@ local RITUAL_SITE_WEEKLIES = {
     { quest = 94878, name = L["Zone_ZulAman"] or "Zul'Aman" },
 }
 
+local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
+local ABYSS_ANGLERS_INTRO_QUEST_ID = 96388
+
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
     [2395] = true,
@@ -132,6 +135,15 @@ local function ResolveVariantName(variant)
     end
 
     return MR:GetQuestName(variant.quest, variant.name)
+end
+
+local function GetVariantName(variants, index, fallback)
+    local variant = variants and variants[index or 1]
+    return (variant and variant.name) or fallback
+end
+
+local function GetVariantDisplayName(variant, fallback)
+    return (variant and variant.name) or fallback or "Unknown"
 end
 
 local function IsQuestCurrentlyActive(questId)
@@ -578,6 +590,28 @@ MR:RegisterModule({
             end
         end
 
+        for _, row in ipairs(mod.rows) do
+            if row.key == "abyss_anglers" then
+                local isDone = (tonumber(db[mod.key]["abyss_anglers"]) or 0) > 0
+                    or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID))
+                local isActive = IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
+                    or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID)
+
+                db[mod.key]["abyss_anglers"] = isDone and 1 or 0
+                if isDone then
+                    row.countText = L["Done"] or "Done"
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif isActive then
+                    row.countText = L["Weekly_SA_Count_ActiveSingle"] or "Active"
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
         local activeUATVBranch = FindActiveQuestVariant(UATV_BRANCHES)
         db[mod.key]["uatv_branch_name"] = activeUATVBranch and activeUATVBranch.name or nil
         db[mod.key]["uatv_branch_quest"] = activeUATVBranch and activeUATVBranch.quest or nil
@@ -669,14 +703,15 @@ MR:RegisterModule({
                 local completedName = s1db["void_assault_completed_name"]
                 local activeName = s1db["void_assault_active_name"]
                 local activePoiName = s1db["void_assault_active_poi_name"]
+                local fallbackName = L["Done"] or "Done"
 
                 tip:AddLine(" ")
                 if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842)) then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (completedName or completedVariants[1].name or (L["Done"] or "Done")), 0.4, 0.85, 0.4)
+                    tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
                 elseif activeName or #activeVariants > 0 then
                     tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (activeName or activeVariants[1].name), 1, 0.9, 0.3)
+                    tip:AddLine("  " .. (activeName or GetVariantName(activeVariants, 1, L["Weekly_VoidAssaults_Label"] or "Void Assaults")), 1, 0.9, 0.3)
                     if activePoiName then
                         tip:AddLine("    " .. activePoiName, 0.65, 0.82, 1)
                     end
@@ -698,14 +733,15 @@ MR:RegisterModule({
                 local completedName = s1db["ritual_site_completed_name"]
                 local activeName = s1db["ritual_site_active_name"]
                 local activePoiName = s1db["ritual_site_active_poi_name"]
+                local fallbackName = L["Done"] or "Done"
 
                 tip:AddLine(" ")
                 if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (completedName or completedVariants[1].name or (L["Done"] or "Done")), 0.4, 0.85, 0.4)
+                    tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
                 elseif activeName or #activeVariants > 0 or IsQuestCurrentlyActive(95843) then
                     tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (activeName or activeVariants[1].name or (L["Weekly_RitualSites_Label"] or "Ritual Sites")), 1, 0.9, 0.3)
+                    tip:AddLine("  " .. (activeName or GetVariantName(activeVariants, 1, L["Weekly_RitualSites_Label"] or "Ritual Sites")), 1, 0.9, 0.3)
                     if activePoiName then
                         tip:AddLine("    " .. activePoiName, 0.65, 0.82, 1)
                     end
@@ -736,6 +772,26 @@ MR:RegisterModule({
             end,
         },
         {
+            key      = "abyss_anglers",
+            label    = L["Weekly_AbyssAnglers_Label"] or "|cff2ae7c6Abyss Anglers:|r",
+            max      = 1,
+            note     = L["Weekly_AbyssAnglers_Note"] or "Complete an Abyss Anglers dive in Zul'Aman. This helps cover the new weekly-capped activity tied to up to 3 Fused Vitality purchases.",
+            questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID },
+            tooltipFunc = function(tip)
+                tip:AddLine(" ")
+                if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_AbyssAnglers_Label"] or "Abyss Anglers"), 0.4, 0.85, 0.4)
+                elseif IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID) or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID) then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_AbyssAnglers_Label"] or "Abyss Anglers"), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_AbyssAnglers"] or "|cffaaaaaa? Abyss Anglers not yet detected this week.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_AbyssAnglers"] or "  Visit Depthdiver Jeju off the coast of Zul'Aman to start a dive.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
             key      = "arcantina_weekly",
             label    = L["Weekly_Arcantina_Label"],
             max      = 1,
@@ -749,12 +805,12 @@ MR:RegisterModule({
                 if #activeVariants > 0 then
                     tip:AddLine(L["Tooltip_Active_Week"], 1, 1, 1)
                     for _, variant in ipairs(activeVariants) do
-                        tip:AddLine("  " .. variant.name, 1, 0.9, 0.3)
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 1, 0.9, 0.3)
                     end
                 elseif #completedVariants > 0 then
                     tip:AddLine(L["Tooltip_Done_Completed"], 1, 1, 1)
                     for _, variant in ipairs(completedVariants) do
-                        tip:AddLine("  " .. variant.name, 0.4, 0.85, 0.4)
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 0.4, 0.85, 0.4)
                     end
                 else
                     tip:AddLine(L["Tooltip_No_Arcantina"], 1, 1, 1)
@@ -775,12 +831,12 @@ MR:RegisterModule({
                 if #activeVariants > 0 then
                     tip:AddLine(L["Tooltip_Active_Week"], 1, 1, 1)
                     for _, variant in ipairs(activeVariants) do
-                        tip:AddLine("  " .. variant.name, 1, 0.9, 0.3)
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 1, 0.9, 0.3)
                     end
                 elseif #completedVariants > 0 then
                     tip:AddLine(L["Tooltip_Done_Completed"], 1, 1, 1)
                     for _, variant in ipairs(completedVariants) do
-                        tip:AddLine("  " .. variant.name, 0.4, 0.85, 0.4)
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 0.4, 0.85, 0.4)
                     end
                 else
                     tip:AddLine(L["Tooltip_No_Halduron"], 1, 1, 1)
