@@ -207,6 +207,26 @@ local function ResetZoneColor(zone)
     if db.raresColors then db.raresColors[zone.key] = nil end
 end
 
+local function IsAchievementCriteriaCompleted(achievementId, criteriaIndex)
+    if not achievementId or not criteriaIndex then
+        return false
+    end
+
+    if type(GetAchievementNumCriteria) == "function" then
+        local numCriteria = GetAchievementNumCriteria(achievementId)
+        if not numCriteria or criteriaIndex > numCriteria then
+            return false
+        end
+    end
+
+    local ok, _, _, completed = pcall(GetAchievementCriteriaInfo, achievementId, criteriaIndex)
+    if not ok then
+        return false
+    end
+
+    return completed == true
+end
+
 local function GetZoneStatus(zone)
     local numDone = 0
     local status  = {}
@@ -219,8 +239,7 @@ local function GetZoneStatus(zone)
                            or (flagged and "today")
                            or nil
         local weekly = killStatus ~= nil
-        local _, _, ever = GetAchievementCriteriaInfo(zone.achievId, i)
-        ever = ever == true
+        local ever = IsAchievementCriteriaCompleted(zone.achievId, i)
         if weekly then numDone = numDone + 1 end
         status[i] = { name = name, weekly = weekly, ever = ever, killStatus = killStatus }
     end
@@ -725,7 +744,7 @@ BuildRaresFrame = function()
                 if flagged then SyncRareKillRecord(questId) end
                 local killStat = (questId and GetRareKillStatus(questId))
                                  or (flagged and "today") or nil
-                local _, _, achieved = GetAchievementCriteriaInfo(zone.achievId, zoneIdx)
+                local achieved = IsAchievementCriteriaCompleted(zone.achievId, zoneIdx)
                 GameTooltip:SetOwner(hit, "ANCHOR_RIGHT")
                 GameTooltip:ClearLines()
                 GameTooltip:AddLine(rare[1], 1, 1, 1)
@@ -885,8 +904,7 @@ RefreshRaresFrame = function()
                         if flagged then SyncRareKillRecord(questId) end
                         local killStat = (questId and GetRareKillStatus(questId))
                                          or (flagged and "today") or nil
-                        local _, _, ever = GetAchievementCriteriaInfo(zone.achievId, zoneIdx)
-                        ever = ever == true
+                        local ever = IsAchievementCriteriaCompleted(zone.achievId, zoneIdx)
                         if killStat == "today" then
                             dot:SetColorTexture(0.12, 0.88, 0.50, 1)
                             lbl:SetTextColor(0.30, 0.72, 0.40)
