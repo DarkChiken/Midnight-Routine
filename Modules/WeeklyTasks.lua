@@ -594,6 +594,7 @@ MR:RegisterModule({
             if row.key == "abyss_anglers" then
                 local isDone = (tonumber(db[mod.key]["abyss_anglers"]) or 0) > 0
                     or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID))
+                    or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_INTRO_QUEST_ID))
                 local isActive = IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
                     or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID)
 
@@ -751,35 +752,38 @@ MR:RegisterModule({
                 end
             end,
         },
-        {
-            key      = "elementary_voidcore",
-            label    = L["Weekly_Voidforge_Label"] or "|cff2ae7c6An Elementary Voidcore:|r",
-            max      = 1,
-            note     = L["Weekly_Voidforge_Note"] or "Collect 3 Elementary Voidcore Shards for Decimus. This repeating construction quest advances the Voidforge unlock.",
-            questIds = { 94625 },
-            tooltipFunc = function(tip)
-                tip:AddLine(" ")
-                if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(94625) then
-                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 0.4, 0.85, 0.4)
-                elseif IsQuestCurrentlyActive(94625) then
-                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
-                    tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 1, 0.9, 0.3)
-                else
-                    tip:AddLine(L["Tooltip_No_Voidforge"] or "|cffaaaaaa? An Elementary Voidcore is not yet active.|r", 1, 1, 1)
-                    tip:AddLine(L["Tooltip_Visit_Voidforge"] or "  Visit Decimus in Voidstorm when the Voidforge construction quest is available.", 0.7, 0.7, 0.7)
-                end
-            end,
-        },
+        -- {
+        --     key      = "elementary_voidcore",
+        --     label    = L["Weekly_Voidforge_Label"] or "|cff2ae7c6An Elementary Voidcore:|r",
+        --     max      = 1,
+        --     note     = L["Weekly_Voidforge_Note"] or "Collect 3 Elementary Voidcore Shards for Decimus. This repeating construction quest advances the Voidforge unlock.",
+        --     questIds = { 94625 },
+        --     tooltipFunc = function(tip)
+        --         tip:AddLine(" ")
+        --         if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(94625) then
+        --             tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+        --             tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 0.4, 0.85, 0.4)
+        --         elseif IsQuestCurrentlyActive(94625) then
+        --             tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+        --             tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 1, 0.9, 0.3)
+        --         else
+        --             tip:AddLine(L["Tooltip_No_Voidforge"] or "|cffaaaaaa? An Elementary Voidcore is not yet active.|r", 1, 1, 1)
+        --             tip:AddLine(L["Tooltip_Visit_Voidforge"] or "  Visit Decimus in Voidstorm when the Voidforge construction quest is available.", 0.7, 0.7, 0.7)
+        --         end
+        --     end,
+        -- },
         {
             key      = "abyss_anglers",
             label    = L["Weekly_AbyssAnglers_Label"] or "|cff2ae7c6Abyss Anglers:|r",
             max      = 1,
             note     = L["Weekly_AbyssAnglers_Note"] or "Complete an Abyss Anglers dive in Zul'Aman. This helps cover the new weekly-capped activity tied to up to 3 Fused Vitality purchases.",
-            questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID },
+            questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID, ABYSS_ANGLERS_INTRO_QUEST_ID },
             tooltipFunc = function(tip)
                 tip:AddLine(" ")
-                if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID) then
+                if C_QuestLog.IsQuestFlaggedCompleted and (
+                    C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
+                    or C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_INTRO_QUEST_ID)
+                ) then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
                     tip:AddLine("  " .. (L["Weekly_AbyssAnglers_Label"] or "Abyss Anglers"), 0.4, 0.85, 0.4)
                 elseif IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID) or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID) then

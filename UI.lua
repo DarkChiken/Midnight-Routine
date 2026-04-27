@@ -302,6 +302,7 @@ local MODULE_HEADER_ICON_KEYS = {
     pvp_weeklies = true,
     lfr_s1 = true,
     s1_weekly = true,
+    timewalking = true,
     world_bosses = true,
     prof_alchemy = true,
     prof_blacksmithing = true,
@@ -357,6 +358,8 @@ local ROW_ICON_FALLBACKS = {
     fortify_runestones  = { texture = "Interface\\Icons\\INV_Stone_15" },
     unity_against_void  = { texture = "Interface\\Icons\\Spell_Shadow_ArcaneTorrent" },
     special_assignment  = { texture = "Interface\\Icons\\INV_Letter_15" },
+    tw_dungeon          = { texture = "Interface\\LFGFrame\\LFGICON-HEROICDUNGEON" },
+    tw_raid             = { texture = "Interface\\LFGFrame\\LFGICON-RAIDFINDER" },
 }
 
 local function NormalizeIconInfo(info)
@@ -3932,7 +3935,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     end
 
     local isCurrencyRow = row.currencyId and row.max and row.max > 0 and not row.noMax
-    local hasCoordText  = hasWaypoint
+    local hasCoordText  = hasWaypoint and not row.hideCoordText
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
     local lbl = rowFrame:CreateFontString(nil, "OVERLAY")

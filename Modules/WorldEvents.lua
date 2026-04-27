@@ -3,15 +3,6 @@ local MR = ns.MR
 
 local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
 
-local HOLIDAY_TIMEWALKING = {
-    1056,
-    1063,
-    1326,
-    1400,
-    1404,
-    1500,
-}
-
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
     [2395] = true,
@@ -30,20 +21,6 @@ local WORLD_BOSS_ROTATION = {
 
 local WEEK_SECONDS = 7 * 24 * 60 * 60
 local MIDNIGHT_SEASON_START_RESET = 1773727200
-
-local function IsHolidayActive(holidayId)
-    if not C_DateAndTime or not C_DateAndTime.GetHolidayInfo then return false end
-    local info = C_DateAndTime.GetHolidayInfo(holidayId)
-    return info ~= nil and info.startTime ~= nil and GetServerTime() >= info.startTime and GetServerTime() <= info.endTime
-end
-
-local function IsTimewalkingActive()
-    for _, id in ipairs(HOLIDAY_TIMEWALKING) do
-        if IsHolidayActive(id) then return true end
-    end
-    return false
-end
-
 local function NormalizeText(text)
     if type(text) ~= "string" then
         return ""
@@ -247,24 +224,5 @@ MR:RegisterModule({
         { key = "cragpine",   label = L["WB_Cragpine_Label"],   note = L["WB_Cragpine_Note"],   max = 1, autoTracked = true, isVisible = function() return IsActiveWorldBossRow("cragpine") end },
         { key = "thormbelan", label = L["WB_Thormbelan_Label"], note = L["WB_Thormbelan_Note"], max = 1, autoTracked = true, isVisible = function() return IsActiveWorldBossRow("thormbelan") end },
         { key = "predaxas",   label = L["WB_Predaxas_Label"],   note = L["WB_Predaxas_Note"],   max = 1, autoTracked = true, isVisible = function() return IsActiveWorldBossRow("predaxas") end },
-    },
-})
-
-MR:RegisterModule({
-    key         = "timewalking",
-    label       = L["TW_DungeonTitle"],
-    labelColor  = "#66ccff",
-    resetType   = "weekly",
-    defaultOpen = true,
-    isVisible   = IsTimewalkingActive,
-
-    rows = {
-        {
-            key      = "tw_weekly",
-            label    = L["TW_Weekly_Label"],
-            max      = 1,
-            note     = L["TW_Weekly_Note"],
-            questIds = { 40753, 40173, 40786, 40785, 45566, 62786 },
-        },
     },
 })
