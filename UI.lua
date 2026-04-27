@@ -944,6 +944,13 @@ local function WBSetAltBoardView(view)
     end
 end
 
+local function WBShouldHideCompletedCharacters()
+    return MR
+        and MR.db
+        and MR.db.profile
+        and MR.db.profile.altBoardHideCompleted == true
+end
+
 local function WBCreateScrollArea(parent, topLeftAnchor, bottomRightAnchor)
     local scroll = CreateFrame("ScrollFrame", nil, parent)
     scroll:SetPoint(topLeftAnchor[1], topLeftAnchor[2], topLeftAnchor[3], topLeftAnchor[4], topLeftAnchor[5])
@@ -1345,6 +1352,16 @@ function MR:RefreshWarbandBoard()
     if frame.showHiddenBtn and frame.showHiddenBtn._label then
         frame.showHiddenBtn._label:SetText(MR.db.profile.altBoardShowHidden and (L["AltBoard_HideHidden"] or "Hide Hidden") or (L["AltBoard_ShowHidden"] or "Show Hidden"))
     end
+    if frame.hideCompletedBtn and frame.hideCompletedBtn._label then
+        frame.hideCompletedBtn._label:SetText(MR.db.profile.altBoardHideCompleted and (L["AltBoard_ShowCompleted"] or "Show Completed") or (L["AltBoard_HideCompleted"] or "Hide Completed"))
+        if activeView == "character" then
+            frame.hideCompletedBtn:Show()
+            if frame.detailFilterBar then frame.detailFilterBar:Show() end
+        else
+            frame.hideCompletedBtn:Hide()
+            if frame.detailFilterBar then frame.detailFilterBar:Hide() end
+        end
+    end
 
     if not selected then
         frame.heroName:SetText(L["AltBoard_NoTrackedCharacters"] or "No tracked characters yet")
@@ -1591,6 +1608,9 @@ function MR:RefreshWarbandBoard()
     if frame.concentrationPane then
         frame.concentrationPane:SetHeight(concentrationHeight)
     end
+    if frame.detailEmptyLabel then
+        frame.detailEmptyLabel:Hide()
+    end
 
     local detailWidth = math.max((frame.detailScroll and frame.detailScroll:GetWidth() or 540) - 8, 320)
     frame.detailContent:SetWidth(detailWidth)
@@ -1610,7 +1630,17 @@ function MR:RefreshWarbandBoard()
 
     local yOff = 0
 
+    local hideCompletedRows = WBShouldHideCompletedCharacters()
+
     for _, moduleEntry in ipairs(selected.modules) do
+        local visibleRows = {}
+        for _, rowEntry in ipairs(moduleEntry.rows) do
+            if not (hideCompletedRows and rowEntry.complete) then
+                table.insert(visibleRows, rowEntry)
+            end
+        end
+
+        if not (hideCompletedRows and #visibleRows == 0) then
         local card = CreateFrame("Frame", nil, frame.detailContent, "BackdropTemplate")
         card:SetPoint("TOPLEFT", frame.detailContent, "TOPLEFT", 0, -yOff)
         card:SetSize(1, 1)
@@ -1674,7 +1704,7 @@ function MR:RefreshWarbandBoard()
 
         local moduleY = 34
         if not isCollapsed then
-            for _, rowEntry in ipairs(moduleEntry.rows) do
+            for _, rowEntry in ipairs(visibleRows) do
                 local row = CreateFrame("Frame", nil, card)
                 row:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -moduleY)
                 row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -10, -moduleY)
@@ -1728,9 +1758,18 @@ function MR:RefreshWarbandBoard()
         card:SetHeight(moduleY + 10)
         table.insert(frame.detailWidgets, card)
         yOff = yOff + moduleY + 18
+        end
     end
 
-    frame.detailContent:SetHeight(math.max(yOff, 1))
+    if yOff == 0 and hideCompletedRows and frame.detailEmptyLabel then
+        frame.detailEmptyLabel:SetPoint("TOPLEFT", frame.detailContent, "TOPLEFT", 8, -6)
+        frame.detailEmptyLabel:SetPoint("TOPRIGHT", frame.detailContent, "TOPRIGHT", -8, -6)
+        frame.detailEmptyLabel:SetText(L["AltBoard_NoIncompleteRows"] or "No incomplete rows to show.")
+        frame.detailEmptyLabel:Show()
+        frame.detailContent:SetHeight(40)
+    else
+        frame.detailContent:SetHeight(math.max(yOff, 1))
+    end
     if frame.detailScrollUpdate then
         frame.detailScrollUpdate()
     end
@@ -1949,12 +1988,53 @@ function MR:ToggleWarbandBoard()
         concentrationStatus:SetJustifyH("LEFT")
         concentrationStatus:SetTextColor(0.70, 0.78, 0.88)
 
+        local detailFilterBar = CreateFrame("Frame", nil, rightPane)
+        detailFilterBar:SetPoint("TOPLEFT", concentrationPane, "BOTTOMLEFT", 0, -12)
+        detailFilterBar:SetPoint("TOPRIGHT", concentrationPane, "BOTTOMRIGHT", 0, -12)
+        detailFilterBar:SetHeight(20)
+
+        local hideCompletedBtn = CreateFrame("Button", nil, detailFilterBar, "BackdropTemplate")
+        hideCompletedBtn:SetSize(112, 18)
+        hideCompletedBtn:SetPoint("TOPRIGHT", detailFilterBar, "TOPRIGHT", -2, 0)
+        hideCompletedBtn:SetBackdrop(MakeBackdrop())
+        hideCompletedBtn:SetBackdropColor(0.05, 0.10, 0.18, 0.95)
+        hideCompletedBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+        local hideCompletedLabel = hideCompletedBtn:CreateFontString(nil, "OVERLAY")
+        hideCompletedLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
+        hideCompletedLabel:SetPoint("LEFT", hideCompletedBtn, "LEFT", 6, 0)
+        hideCompletedLabel:SetPoint("RIGHT", hideCompletedBtn, "RIGHT", -6, 0)
+        hideCompletedLabel:SetJustifyH("CENTER")
+        hideCompletedLabel:SetText(L["AltBoard_HideCompleted"] or "Hide Completed")
+        hideCompletedLabel:SetTextColor(0.70, 0.88, 0.85)
+        hideCompletedBtn._label = hideCompletedLabel
+
+        hideCompletedBtn:SetScript("OnClick", function()
+            MR.db.profile.altBoardHideCompleted = not MR.db.profile.altBoardHideCompleted
+            MR:RefreshWarbandBoard()
+        end)
+        hideCompletedBtn:SetScript("OnEnter", function(selfBtn)
+            selfBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
+            selfBtn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
+            hideCompletedLabel:SetTextColor(1, 1, 1)
+        end)
+        hideCompletedBtn:SetScript("OnLeave", function(selfBtn)
+            selfBtn:SetBackdropColor(0.05, 0.10, 0.18, 0.95)
+            selfBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+            hideCompletedLabel:SetTextColor(0.70, 0.88, 0.85)
+        end)
+
         local detailScroll, detailContent, detailScrollUpdate = WBCreateScrollArea(
             rightPane,
-            { "TOPLEFT", concentrationPane, "BOTTOMLEFT", 0, -12 },
+            { "TOPLEFT", detailFilterBar, "BOTTOMLEFT", 0, -8 },
             { "BOTTOMRIGHT", rightPane, "BOTTOMRIGHT", -10, 10 }
         )
         detailContent:SetSize(520, 1)
+        local detailEmptyLabel = detailContent:CreateFontString(nil, "OVERLAY")
+        detailEmptyLabel:SetFont(FONT_ROWS, math.max(9, GetFontSize()), GetFontFlags())
+        detailEmptyLabel:SetJustifyH("LEFT")
+        detailEmptyLabel:SetTextColor(0.68, 0.74, 0.84)
+        detailEmptyLabel:Hide()
 
         local overviewScroll, overviewContent, overviewScrollUpdate = WBCreateScrollArea(
             rightPane,
@@ -1979,6 +2059,8 @@ function MR:ToggleWarbandBoard()
         frame.detailScroll = detailScroll
         frame.detailScrollUpdate = detailScrollUpdate
         frame.detailContent = detailContent
+        frame.detailEmptyLabel = detailEmptyLabel
+        frame.detailFilterBar = detailFilterBar
         frame.overviewScroll = overviewScroll
         frame.overviewScrollUpdate = overviewScrollUpdate
         frame.overviewContent = overviewContent
@@ -1993,12 +2075,14 @@ function MR:ToggleWarbandBoard()
         frame.concentrationStatus = concentrationStatus
         frame.leftPane = leftPane
         frame.showHiddenBtn = showHiddenBtn
+        frame.hideCompletedBtn = hideCompletedBtn
         frame.heroName = heroName
         frame.heroMeta = heroMeta
         frame.heroStatus = heroStatus
         frame.titleText = title
         frame.leftLabel = leftLabel
         frame.showHiddenLabel = showHiddenLabel
+        frame.hideCompletedLabel = hideCompletedLabel
         frame.tabBar = tabBar
         frame.altTabs = {
             character = characterTab,
@@ -3388,6 +3472,9 @@ function MR:ApplySharedMediaSettings()
         end
         if frame.showHiddenLabel then
             frame.showHiddenLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
+        end
+        if frame.hideCompletedLabel then
+            frame.hideCompletedLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
         end
         if frame.heroName then
             frame.heroName:SetFont(FONT_HEADERS, math.max(13, fontSize + 3), GetFontFlags())
