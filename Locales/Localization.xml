@@ -6,6 +6,7 @@
 	<Script file="esMX.lua"/>
 	<Script file="deDE.lua"/>
 	<Script file="ruRU.lua"/>
+    <Script file="koKR.lua"/>
 </Ui>
 
 
