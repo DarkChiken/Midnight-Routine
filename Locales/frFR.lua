@@ -101,6 +101,7 @@ L["Config_RowsCollapsed"] = "Lignes terminées réduites — cliquez pour dével
 L["Config_RowsShown"] = "Lignes terminées affichées — cliquez pour réduire"
 L["Config_ExpandCollapseRows"] = "Développer/réduire les lignes"
 
+L["%d / %d complete"] = "%d / %d complete"
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6Midnight Routine|r  |cff8899aaConfiguration|r"
 L["Welcome_Heading"] = "|cffffffffQuels modules souhaitez-vous activer ?|r"

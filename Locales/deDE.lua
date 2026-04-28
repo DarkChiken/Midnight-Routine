@@ -101,6 +101,7 @@ L["Config_RowsCollapsed"] = "Abgeschlossene Zeilen eingeklappt - klicken zum Aus
 L["Config_RowsShown"] = "Abgeschlossene Zeilen angezeigt - klicken zum Einklappen"
 L["Config_ExpandCollapseRows"] = "Zeilen ein-/ausklappen"
 
+L["%d / %d complete"] = "%d / %d complete"
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6Midnight Routine|r  |cff8899aaEinrichtung|r"
 L["Welcome_Heading"] = "|cffffffffWelche Module sollen aktiv sein?|r"

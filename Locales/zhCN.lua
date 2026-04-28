@@ -101,6 +101,7 @@ L["Config_RowsCollapsed"] = "已完成行已折叠 — 点击展开"
 L["Config_RowsShown"] = "已完成行已显示 — 点击折叠"
 L["Config_ExpandCollapseRows"] = "展开/折叠行"
 
+L["%d / %d complete"] = "%d / %d complete"
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6至暗之夜日常|r  |cff8899aa设置|r"
 L["Welcome_Heading"] = "|cffffffff选择你想要启用的模块：|r"

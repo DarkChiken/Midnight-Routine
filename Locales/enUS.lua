@@ -100,6 +100,7 @@ L["Config_ShowRow"] = "Click to show this row"
 L["Config_RowsCollapsed"] = "Completed rows collapsed — click to expand"
 L["Config_RowsShown"] = "Completed rows shown — click to collapse"
 L["Config_ExpandCollapseRows"] = "Expand/collapse rows"
+L["%d / %d complete"] = "%d / %d complete"
 
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6Midnight Routine|r  |cff8899aaSetup|r"

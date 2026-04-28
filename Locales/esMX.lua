@@ -101,6 +101,7 @@ L["Config_RowsCollapsed"] = "Filas completadas contraídas — clic para expandi
 L["Config_RowsShown"] = "Filas completadas mostradas — clic para contraer"
 L["Config_ExpandCollapseRows"] = "Expandir/contraer filas"
 
+L["%d / %d complete"] = "%d / %d complete"
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6Midnight Routine|r |cff8899aaConfiguración|r"
 L["Welcome_Heading"] = "|cffffffff¿Qué módulos te gustaría tener activos?|r"

@@ -101,6 +101,7 @@ L["Config_RowsCollapsed"] = "已折疊完成的欄目 — 點擊展開"
 L["Config_RowsShown"] = "已顯示完成的欄目 — 點擊折疊"
 L["Config_ExpandCollapseRows"] = "展開/折疊欄"
 
+L["%d / %d complete"] = "%d / %d complete"
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6至暗之夜例行公事|r |cff8899aa設定|r"
 L["Welcome_Heading"] = "|cffffffff選擇你想要啟用的模組：|r"

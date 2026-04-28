@@ -101,6 +101,7 @@ L["Config_RowsCollapsed"] = "Завершенные строки скрыты - 
 L["Config_RowsShown"] = "Завершенные строки показаны - нажмите, чтобы свернуть"
 L["Config_ExpandCollapseRows"] = "Развернуть/свернуть строки"
 
+L["%d / %d complete"] = "%d / %d complete"
 -- WelcomeScreen
 L["Welcome_Title"] = "|cff2ae7c6Midnight Routine|r  |cff8899aaНастройка|r"
 L["Welcome_Heading"] = "|cffffffffКакие модули вы хотите включить?|r"
