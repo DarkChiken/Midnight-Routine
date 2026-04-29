@@ -39,6 +39,7 @@ Modules/StoryCampaign.lua
 Modules/WorldEvents.lua
 Modules/Timewalking.lua
 Modules/DarkmoonFaire.lua
+Modules/CustomTasks.lua
 Modules/Renown.lua
 Modules/Rares.lua
 Modules/ProfessionKnowledge.lua

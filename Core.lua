@@ -103,6 +103,8 @@ local DEFAULTS = {
         progress = {},
         professions = {},
         professionConcentration = {},
+        customTasks = {},
+        customTaskNextId = 1,
         lastWeek = 0,
         lastSyncAt = 0,
         manualOverrides = {},
@@ -2035,6 +2037,9 @@ function MR:DoDailyReset()
             end
         end
     end
+    if self.ResetCustomTasksByType then
+        self:ResetCustomTasksByType("daily")
+    end
     self:RefreshUI()
 end
 
@@ -2105,6 +2110,9 @@ function MR:DoWeeklyReset()
             end
         end
     end
+    if self.ResetCustomTasksByType then
+        self:ResetCustomTasksByType("weekly")
+    end
     self.db.char.raresKills = {}
     self:RefreshUI()
     self:RequestScan(20)
@@ -2114,6 +2122,9 @@ end
 function MR:OnInitialize()
     self.db = AceDB:New("MidnightRoutineDB", DEFAULTS, true)
     self:MigrateLegacySettings()
+    if self.RefreshCustomTasksModule then
+        self:RefreshCustomTasksModule()
+    end
     if ns.ApplySharedMedia then
         ns.ApplySharedMedia(self.GetActiveMediaSettings and self:GetActiveMediaSettings() or self.db.profile)
     end
@@ -2137,6 +2148,9 @@ function MR:ResetAllSettings()
 
     self._orderedModulesCache = nil
     self._moduleStatsCache = nil
+    if self.RefreshCustomTasksModule then
+        self:RefreshCustomTasksModule()
+    end
 
     if ns.ApplySharedMedia then
         ns.ApplySharedMedia(self.GetActiveMediaSettings and self:GetActiveMediaSettings() or self.db.profile)

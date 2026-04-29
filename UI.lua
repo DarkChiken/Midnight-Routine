@@ -80,6 +80,21 @@ local function GetFontFlags()
     return "OUTLINE"
 end
 
+local function GetClientDefaultFont()
+    if ns.GetDefaultFontTexture then
+        local font = ns.GetDefaultFontTexture()
+        if type(font) == "string" and font ~= "" then
+            return font
+        end
+    end
+
+    if type(STANDARD_TEXT_FONT) == "string" and STANDARD_TEXT_FONT ~= "" then
+        return STANDARD_TEXT_FONT
+    end
+
+    return FONT_ROWS or "Fonts\\FRIZQT__.TTF"
+end
+
 local function GetMainHeaderHeight()
     return math.max(24, GetFontSize() + 11)
 end
@@ -205,7 +220,7 @@ local function ApplyTheme()
         if MR._titleBar    then MR._titleBar:SetBackdropColor(0.03, 0.06, 0.12, 0.98 * v) end
         if MR._titleBar    then MR._titleBar:SetBackdropBorderColor(0.17, 0.24, 0.32, v) end
         if MR._scrollBg    then ApplyBackgroundTexture(MR._scrollBg, COL.bg[1], COL.bg[2], COL.bg[3], 0.96 * v) end
-        if MR._titleAccent then MR._titleAccent:SetAlpha(v) end
+        if MR._titleAccent then MR._titleAccent:SetAlpha(0) end
     end
 end
 
@@ -2098,6 +2113,223 @@ function MR:ToggleWarbandBoard()
     self:RefreshWarbandBoard()
 end
 
+local function EnsureCustomTaskDialog()
+    if MR.customTaskDialog then
+        return MR.customTaskDialog
+    end
+
+    local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    frame:SetSize(360, 250)
+    frame:SetFrameStrata("DIALOG")
+    frame:SetFrameLevel(80)
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 40)
+    frame:SetBackdrop(MakeBackdrop())
+    frame:SetBackdropColor(0.03, 0.08, 0.14, 0.98)
+    frame:SetBackdropBorderColor(0.20, 0.44, 0.48, 1)
+    frame:Hide()
+
+    local dragRegion = CreateFrame("Frame", nil, frame)
+    dragRegion:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
+    dragRegion:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
+    dragRegion:SetHeight(26)
+    dragRegion:EnableMouse(true)
+    dragRegion:RegisterForDrag("LeftButton")
+    dragRegion:SetScript("OnDragStart", function()
+        frame:StartMoving()
+    end)
+    dragRegion:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+    end)
+
+    local title = frame:CreateFontString(nil, "OVERLAY")
+    title:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -12)
+    title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -12)
+    title:SetJustifyH("LEFT")
+    title:SetText(L["CustomTasks_Title"] or "Custom Tasks")
+    title:SetTextColor(0.92, 0.97, 1)
+    frame.title = title
+
+    local subtitle = frame:CreateFontString(nil, "OVERLAY")
+    subtitle:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    subtitle:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -6)
+    subtitle:SetJustifyH("LEFT")
+    subtitle:SetText(L["CustomTasks_DialogSubtitle"] or "Create a character-specific task that behaves like the rest of your Midnight modules.")
+    subtitle:SetTextColor(0.68, 0.78, 0.86)
+
+    local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    inputBg:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -12)
+    inputBg:SetPoint("TOPRIGHT", subtitle, "BOTTOMRIGHT", 0, -12)
+    inputBg:SetHeight(34)
+    inputBg:SetBackdrop(MakeBackdrop())
+    inputBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
+    inputBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+    local input = CreateFrame("EditBox", nil, inputBg, "InputBoxTemplate")
+    input:SetAutoFocus(false)
+    input:SetPoint("TOPLEFT", inputBg, "TOPLEFT", 8, -8)
+    input:SetPoint("BOTTOMRIGHT", inputBg, "BOTTOMRIGHT", -8, 8)
+    input:SetFontObject(ChatFontNormal)
+    input:SetTextInsets(0, 0, 0, 0)
+    input:SetMaxLetters(120)
+    input:SetTextColor(0.95, 0.97, 1)
+    input:SetScript("OnEscapePressed", function()
+        frame:Hide()
+    end)
+    frame.input = input
+
+    local hint = frame:CreateFontString(nil, "OVERLAY")
+    hint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    hint:SetPoint("TOPLEFT", inputBg, "BOTTOMLEFT", 0, -8)
+    hint:SetPoint("TOPRIGHT", inputBg, "BOTTOMRIGHT", 0, -8)
+    hint:SetJustifyH("LEFT")
+    hint:SetText(L["CustomTasks_DialogHint"] or "Use the checkbox to toggle tasks, and shift-click existing tasks to edit them.")
+    hint:SetTextColor(0.60, 0.72, 0.82)
+
+    local resetLabel = frame:CreateFontString(nil, "OVERLAY")
+    resetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    resetLabel:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -16)
+    resetLabel:SetJustifyH("LEFT")
+    resetLabel:SetText(L["CustomTasks_ResetType"] or "Reset")
+    resetLabel:SetTextColor(0.74, 0.84, 0.92)
+
+    local function CreateResetCheckbox(anchorTo, xOffset, labelText, value)
+        local cb = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+        cb:SetSize(20, 20)
+        cb:SetPoint("TOPLEFT", anchorTo, "TOPLEFT", xOffset, -28)
+
+        local text = frame:CreateFontString(nil, "OVERLAY")
+        text:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+        text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+        text:SetText(labelText)
+        text:SetTextColor(0.84, 0.90, 0.96)
+        cb._text = text
+        cb._value = value
+
+        cb:SetScript("OnClick", function(selfBtn)
+            if not selfBtn:GetChecked() then
+                selfBtn:SetChecked(true)
+            end
+            frame.resetType = selfBtn._value
+            if frame.RefreshResetChecks then
+                frame:RefreshResetChecks()
+            end
+        end)
+
+        return cb
+    end
+
+    local weeklyCheck = CreateResetCheckbox(resetLabel, 0, L["CustomTasks_ResetWeekly"] or "Weekly reset", "weekly")
+    local dailyCheck = CreateResetCheckbox(resetLabel, 132, L["CustomTasks_ResetDaily"] or "Daily reset", "daily")
+    frame.weeklyCheck = weeklyCheck
+    frame.dailyCheck = dailyCheck
+
+    function frame:RefreshResetChecks()
+        local isDaily = self.resetType == "daily"
+        if self.weeklyCheck then
+            self.weeklyCheck:SetChecked(not isDaily)
+        end
+        if self.dailyCheck then
+            self.dailyCheck:SetChecked(isDaily)
+        end
+    end
+
+    local function CreateDialogButton(width, label, color, borderColor)
+        local btn = CreateFrame("Button", nil, frame, "BackdropTemplate")
+        btn:SetSize(width, 24)
+        btn:SetBackdrop(MakeBackdrop())
+        btn:SetBackdropColor(color[1], color[2], color[3], 0.95)
+        btn:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
+
+        local text = btn:CreateFontString(nil, "OVERLAY")
+        text:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        text:SetPoint("CENTER", btn, "CENTER", 0, 1)
+        text:SetText(label)
+        text:SetTextColor(0.92, 0.96, 1)
+        btn._label = text
+
+        btn:SetScript("OnEnter", function(selfBtn)
+            selfBtn:SetBackdropColor(color[1] + 0.04, color[2] + 0.04, color[3] + 0.04, 1)
+            selfBtn:SetBackdropBorderColor(1, 1, 1, 1)
+        end)
+        btn:SetScript("OnLeave", function(selfBtn)
+            selfBtn:SetBackdropColor(color[1], color[2], color[3], 0.95)
+            selfBtn:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
+        end)
+
+        return btn
+    end
+
+    local saveBtn = CreateDialogButton(92, L["CustomTasks_Save"] or "Save", { 0.10, 0.26, 0.20 }, { 0.28, 0.78, 0.50 })
+    saveBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 12)
+    frame.saveBtn = saveBtn
+
+    local cancelBtn = CreateDialogButton(92, L["CustomTasks_Cancel"] or "Cancel", { 0.10, 0.12, 0.16 }, { 0.28, 0.34, 0.42 })
+    cancelBtn:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
+    cancelBtn:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+
+    local deleteBtn = CreateDialogButton(92, L["CustomTasks_Delete"] or "Delete", { 0.22, 0.08, 0.08 }, { 0.72, 0.20, 0.20 })
+    deleteBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 12)
+    deleteBtn:SetScript("OnClick", function()
+        if frame.taskId then
+            MR:DeleteCustomTask(frame.taskId)
+        end
+        frame:Hide()
+    end)
+    frame.deleteBtn = deleteBtn
+
+    function frame:Commit()
+        local text = self.input:GetText() or ""
+        text = text:gsub("^%s+", ""):gsub("%s+$", "")
+        if text == "" then
+            if UIErrorsFrame and UIErrorsFrame.AddMessage then
+                UIErrorsFrame:AddMessage(L["CustomTasks_EmptyError"] or "Enter a task name first.", 1, 0.25, 0.25)
+            end
+            self.input:SetFocus()
+            return
+        end
+
+        if self.taskId then
+            MR:UpdateCustomTask(self.taskId, text, self.resetType)
+        else
+            MR:AddCustomTask(text, self.resetType)
+        end
+        self:Hide()
+    end
+
+    saveBtn:SetScript("OnClick", function()
+        frame:Commit()
+    end)
+    input:SetScript("OnEnterPressed", function()
+        frame:Commit()
+    end)
+
+    MR.customTaskDialog = frame
+    return frame
+end
+
+function MR:ShowCustomTaskDialog(taskId, presetResetType)
+    local dialog = EnsureCustomTaskDialog()
+    local task = taskId and self.GetCustomTaskById and self:GetCustomTaskById(taskId) or nil
+
+    dialog.taskId = task and task.id or nil
+    dialog.resetType = (task and task.resetType) or presetResetType or "weekly"
+    dialog.title:SetText(task and (L["CustomTasks_EditTitle"] or "Edit Custom Task") or (L["CustomTasks_AddTitle"] or "Add Custom Task"))
+    dialog.input:SetText(task and task.label or "")
+    dialog.deleteBtn:SetShown(task ~= nil)
+    if dialog.RefreshResetChecks then
+        dialog:RefreshResetChecks()
+    end
+    dialog:Show()
+    dialog.input:SetFocus()
+    dialog.input:HighlightText(0, -1)
+end
+
 local function GetModuleWindowTitle(mod)
     local cleanLabel = mod.label:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
     return cleanLabel
@@ -3540,15 +3772,17 @@ BuildModuleStatsCache = function(self)
         for _, row in ipairs(mod.rows) do
             local rowVisible = not row.isVisible or row.isVisible()
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
-                totalRows = totalRows + 1
-
                 local done = MR:GetProgress(mod.key, row.key)
-                local isComplete = self:IsRowComplete(mod, row, done)
-                if isComplete then
-                    doneRows = doneRows + 1
+                local countsForTotals = not row.control
+                local isComplete = countsForTotals and self:IsRowComplete(mod, row, done) or false
+                if countsForTotals then
+                    totalRows = totalRows + 1
+                    if isComplete then
+                        doneRows = doneRows + 1
+                    end
                 end
 
-                if not (hideComplete and isComplete) then
+                if row.control or not (hideComplete and isComplete) then
                     shownRows = shownRows + 1
                     if isOpen then
                         height = height + ROW_HEIGHT
@@ -3797,7 +4031,7 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done       = MR:GetProgress(mod.key, row.key)
                 local isComplete = self:IsRowComplete(mod, row, done)
-                if not (hideComplete and isComplete) then
+                if row.control or not (hideComplete and isComplete) then
                     localY = self:BuildRow(mod, row, done, localY, false, 0, card:GetWidth(), card, widgetBucket)
                 end
             end
@@ -3834,6 +4068,52 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     rowFrame:SetPoint("TOPLEFT", parent, "TOPLEFT", xOff, -yOff)
     rowFrame:SetSize(colW, rowH)
     rowFrame:EnableMouse(true)
+
+    if row.sectionHeader then
+        local headerBg = rowFrame:CreateTexture(nil, "BACKGROUND")
+        headerBg:SetAllPoints()
+        if transparent then
+            headerBg:SetColorTexture(1, 1, 1, 0)
+        else
+            headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
+        end
+
+        local headerText = rowFrame:CreateFontString(nil, "OVERLAY")
+        headerText:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
+        headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
+        headerText:SetJustifyH("LEFT")
+        headerText:SetText(row.label)
+        headerText:SetTextColor(0.82, 0.66, 0.98)
+
+        if row.countText and row.countText ~= "" then
+            local countText = rowFrame:CreateFontString(nil, "OVERLAY")
+            countText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+            countText:SetPoint("RIGHT", rowFrame, "RIGHT", -8, 0)
+            countText:SetJustifyH("RIGHT")
+            countText:SetText(row.countText)
+            if row.countColor then
+                countText:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+            else
+                countText:SetTextColor(0.74, 0.80, 0.88)
+            end
+        end
+
+        rowFrame:SetScript("OnEnter", function()
+            if row.note then
+                GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT")
+                GameTooltip:SetText(row.label, 1, 1, 1)
+                GameTooltip:AddLine(row.note, 0.70, 0.70, 0.76, true)
+                GameTooltip:Show()
+            end
+        end)
+        rowFrame:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+
+        table.insert(widgetBucket, rowFrame)
+        return yOff + rowH
+    end
 
     if collapsed then
         local line = rowFrame:CreateTexture(nil, "ARTWORK")
@@ -3906,8 +4186,9 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             if row.tooltipFunc then
                 row.tooltipFunc(GameTooltip)
             end
-              if row.liveKey or row.autoTracked or (row.currencyId and row.noBlizzardTooltip) then
-                  GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
+            if row.noDefaultTooltipHint then
+            elseif row.liveKey or row.autoTracked or (row.currencyId and row.noBlizzardTooltip) then
+                GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
             elseif row.questIds then
                 GameTooltip:AddLine(L["Tooltip_AutoQuest"], 0.4, 1, 0.6)
             elseif row.spellId or row.itemId then
@@ -3924,6 +4205,18 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     end)
 
     rowFrame:SetScript("OnMouseDown", function(_, button)
+        if button == "LeftButton" and row.onLeftClick then
+            local handled = row.onLeftClick(row, mod, done, rowFrame)
+            if handled ~= false then
+                return
+            end
+        elseif button == "RightButton" and row.onRightClick then
+            local handled = row.onRightClick(row, mod, done, rowFrame)
+            if handled ~= false then
+                return
+            end
+        end
+
         if button == "LeftButton" and hasWaypoint then
             local ok, source = MR:SetWaypoint(row)
             if ok then
@@ -3938,7 +4231,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         end
     end)
 
-    local statusBtn = CreateFrame(isAutoTracked and not row.noMax and "Button" or "Frame", nil, rowFrame, "BackdropTemplate")
+    local statusObjectType = ((isAutoTracked and not row.noMax) or row.toggleStatus) and "Button" or "Frame"
+    local statusBtn = CreateFrame(statusObjectType, nil, rowFrame, "BackdropTemplate")
     statusBtn:SetSize(14, 14)
     statusBtn:SetPoint("LEFT", rowFrame, "LEFT", PADDING + 2, 0)
     statusBtn:SetBackdrop(MakeBackdrop())
@@ -3983,15 +4277,22 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         end
     end
     RefreshStatusDisplay()
+    if row.hideStatus then
+        statusBtn:Hide()
+    end
 
     if statusBtn:GetObjectType() == "Button" then
         statusBtn:SetScript("OnClick", function()
+            if row.toggleStatus and MR.ToggleCustomTask and mod.key == "custom_tasks" then
+                MR:ToggleCustomTask(tonumber((row.key or ""):match("task_(%d+)")))
+                return
+            end
             local cur = MR:GetManualOverride(mod.key, row.key)
             MR:SetManualOverride(mod.key, row.key, cur >= row.max and 0 or row.max, row.max)
         end)
         statusBtn:SetScript("OnEnter", function()
             hover:SetColorTexture(1, 1, 1, transparent and 0 or (0.04 * frameAlpha))
-            local mo = MR:GetManualOverride(mod.key, row.key)
+            local mo = row.toggleStatus and MR:GetProgress(mod.key, row.key) or MR:GetManualOverride(mod.key, row.key)
             GameTooltip:SetOwner(statusBtn, "ANCHOR_RIGHT")
             GameTooltip:SetText(row.label, 1, 1, 1, 1, true)
             if row.note then GameTooltip:AddLine(row.note, 0.7, 0.7, 0.7, true) end
@@ -4026,7 +4327,11 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
     local lbl = rowFrame:CreateFontString(nil, "OVERLAY")
-    lbl:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    if row.useClientFont then
+        lbl:SetFontObject(ChatFontNormal)
+    else
+        lbl:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    end
     if hasRowIcon then
         lbl:SetPoint("LEFT", rowIcon, "RIGHT", 8, 0)
     else
@@ -5420,6 +5725,7 @@ function MR:PopulateConfigFrame(f)
                 local guideTopY = yOff
 
                 for _, row in ipairs(mod.rows) do
+                    if not row.control then
                     local rkey    = row.key
                     local enabled = MR:IsRowEnabled(key, rkey)
 
@@ -5531,10 +5837,15 @@ function MR:PopulateConfigFrame(f)
                     rowSwatch:SetPoint("RIGHT", eyeBtn, "LEFT", -2, 0)
 
                     yOff = yOff - 19
+                    end
                 end
 
-                guide:SetPoint("TOPLEFT",    body, "TOPLEFT", 14, guideTopY)
-                guide:SetPoint("BOTTOMLEFT", body, "TOPLEFT", 14, yOff + 4)
+                if yOff == guideTopY then
+                    guide:Hide()
+                else
+                    guide:SetPoint("TOPLEFT",    body, "TOPLEFT", 14, guideTopY)
+                    guide:SetPoint("BOTTOMLEFT", body, "TOPLEFT", 14, yOff + 4)
+                end
 
                 Gap(3)
             end
