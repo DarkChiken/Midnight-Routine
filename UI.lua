@@ -3754,6 +3754,9 @@ function MR:ApplySharedMediaSettings()
 end
 
 function MR:IsRowComplete(mod, row, done)
+    if mod and (mod.key == "currencies" or mod.key == "pvp_currencies") and not self:IsModuleHideComplete(mod.key) then
+        return false
+    end
     if row.completeFunc then
         return row.completeFunc(done, row, mod) == true
     end
@@ -4322,7 +4325,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         rowIcon:SetVertexColor(0.55, 0.55, 0.55, 0.7)
     end
 
-    local isCurrencyRow = row.currencyId and row.max and row.max > 0 and not row.noMax
+    local hasNumericMax = type(row.max) == "number" and row.max > 0
+    local isCurrencyRow = row.currencyId and hasNumericMax and not row.noMax
     local hasCoordText  = hasWaypoint and not row.hideCoordText
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
@@ -4409,8 +4413,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         walletFS:SetJustifyH("RIGHT")
         walletFS:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
     else
-        countFS:SetText(row.noMax and tostring(done) or string.format("%d / %d", done, row.max))
-        if row.noMax then
+        countFS:SetText((row.noMax or not hasNumericMax) and tostring(done) or string.format("%d / %d", done, row.max))
+        if row.noMax or not hasNumericMax then
             countFS:SetTextColor(0.8, 0.8, 0.8)
         else
             countFS:SetTextColor(countColor(done, row.max))
@@ -5314,6 +5318,7 @@ function MR:PopulateConfigFrame(f)
 
     local function BuildHideCompleteBtn(parent, key, anchorRight)
         local hideActive = MR:IsModuleHideComplete(key)
+        local isCurrencyModule = key == "currencies" or key == "pvp_currencies"
         local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
         btn:SetSize(16, 16)
         if anchorRight == parent then
@@ -5341,7 +5346,16 @@ function MR:PopulateConfigFrame(f)
             btn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
             fs:SetTextColor(1, 1, 1)
             GameTooltip:SetOwner(btn, "ANCHOR_RIGHT")
-            GameTooltip:SetText(MR:IsModuleHideComplete(key) and L["Config_RowsCollapsed"] or L["Config_RowsShown"], 1, 1, 1)
+            if isCurrencyModule then
+                GameTooltip:SetText(
+                    MR:IsModuleHideComplete(key)
+                        and "Hide Currencies When Completed enabled - capped currencies will be hidden"
+                        or "Hide Currencies When Completed disabled - currencies stay visible at cap",
+                    1, 1, 1
+                )
+            else
+                GameTooltip:SetText(MR:IsModuleHideComplete(key) and L["Config_RowsCollapsed"] or L["Config_RowsShown"], 1, 1, 1)
+            end
             GameTooltip:Show()
         end)
         btn:SetScript("OnLeave", function()

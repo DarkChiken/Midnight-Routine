@@ -122,6 +122,11 @@ crestRows = {
         noMax = true,
         label = CurrencyLabel(3376, nil),
     },
+    {
+        key = "nebulous_voidcore",
+        currencyId = 3418,
+        label = CurrencyLabel(3418, "Nebulous Voidcore"),
+    },
 }
 
 RefreshCrestItemLabels()

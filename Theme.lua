@@ -304,6 +304,12 @@ function ns.WrapColor(rrggbb, text)
 end
 
 function ns.CountColor(done, max)
+    if max == nil or max <= 0 then
+        if done > 0 then
+            return COLORS.half[1], COLORS.half[2], COLORS.half[3]
+        end
+        return COLORS.incomplete[1], COLORS.incomplete[2], COLORS.incomplete[3]
+    end
     if done >= max then
         return COLORS.complete[1], COLORS.complete[2], COLORS.complete[3]
     elseif done > 0 then
@@ -314,6 +320,14 @@ function ns.CountColor(done, max)
 end
 
 function ns.SetDotColor(tex, done, max)
+    if max == nil or max <= 0 then
+        if done > 0 then
+            tex:SetColorTexture(COLORS.half[1], COLORS.half[2], COLORS.half[3], 1)
+        else
+            tex:SetColorTexture(COLORS.incomplete[1], COLORS.incomplete[2], COLORS.incomplete[3], 1)
+        end
+        return
+    end
     if done >= max then
         tex:SetColorTexture(COLORS.complete[1], COLORS.complete[2], COLORS.complete[3], 1)
     elseif done > 0 then
