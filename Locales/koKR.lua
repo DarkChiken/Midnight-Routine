@@ -739,4 +739,4 @@ L["CustomTasks_ResetWeekly"] = "주간 리셋"
 L["CustomTasks_ResetDaily"] = "일일 리셋"
 L["CustomTasks_Save"] = "저장"
 L["CustomTasks_Cancel"] = "취소"
-L["CustomTasks_Delete"] = "삭제"
+L["CustomTasks_Delete"] = "삭
