@@ -12,6 +12,11 @@ MR.ns = ns
 local DAY_SECONDS = 24 * 60 * 60
 local WEEK_SECONDS = 7 * DAY_SECONDS
 
+local MODULES_WITH_OPTIONAL_CURRENCY_COMPLETION = {
+    currencies = true,
+    pvp_currencies = true,
+}
+
 local DEFAULTS = {
     profile = {
         locked          = false,
@@ -1132,6 +1137,9 @@ function MR:IsModuleHideComplete(modKey)
     local storage = self:GetActiveModuleStorage()
     local s = storage and storage[modKey]
     if s and s.hideComplete ~= nil then return s.hideComplete end
+    if MODULES_WITH_OPTIONAL_CURRENCY_COMPLETION[modKey] then
+        return false
+    end
     return self.db.char.hideComplete
 end
 

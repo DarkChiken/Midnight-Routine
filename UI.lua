@@ -2119,7 +2119,7 @@ local function EnsureCustomTaskDialog()
     end
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(360, 250)
+    frame:SetSize(360, 300)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(80)
     frame:SetClampedToScreen(true)
@@ -2160,38 +2160,9 @@ local function EnsureCustomTaskDialog()
     subtitle:SetText(L["CustomTasks_DialogSubtitle"] or "Create a character-specific task that behaves like the rest of your Midnight modules.")
     subtitle:SetTextColor(0.68, 0.78, 0.86)
 
-    local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    inputBg:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -12)
-    inputBg:SetPoint("TOPRIGHT", subtitle, "BOTTOMRIGHT", 0, -12)
-    inputBg:SetHeight(34)
-    inputBg:SetBackdrop(MakeBackdrop())
-    inputBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
-    inputBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
-
-    local input = CreateFrame("EditBox", nil, inputBg, "InputBoxTemplate")
-    input:SetAutoFocus(false)
-    input:SetPoint("TOPLEFT", inputBg, "TOPLEFT", 8, -8)
-    input:SetPoint("BOTTOMRIGHT", inputBg, "BOTTOMRIGHT", -8, 8)
-    input:SetFontObject(ChatFontNormal)
-    input:SetTextInsets(0, 0, 0, 0)
-    input:SetMaxLetters(120)
-    input:SetTextColor(0.95, 0.97, 1)
-    input:SetScript("OnEscapePressed", function()
-        frame:Hide()
-    end)
-    frame.input = input
-
-    local hint = frame:CreateFontString(nil, "OVERLAY")
-    hint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-    hint:SetPoint("TOPLEFT", inputBg, "BOTTOMLEFT", 0, -8)
-    hint:SetPoint("TOPRIGHT", inputBg, "BOTTOMRIGHT", 0, -8)
-    hint:SetJustifyH("LEFT")
-    hint:SetText(L["CustomTasks_DialogHint"] or "Use the checkbox to toggle tasks, and shift-click existing tasks to edit them.")
-    hint:SetTextColor(0.60, 0.72, 0.82)
-
     local resetLabel = frame:CreateFontString(nil, "OVERLAY")
     resetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    resetLabel:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -16)
+    resetLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
     resetLabel:SetJustifyH("LEFT")
     resetLabel:SetText(L["CustomTasks_ResetType"] or "Reset")
     resetLabel:SetTextColor(0.74, 0.84, 0.92)
@@ -2226,6 +2197,71 @@ local function EnsureCustomTaskDialog()
     local dailyCheck = CreateResetCheckbox(resetLabel, 132, L["CustomTasks_ResetDaily"] or "Daily reset", "daily")
     frame.weeklyCheck = weeklyCheck
     frame.dailyCheck = dailyCheck
+
+    local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    inputBg:SetPoint("TOPLEFT", resetLabel, "BOTTOMLEFT", 0, -42)
+    inputBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -102)
+    inputBg:SetHeight(34)
+    inputBg:SetBackdrop(MakeBackdrop())
+    inputBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
+    inputBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+    local input = CreateFrame("EditBox", nil, inputBg, "InputBoxTemplate")
+    input:SetAutoFocus(false)
+    input:SetPoint("TOPLEFT", inputBg, "TOPLEFT", 8, -8)
+    input:SetPoint("BOTTOMRIGHT", inputBg, "BOTTOMRIGHT", -8, 8)
+    input:SetFontObject(ChatFontNormal)
+    input:SetTextInsets(0, 0, 0, 0)
+    input:SetMaxLetters(120)
+    input:SetTextColor(0.95, 0.97, 1)
+    input:SetScript("OnEscapePressed", function()
+        frame:Hide()
+    end)
+    frame.input = input
+
+    local hint = frame:CreateFontString(nil, "OVERLAY")
+    hint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    hint:SetPoint("TOPLEFT", inputBg, "BOTTOMLEFT", 0, -8)
+    hint:SetPoint("TOPRIGHT", inputBg, "BOTTOMRIGHT", 0, -8)
+    hint:SetJustifyH("LEFT")
+    hint:SetText(L["CustomTasks_DialogHint"] or "Use the checkbox to toggle tasks, and shift-click existing tasks to edit them.")
+    hint:SetTextColor(0.60, 0.72, 0.82)
+
+    local targetLabel = frame:CreateFontString(nil, "OVERLAY")
+    targetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    targetLabel:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -14)
+    targetLabel:SetJustifyH("LEFT")
+    targetLabel:SetText(L["CustomTasks_TargetLabel"] or "Target")
+    targetLabel:SetTextColor(0.74, 0.84, 0.92)
+
+    local targetBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    targetBg:SetPoint("TOPLEFT", targetLabel, "BOTTOMLEFT", 0, -6)
+    targetBg:SetSize(86, 32)
+    targetBg:SetBackdrop(MakeBackdrop())
+    targetBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
+    targetBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+    local targetInput = CreateFrame("EditBox", nil, targetBg, "InputBoxTemplate")
+    targetInput:SetAutoFocus(false)
+    targetInput:SetPoint("TOPLEFT", targetBg, "TOPLEFT", 8, -8)
+    targetInput:SetPoint("BOTTOMRIGHT", targetBg, "BOTTOMRIGHT", -8, 8)
+    targetInput:SetFontObject(ChatFontNormal)
+    targetInput:SetTextInsets(0, 0, 0, 0)
+    targetInput:SetMaxLetters(3)
+    targetInput:SetNumeric(true)
+    targetInput:SetTextColor(0.95, 0.97, 1)
+    targetInput:SetScript("OnEscapePressed", function()
+        frame:Hide()
+    end)
+    frame.targetInput = targetInput
+
+    local targetHint = frame:CreateFontString(nil, "OVERLAY")
+    targetHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    targetHint:SetPoint("LEFT", targetBg, "RIGHT", 12, 0)
+    targetHint:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
+    targetHint:SetJustifyH("LEFT")
+    targetHint:SetText(L["CustomTasks_TargetHint"] or "Set to 1 for a checkbox, or higher for a counter task like 0/2.")
+    targetHint:SetTextColor(0.60, 0.72, 0.82)
 
     function frame:RefreshResetChecks()
         local isDaily = self.resetType == "daily"
@@ -2294,10 +2330,18 @@ local function EnsureCustomTaskDialog()
             return
         end
 
+        local maxValue = tonumber(self.targetInput:GetText() or "") or 1
+        maxValue = math.floor(maxValue)
+        if maxValue < 1 then
+            maxValue = 1
+        elseif maxValue > 999 then
+            maxValue = 999
+        end
+
         if self.taskId then
-            MR:UpdateCustomTask(self.taskId, text, self.resetType)
+            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue)
         else
-            MR:AddCustomTask(text, self.resetType)
+            MR:AddCustomTask(text, self.resetType, maxValue)
         end
         self:Hide()
     end
@@ -2306,6 +2350,9 @@ local function EnsureCustomTaskDialog()
         frame:Commit()
     end)
     input:SetScript("OnEnterPressed", function()
+        frame:Commit()
+    end)
+    targetInput:SetScript("OnEnterPressed", function()
         frame:Commit()
     end)
 
@@ -2321,10 +2368,145 @@ function MR:ShowCustomTaskDialog(taskId, presetResetType)
     dialog.resetType = (task and task.resetType) or presetResetType or "weekly"
     dialog.title:SetText(task and (L["CustomTasks_EditTitle"] or "Edit Custom Task") or (L["CustomTasks_AddTitle"] or "Add Custom Task"))
     dialog.input:SetText(task and task.label or "")
+    dialog.targetInput:SetText(tostring((task and task.max) or 1))
     dialog.deleteBtn:SetShown(task ~= nil)
     if dialog.RefreshResetChecks then
         dialog:RefreshResetChecks()
     end
+    dialog:Show()
+    dialog.input:SetFocus()
+    dialog.input:HighlightText(0, -1)
+end
+
+local function EnsureCustomTasksTitleDialog()
+    if MR.customTasksTitleDialog then
+        return MR.customTasksTitleDialog
+    end
+
+    local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    frame:SetSize(340, 190)
+    frame:SetFrameStrata("DIALOG")
+    frame:SetFrameLevel(80)
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:SetPoint("CENTER", UIParent, "CENTER", 0, 60)
+    frame:SetBackdrop(MakeBackdrop())
+    frame:SetBackdropColor(0.03, 0.08, 0.14, 0.98)
+    frame:SetBackdropBorderColor(0.20, 0.44, 0.48, 1)
+    frame:Hide()
+
+    local dragRegion = CreateFrame("Frame", nil, frame)
+    dragRegion:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
+    dragRegion:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
+    dragRegion:SetHeight(26)
+    dragRegion:EnableMouse(true)
+    dragRegion:RegisterForDrag("LeftButton")
+    dragRegion:SetScript("OnDragStart", function()
+        frame:StartMoving()
+    end)
+    dragRegion:SetScript("OnDragStop", function()
+        frame:StopMovingOrSizing()
+    end)
+
+    local title = frame:CreateFontString(nil, "OVERLAY")
+    title:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
+    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -12)
+    title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -12)
+    title:SetJustifyH("LEFT")
+    title:SetText(L["CustomTasks_EditModuleTitle"] or "Rename custom task title")
+    title:SetTextColor(0.92, 0.97, 1)
+
+    local subtitle = frame:CreateFontString(nil, "OVERLAY")
+    subtitle:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
+    subtitle:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -6)
+    subtitle:SetJustifyH("LEFT")
+    subtitle:SetText(L["CustomTasks_EditModuleTitleNote"] or "Click to rename the Custom Tasks header for this character.")
+    subtitle:SetTextColor(0.68, 0.78, 0.86)
+
+    local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    inputBg:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -14)
+    inputBg:SetPoint("TOPRIGHT", subtitle, "BOTTOMRIGHT", 0, -14)
+    inputBg:SetHeight(34)
+    inputBg:SetBackdrop(MakeBackdrop())
+    inputBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
+    inputBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+    local input = CreateFrame("EditBox", nil, inputBg, "InputBoxTemplate")
+    input:SetAutoFocus(false)
+    input:SetPoint("TOPLEFT", inputBg, "TOPLEFT", 8, -8)
+    input:SetPoint("BOTTOMRIGHT", inputBg, "BOTTOMRIGHT", -8, 8)
+    input:SetFontObject(ChatFontNormal)
+    input:SetTextInsets(0, 0, 0, 0)
+    input:SetMaxLetters(120)
+    input:SetTextColor(0.95, 0.97, 1)
+    input:SetScript("OnEscapePressed", function()
+        frame:Hide()
+    end)
+    frame.input = input
+
+    local hint = frame:CreateFontString(nil, "OVERLAY")
+    hint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    hint:SetPoint("TOPLEFT", inputBg, "BOTTOMLEFT", 0, -8)
+    hint:SetPoint("TOPRIGHT", inputBg, "BOTTOMRIGHT", 0, -8)
+    hint:SetJustifyH("LEFT")
+    hint:SetText(L["CustomTasks_EditModuleTitleHint"] or "Leave it as Custom Tasks, or rename it to something like Weekly Goals.")
+    hint:SetTextColor(0.60, 0.72, 0.82)
+
+    local function CreateDialogButton(width, label, color, borderColor)
+        local btn = CreateFrame("Button", nil, frame, "BackdropTemplate")
+        btn:SetSize(width, 24)
+        btn:SetBackdrop(MakeBackdrop())
+        btn:SetBackdropColor(color[1], color[2], color[3], 0.95)
+        btn:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
+
+        local text = btn:CreateFontString(nil, "OVERLAY")
+        text:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        text:SetPoint("CENTER", btn, "CENTER", 0, 1)
+        text:SetText(label)
+        text:SetTextColor(0.92, 0.96, 1)
+
+        btn:SetScript("OnEnter", function(selfBtn)
+            selfBtn:SetBackdropColor(color[1] + 0.04, color[2] + 0.04, color[3] + 0.04, 1)
+            selfBtn:SetBackdropBorderColor(1, 1, 1, 1)
+        end)
+        btn:SetScript("OnLeave", function(selfBtn)
+            selfBtn:SetBackdropColor(color[1], color[2], color[3], 0.95)
+            selfBtn:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
+        end)
+
+        return btn
+    end
+
+    local saveBtn = CreateDialogButton(92, L["CustomTasks_Save"] or "Save", { 0.10, 0.26, 0.20 }, { 0.28, 0.78, 0.50 })
+    saveBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 12)
+
+    local cancelBtn = CreateDialogButton(92, L["CustomTasks_Cancel"] or "Cancel", { 0.10, 0.12, 0.16 }, { 0.28, 0.34, 0.42 })
+    cancelBtn:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
+    cancelBtn:SetScript("OnClick", function()
+        frame:Hide()
+    end)
+
+    function frame:Commit()
+        local text = self.input:GetText() or ""
+        MR:SetCustomTasksTitle(text)
+        self:Hide()
+    end
+
+    saveBtn:SetScript("OnClick", function()
+        frame:Commit()
+    end)
+    input:SetScript("OnEnterPressed", function()
+        frame:Commit()
+    end)
+
+    MR.customTasksTitleDialog = frame
+    return frame
+end
+
+function MR:ShowCustomTasksTitleDialog()
+    local dialog = EnsureCustomTasksTitleDialog()
+    dialog.input:SetText(self.GetCustomTasksTitle and self:GetCustomTasksTitle() or (L["CustomTasks_Title"] or "Custom Tasks"))
     dialog:Show()
     dialog.input:SetFocus()
     dialog.input:HighlightText(0, -1)
@@ -3989,6 +4171,14 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
             hdrFrame._dragged = false
             return
         end
+        if mod.key == "custom_tasks" and button == "RightButton" and IsShiftKeyDown() then
+            if MR.ShowCustomTasksTitleDialog then
+                MR:ShowCustomTasksTitleDialog()
+            end
+            hdrFrame._pressed = false
+            hdrFrame._dragged = false
+            return
+        end
         if button == "LeftButton" then
             MR:SetModuleOpen(mod.key, not MR:IsModuleOpen(mod.key))
             MR:RefreshUI()
@@ -4004,6 +4194,9 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
         GameTooltip:SetText(mod.label, 1, 1, 1)
         GameTooltip:AddLine(L["Tooltip_ExpandCollapse"], 0.5, 0.5, 0.5)
         GameTooltip:AddLine(opts.detached and "Right-click to dock back" or "Right-click to detach", 0.5, 0.8, 1)
+        if mod.key == "custom_tasks" then
+            GameTooltip:AddLine("Shift-right-click to rename this header.", 0.85, 0.82, 0.45, true)
+        end
         GameTooltip:Show()
     end)
     hdrFrame:SetScript("OnLeave", function()
@@ -4089,10 +4282,69 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         headerText:SetText(row.label)
         headerText:SetTextColor(0.82, 0.66, 0.98)
 
+        local headerActionButton
+        if ((row.headerActionText and row.headerActionText ~= "") or row.headerActionStyle == "visibility") and row.onHeaderActionClick then
+            headerActionButton = CreateFrame("Button", nil, rowFrame, "BackdropTemplate")
+            headerActionButton:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+            if row.headerActionStyle == "visibility" then
+                headerActionButton:SetSize(14, 14)
+                headerActionButton:SetBackdrop(MakeBackdrop())
+                headerActionButton:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                headerActionButton:SetBackdropBorderColor(
+                    row.headerActionVisible and 0.15 or 0.35,
+                    row.headerActionVisible and 0.32 or 0.12,
+                    row.headerActionVisible and 0.38 or 0.12,
+                    1
+                )
+
+                local actionText = headerActionButton:CreateFontString(nil, "OVERLAY")
+                actionText:SetFont(FONT_ROWS, 9, GetFontFlags())
+                actionText:SetPoint("CENTER", headerActionButton, "CENTER", 0, 0)
+                actionText:SetJustifyH("CENTER")
+                actionText:SetText(row.headerActionVisible and "o" or "-")
+                actionText:SetTextColor(
+                    row.headerActionVisible and 0.25 or 0.55,
+                    row.headerActionVisible and 0.85 or 0.25,
+                    row.headerActionVisible and 0.70 or 0.25
+                )
+            else
+                headerActionButton:SetSize(26, rowH)
+
+                local actionText = headerActionButton:CreateFontString(nil, "OVERLAY")
+                actionText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+                actionText:SetPoint("CENTER", headerActionButton, "CENTER", 0, 0)
+                actionText:SetJustifyH("CENTER")
+                actionText:SetText(row.headerActionText)
+                if row.headerActionColor then
+                    actionText:SetTextColor(row.headerActionColor[1], row.headerActionColor[2], row.headerActionColor[3])
+                else
+                    actionText:SetTextColor(0.92, 0.78, 0.24)
+                end
+            end
+
+            headerActionButton:SetScript("OnClick", function()
+                row.onHeaderActionClick(row, mod, rowFrame)
+            end)
+            headerActionButton:SetScript("OnEnter", function()
+                if row.headerActionTooltip and row.headerActionTooltip ~= "" then
+                    GameTooltip:SetOwner(headerActionButton, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(row.headerActionTooltip, 1, 1, 1, 1, true)
+                    GameTooltip:Show()
+                end
+            end)
+            headerActionButton:SetScript("OnLeave", function()
+                GameTooltip:Hide()
+            end)
+        end
+
         if row.countText and row.countText ~= "" then
             local countText = rowFrame:CreateFontString(nil, "OVERLAY")
             countText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-            countText:SetPoint("RIGHT", rowFrame, "RIGHT", -8, 0)
+            if headerActionButton then
+                countText:SetPoint("RIGHT", headerActionButton, "LEFT", -8, 0)
+            else
+                countText:SetPoint("RIGHT", rowFrame, "RIGHT", -8, 0)
+            end
             countText:SetJustifyH("RIGHT")
             countText:SetText(row.countText)
             if row.countColor then

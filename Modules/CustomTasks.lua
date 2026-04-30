@@ -33,6 +33,19 @@ local function NormalizeResetType(resetType)
     return resetType == "daily" and "daily" or "weekly"
 end
 
+local function NormalizeTaskMax(maxValue)
+    local value = tonumber(maxValue) or 1
+    value = math.floor(value)
+    if value < 1 then
+        value = 1
+    elseif value > 999 then
+        value = 999
+    end
+    return value
+end
+
+local RefreshCustomTaskViews
+
 local function SortTasks(tasks)
     table.sort(tasks, function(a, b)
         local aOrder = tonumber(a and a.order) or 0
@@ -56,12 +69,40 @@ function MR:GetCustomTasks()
     for index, task in ipairs(tasks) do
         task.id = tonumber(task.id) or index
         task.label = TrimText(task.label ~= "" and task.label or (L["CustomTasks_Untitled"] or "Untitled Task"))
-        task.max = 1
+        task.max = NormalizeTaskMax(task.max)
         task.order = tonumber(task.order) or index
         task.resetType = NormalizeResetType(task.resetType)
     end
     SortTasks(tasks)
     return tasks
+end
+
+function MR:GetCustomTasksTitle()
+    if not (self and self.db and self.db.char) then
+        return L["CustomTasks_Title"] or "Custom Tasks"
+    end
+
+    local savedTitle = TrimText(self.db.char.customTasksTitle)
+    if savedTitle == "" then
+        return L["CustomTasks_Title"] or "Custom Tasks"
+    end
+
+    return savedTitle
+end
+
+function MR:SetCustomTasksTitle(title)
+    if not (self and self.db and self.db.char) then
+        return false
+    end
+
+    local cleanTitle = TrimText(title)
+    if cleanTitle == "" then
+        cleanTitle = L["CustomTasks_Title"] or "Custom Tasks"
+    end
+
+    self.db.char.customTasksTitle = cleanTitle
+    RefreshCustomTaskViews(self)
+    return true
 end
 
 function MR:GetCustomTaskById(taskId)
@@ -79,7 +120,7 @@ function MR:GetCustomTaskById(taskId)
     return nil
 end
 
-local function RefreshCustomTaskViews(self)
+RefreshCustomTaskViews = function(self)
     if self.RefreshCustomTasksModule then
         self:RefreshCustomTasksModule()
     end
@@ -93,9 +134,10 @@ end
 
 local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, headerLabel, headerNote, addLabel)
     local doneCount = 0
+    local addRowVisible = MR:IsRowEnabled(CUSTOM_MODULE_KEY, addKey)
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
-            if tonumber(MR:GetProgress(CUSTOM_MODULE_KEY, GetTaskRowKey(task.id))) >= 1 then
+            if tonumber(MR:GetProgress(CUSTOM_MODULE_KEY, GetTaskRowKey(task.id))) >= NormalizeTaskMax(task.max) then
                 doneCount = doneCount + 1
             end
         end
@@ -112,6 +154,15 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
         noDefaultTooltipHint = true,
         countText = string.format("%d / %d", doneCount, #tasks),
         countColor = { 0.74, 0.80, 0.88 },
+        headerActionStyle = "visibility",
+        headerActionVisible = addRowVisible,
+        headerActionTooltip = addRowVisible
+            and (L["CustomTasks_HideAddRow"] or "Click to hide the add-task row for this section.")
+            or (L["CustomTasks_ShowAddRow"] or "Click to show the add-task row for this section."),
+        onHeaderActionClick = function()
+            MR:SetRowEnabled(CUSTOM_MODULE_KEY, addKey, not addRowVisible)
+            RefreshCustomTaskViews(MR)
+        end,
     }
 
     for _, task in ipairs(tasks) do
@@ -125,29 +176,42 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                 rows[#rows + 1] = {
                     key = rowKey,
                     label = task.label,
-                    max = 1,
+                    max = task.max,
                     useClientFont = true,
-                    note = string.format("%s\n%s", resetLabel, L["CustomTasks_TaskNote"] or "Left-click the checkbox to toggle. Shift-left-click to rename. Shift-right-click to delete."),
-                    toggleStatus = true,
+                    note = string.format(
+                        "%s\n%s",
+                        resetLabel,
+                        (task.max > 1)
+                            and (L["CustomTasks_CounterNote"] or "Left-click to add progress. Right-click to remove progress. Shift-left-click to edit. Shift-right-click to delete.")
+                            or (L["CustomTasks_TaskNote"] or "Left-click the checkbox to toggle. Shift-left-click to rename. Shift-right-click to delete.")
+                    ),
+                    toggleStatus = task.max <= 1,
                     noDefaultTooltipHint = true,
                     tooltipFunc = function(tip)
                         tip:AddLine(" ")
                         tip:AddLine(resetLabel, 0.80, 0.90, 1.00, true)
-                        tip:AddLine(L["CustomTasks_CheckboxHint"] or "Left-click the checkbox to toggle complete", 0.70, 0.90, 0.70, true)
+                        if task.max > 1 then
+                            tip:AddLine(L["CustomTasks_CounterIncreaseHint"] or "Left-click to add progress", 0.70, 0.90, 0.70, true)
+                            tip:AddLine(L["CustomTasks_CounterDecreaseHint"] or "Right-click to remove progress", 1, 0.80, 0.45, true)
+                        else
+                            tip:AddLine(L["CustomTasks_CheckboxHint"] or "Left-click the checkbox to toggle complete", 0.70, 0.90, 0.70, true)
+                        end
                         tip:AddLine(L["CustomTasks_EditHint"] or "Shift-left-click to rename", 0.45, 0.85, 1, true)
                         tip:AddLine(L["CustomTasks_DeleteHint"] or "Shift-right-click to delete", 1, 0.55, 0.55, true)
                     end,
                     onLeftClick = function(row)
                         if IsShiftKeyDown() and MR.ShowCustomTaskDialog then
                             MR:ShowCustomTaskDialog(taskId)
+                            return true
                         end
-                        return true
+                        return false
                     end,
                     onRightClick = function(row)
                         if IsShiftKeyDown() then
                             MR:DeleteCustomTask(taskId)
+                            return true
                         end
-                        return true
+                        return false
                     end,
                 }
             end
@@ -179,7 +243,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
     }
 end
 
-function MR:AddCustomTask(label, resetType)
+function MR:AddCustomTask(label, resetType, maxValue)
     local tasks = GetTaskStorage()
     local cleanLabel = TrimText(label)
     if not tasks or cleanLabel == "" then
@@ -192,7 +256,7 @@ function MR:AddCustomTask(label, resetType)
     tasks[#tasks + 1] = {
         id = taskId,
         label = cleanLabel,
-        max = 1,
+        max = NormalizeTaskMax(maxValue),
         order = #tasks + 1,
         resetType = NormalizeResetType(resetType),
     }
@@ -201,7 +265,7 @@ function MR:AddCustomTask(label, resetType)
     return taskId
 end
 
-function MR:UpdateCustomTask(taskId, label, resetType)
+function MR:UpdateCustomTask(taskId, label, resetType, maxValue)
     local task = self:GetCustomTaskById(taskId)
     local cleanLabel = TrimText(label)
     if not task or cleanLabel == "" then
@@ -210,6 +274,7 @@ function MR:UpdateCustomTask(taskId, label, resetType)
 
     task.label = cleanLabel
     task.resetType = NormalizeResetType(resetType)
+    task.max = NormalizeTaskMax(maxValue)
     RefreshCustomTaskViews(self)
     return true
 end
@@ -333,6 +398,7 @@ function MR:RefreshCustomTasksModule()
     )
 
     mod.rows = rows
+    mod.label = self:GetCustomTasksTitle()
     self._moduleStatsCache = nil
     self._orderedModulesCache = nil
 end
