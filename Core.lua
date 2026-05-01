@@ -1133,6 +1133,32 @@ function MR:SetModuleEnabled(key, enabled, skipRefresh)
     end
 end
 
+function MR:RequestUIRefresh(delay)
+    if not self.ScheduleTimer then
+        self:RefreshUI()
+        return
+    end
+
+    delay = tonumber(delay) or 0.05
+    self._refreshRequestPending = true
+    if self._refreshRequestTimer and self.CancelTimer then
+        self:CancelTimer(self._refreshRequestTimer)
+        self._refreshRequestTimer = nil
+    end
+
+    self._refreshRequestTimer = self:ScheduleTimer(function()
+        self._refreshRequestTimer = nil
+        if self._refreshRequestPending then
+            self._refreshRequestPending = nil
+            self:RefreshUI()
+        end
+    end, delay)
+end
+
+function MR:RequestConfigRefresh()
+    self:RequestUIRefresh(0.04)
+end
+
 function MR:IsModuleHideComplete(modKey)
     local storage = self:GetActiveModuleStorage()
     local s = storage and storage[modKey]
@@ -1143,11 +1169,16 @@ function MR:IsModuleHideComplete(modKey)
     return self.db.char.hideComplete
 end
 
-function MR:SetModuleHideComplete(modKey, value)
+function MR:SetModuleHideComplete(modKey, value, skipRefresh)
     local storage = self:GetActiveModuleStorage()
     if not storage[modKey] then storage[modKey] = {} end
+    if storage[modKey].hideComplete == value then
+        return
+    end
     storage[modKey].hideComplete = value
-    self:RefreshUI()
+    if not skipRefresh then
+        self:RefreshUI()
+    end
 end
 
 function MR:IsRowEnabled(modKey, rowKey)
@@ -1157,13 +1188,16 @@ function MR:IsRowEnabled(modKey, rowKey)
     return s.hiddenRows[rowKey] ~= false
 end
 
-function MR:SetRowEnabled(modKey, rowKey, enabled)
+function MR:SetRowEnabled(modKey, rowKey, enabled, skipRefresh)
     local storage = self:GetActiveModuleStorage()
     if not storage[modKey] then storage[modKey] = {} end
     if not storage[modKey].hiddenRows then
         storage[modKey].hiddenRows = {}
     end
     storage[modKey].hiddenRows[rowKey] = enabled and true or false
+    if not skipRefresh then
+        self:RefreshUI()
+    end
 end
 
 function MR:IsCharacterWindowLayoutEnabled()

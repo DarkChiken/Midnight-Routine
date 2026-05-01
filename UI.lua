@@ -3713,7 +3713,8 @@ function MR:RefreshUI()
         ApplyMainFrameLayout(self.frame)
 
         for _, w in ipairs(self.widgets or {}) do
-            w:Hide(); w:SetParent(nil)
+            w:Hide()
+            w:SetParent(nil)
         end
         self.widgets         = {}
         self.sectionRegistry = {}
@@ -3825,6 +3826,7 @@ function MR:RefreshUI()
             self:RefreshUI()
         end, minRefreshInterval)
     end
+
 end
 
 local function ReleaseConfigWidgetTree(frame)
@@ -4181,10 +4183,18 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
         end
         if button == "LeftButton" then
             MR:SetModuleOpen(mod.key, not MR:IsModuleOpen(mod.key))
-            MR:RefreshUI()
+            if MR.RequestUIRefresh then
+                MR:RequestUIRefresh(0.04)
+            else
+                MR:RefreshUI()
+            end
         elseif button == "RightButton" then
             MR:SetModuleDetached(mod.key, not opts.detached)
-            MR:RefreshUI()
+            if MR.RequestUIRefresh then
+                MR:RequestUIRefresh(0.04)
+            else
+                MR:RefreshUI()
+            end
         end
         hdrFrame._pressed = false
     end)
@@ -5211,7 +5221,21 @@ function MR:PopulateConfigFrame(f)
                         moduleStorage[mod.key].hideComplete = nil
                     end
                 end
-                MR:RefreshUI()
+                if MR.RequestConfigRefresh then
+                    MR:RequestConfigRefresh()
+                else
+                    MR:RefreshUI()
+                end
+            end)
+        Checkbox(L["Config_HideCurrenciesWhenCompleted"] or "Hide Currencies When Completed",
+            function() return MR:IsModuleHideComplete("currencies") end,
+            function(v)
+                MR:SetModuleHideComplete("currencies", v and true or false, true)
+                if MR.RequestConfigRefresh then
+                    MR:RequestConfigRefresh()
+                else
+                    MR:RefreshUI()
+                end
             end)
         Checkbox(L["Config_LockFrame"],
             function() return MR.db.profile.locked end,
@@ -5590,8 +5614,13 @@ function MR:PopulateConfigFrame(f)
         ApplyToggleButtonState(btn, fs, hideActive)
         btn:SetScript("OnClick", function()
             local active = not MR:IsModuleHideComplete(key)
-            MR:SetModuleHideComplete(key, active)
+            MR:SetModuleHideComplete(key, active, true)
             ApplyToggleButtonState(btn, fs, active)
+            if MR.RequestConfigRefresh then
+                MR:RequestConfigRefresh()
+            else
+                MR:RefreshUI()
+            end
         end)
         btn:SetScript("OnEnter", function()
             btn:SetBackdropColor(0.08, 0.22, 0.32, 1)
@@ -5858,7 +5887,12 @@ function MR:PopulateConfigFrame(f)
                 cb:SetPoint("LEFT", headerFr, "LEFT", 18, 0)
                 cb:SetChecked(MR:IsModuleEnabled(key))
                 cb:SetScript("OnClick", function(s)
-                    MR:SetModuleEnabled(key, s:GetChecked())
+                    MR:SetModuleEnabled(key, s:GetChecked(), true)
+                    if MR.RequestConfigRefresh then
+                        MR:RequestConfigRefresh()
+                    else
+                        MR:RefreshUI()
+                    end
                 end)
 
                 local hideBtn = BuildHideCompleteBtn(headerFr, key, headerFr)
@@ -5892,7 +5926,12 @@ function MR:PopulateConfigFrame(f)
             cb:SetPoint("LEFT", headerFr, "LEFT", 18, 0)
             cb:SetChecked(MR:IsModuleEnabled(key))
             cb:SetScript("OnClick", function(s)
-                MR:SetModuleEnabled(key, s:GetChecked())
+                MR:SetModuleEnabled(key, s:GetChecked(), true)
+                if MR.RequestConfigRefresh then
+                    MR:RequestConfigRefresh()
+                else
+                    MR:RefreshUI()
+                end
             end)
 
             local isExp = MR._cfgExpanded[key]
@@ -5909,7 +5948,11 @@ function MR:PopulateConfigFrame(f)
             arrowLbl:SetTextColor(0.45, 0.75, 0.70)
             arrowBtn:SetScript("OnClick", function()
                 MR._cfgExpanded[key] = not MR._cfgExpanded[key]
-                MR:PopulateConfigFrame(f)
+                if MR.RequestConfigRepopulate then
+                    MR:RequestConfigRepopulate(f, 0.04)
+                else
+                    MR:PopulateConfigFrame(f)
+                end
             end)
             arrowBtn:SetScript("OnEnter", function()
                 arrowBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
@@ -6071,8 +6114,12 @@ function MR:PopulateConfigFrame(f)
 
                     eyeBtn:SetScript("OnClick", function()
                         enabled = not MR:IsRowEnabled(key, rkey)
-                        MR:SetRowEnabled(key, rkey, enabled)
-                        MR:RefreshUI()
+                        MR:SetRowEnabled(key, rkey, enabled, true)
+                        if MR.RequestConfigRefresh then
+                            MR:RequestConfigRefresh()
+                        else
+                            MR:RefreshUI()
+                        end
                         ApplyRowToggleState(enabled)
                     end)
                     eyeBtn:SetScript("OnEnter", function()
@@ -6148,6 +6195,34 @@ function MR:PopulateConfigFrame(f)
     local totalH = math.abs(yOff) + 8
     body:SetHeight(totalH)
     f:SetHeight(totalH)
+end
+
+function MR:RequestConfigRepopulate(frame, delay)
+    frame = frame or cfgFrame
+    if not frame or not frame:IsShown() then
+        return
+    end
+
+    if not self.ScheduleTimer then
+        self:PopulateConfigFrame(frame)
+        return
+    end
+
+    delay = tonumber(delay) or 0.04
+    self._configRepopulatePendingFrame = frame
+    if self._configRepopulateTimer and self.CancelTimer then
+        self:CancelTimer(self._configRepopulateTimer)
+        self._configRepopulateTimer = nil
+    end
+
+    self._configRepopulateTimer = self:ScheduleTimer(function()
+        local target = self._configRepopulatePendingFrame
+        self._configRepopulateTimer = nil
+        self._configRepopulatePendingFrame = nil
+        if target and target:IsShown() then
+            self:PopulateConfigFrame(target)
+        end
+    end, delay)
 end
 
 function MR:RepopulateConfigFrame()
