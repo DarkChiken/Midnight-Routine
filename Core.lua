@@ -1259,15 +1259,27 @@ function MR:SetHeaderColor(modKey, hexColor)
         self.db.profile.headerColors = {}
     end
     self.db.profile.headerColors[modKey] = hexColor
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 function MR:ResetHeaderColor(modKey)
     if self.db.profile.headerColors then
         self.db.profile.headerColors[modKey] = nil
     end
-    self:RefreshUI()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
 end
 
 function MR:GetHeaderBackgroundColor(modKey)
@@ -1282,15 +1294,27 @@ function MR:SetHeaderBackgroundColor(modKey, hexColor)
         self.db.profile.headerBackgroundColors = {}
     end
     self.db.profile.headerBackgroundColors[modKey] = hexColor
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 function MR:ResetHeaderBackgroundColor(modKey)
     if self.db.profile.headerBackgroundColors then
         self.db.profile.headerBackgroundColors[modKey] = nil
     end
-    self:RefreshUI()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
 end
 
 function MR:GetActiveMediaSettings()
@@ -1394,8 +1418,16 @@ function MR:SetRowColor(modKey, rowKey, hexColor)
     if not self.db.profile.rowColors then self.db.profile.rowColors = {} end
     if not self.db.profile.rowColors[modKey] then self.db.profile.rowColors[modKey] = {} end
     self.db.profile.rowColors[modKey][rowKey] = hexColor
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 function MR:ResetRowColor(modKey, rowKey)
@@ -1403,8 +1435,16 @@ function MR:ResetRowColor(modKey, rowKey)
     if p and p[modKey] then
         p[modKey][rowKey] = nil
     end
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 local PARENT_TO_MIDNIGHT = {

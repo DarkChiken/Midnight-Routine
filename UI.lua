@@ -46,6 +46,9 @@ local IsMainTextOnlyMode
 local GetWindowLayoutValue
 local SetWindowLayoutValue
 local countColor
+local WC = WrapColor
+
+countColor = ns.CountColor
 
 local function GetFontSize()
     if type(ns.GetFontSize) == "function" then
@@ -240,6 +243,1434 @@ local function CleanLabelText(text)
     return text:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
 end
 
+local function HideTooltipIfOwned(frame)
+    if GameTooltip and GameTooltip:IsOwned(frame) then
+        GameTooltip:Hide()
+    end
+end
+
+local function MainSectionHeaderOnMouseDown(selfFrame, button)
+    if selfFrame._mrDetachedHost and button == "LeftButton" then
+        selfFrame._pressed = true
+        selfFrame._dragged = false
+        return
+    end
+
+    if button == "LeftButton" then
+        selfFrame._pressed = true
+    end
+end
+
+local function MainSectionHeaderOnDragStart(selfFrame)
+    local host = selfFrame._mrDetachedHost
+    if not host or MR.db.profile.locked then
+        return
+    end
+
+    selfFrame._dragged = true
+    host:StartMoving()
+end
+
+local function MainSectionHeaderOnDragStop(selfFrame)
+    local host = selfFrame._mrDetachedHost
+    local mod = selfFrame._mrMod
+    if not host or not mod then
+        return
+    end
+
+    host:StopMovingOrSizing()
+    local pt, _, rp, x, y = host:GetPoint()
+    MR:SetDetachedModulePosition(mod.key, pt, rp, x, y)
+end
+
+local function MainSectionHeaderOnMouseUp(selfFrame, button)
+    local mod = selfFrame._mrMod
+    if not mod then
+        selfFrame._pressed = false
+        return
+    end
+
+    if selfFrame._mrDetachedHost and button == "LeftButton" and selfFrame._dragged then
+        selfFrame._pressed = false
+        selfFrame._dragged = false
+        return
+    end
+
+    if mod.key == "custom_tasks" and button == "RightButton" and IsShiftKeyDown() then
+        if MR.ShowCustomTasksTitleDialog then
+            MR:ShowCustomTasksTitleDialog()
+        end
+        selfFrame._pressed = false
+        return
+    end
+
+    if button == "LeftButton" then
+        if not selfFrame._mrDetachedHost and MR.FastToggleMainSection and MR:FastToggleMainSection(mod.key) then
+        elseif not selfFrame._mrDetachedHost and MR.RefreshMainPanelSectionsOnly then
+            MR:SetModuleOpen(mod.key, not MR:IsModuleOpen(mod.key))
+            MR:RefreshMainPanelSectionsOnly()
+        elseif MR.RequestUIRefresh then
+            MR:SetModuleOpen(mod.key, not MR:IsModuleOpen(mod.key))
+            MR:RequestUIRefresh(0.04)
+        else
+            MR:SetModuleOpen(mod.key, not MR:IsModuleOpen(mod.key))
+            MR:RefreshUI()
+        end
+    elseif button == "RightButton" then
+        MR:SetModuleDetached(mod.key, not selfFrame._mrDetachedHost)
+        if MR.RequestUIRefresh then
+            MR:RequestUIRefresh(0.04)
+        else
+            MR:RefreshUI()
+        end
+    end
+
+    selfFrame._pressed = false
+end
+
+local function MainSectionHeaderOnEnter(selfFrame)
+    local mod = selfFrame._mrMod
+    if not mod then
+        return
+    end
+
+    local alpha = selfFrame._mrHoverAlpha or 0
+    if selfFrame._hdrHover then
+        selfFrame._hdrHover:SetColorTexture(1, 1, 1, alpha)
+    end
+
+    GameTooltip:SetOwner(selfFrame, "ANCHOR_RIGHT")
+    GameTooltip:SetText(mod.label, 1, 1, 1)
+    GameTooltip:AddLine(L["Tooltip_ExpandCollapse"], 0.5, 0.5, 0.5)
+    GameTooltip:AddLine(selfFrame._mrDetachedHost and "Right-click to dock back" or "Right-click to detach", 0.5, 0.8, 1)
+    if mod.key == "custom_tasks" then
+        GameTooltip:AddLine("Shift-right-click to rename this header.", 0.85, 0.82, 0.45, true)
+    end
+    GameTooltip:Show()
+end
+
+local function MainSectionHeaderOnLeave(selfFrame)
+    if selfFrame._hdrHover then
+        selfFrame._hdrHover:SetColorTexture(1, 1, 1, 0)
+    end
+    HideTooltipIfOwned(selfFrame)
+end
+
+local function MainHeaderActionOnClick(selfBtn)
+    local owner = selfBtn._mrOwner
+    local data = owner and owner._mrData
+    if data and data.row and data.row.onHeaderActionClick then
+        data.row.onHeaderActionClick(data.row, data.mod, owner)
+    end
+end
+
+local function MainHeaderActionOnEnter(selfBtn)
+    local owner = selfBtn._mrOwner
+    local data = owner and owner._mrData
+    if data and data.row and data.row.headerActionTooltip and data.row.headerActionTooltip ~= "" then
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+        GameTooltip:SetText(data.row.headerActionTooltip, 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end
+end
+
+local function MainHeaderActionOnLeave(selfBtn)
+    HideTooltipIfOwned(selfBtn)
+end
+
+local function MainRowOnEnter(selfRow)
+    local data = selfRow._mrData
+    if not data then
+        return
+    end
+
+    if data.mode == "sectionHeader" then
+        if data.row.note then
+            GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
+            GameTooltip:SetText(data.row.label, 1, 1, 1)
+            GameTooltip:AddLine(data.row.note, 0.70, 0.70, 0.76, true)
+            GameTooltip:Show()
+        end
+        return
+    end
+
+    if data.mode == "collapsed" then
+        GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["Tooltip_DonePrefix"] .. data.row.label, 0.4, 0.85, 0.4, 1, true)
+        GameTooltip:AddLine(L["Tooltip_CompletedWeek"], 0.3, 0.6, 0.3)
+        GameTooltip:Show()
+        return
+    end
+
+    if selfRow._hover then
+        selfRow._hover:SetColorTexture(1, 1, 1, data.transparent and 0 or (0.04 * data.frameAlpha))
+    end
+
+    local row = data.row
+    GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
+    if row.currencyId and not row.noBlizzardTooltip then
+        GameTooltip:SetCurrencyByID(row.currencyId)
+        GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
+    elseif row.itemId and not row.noBlizzardTooltip then
+        if GameTooltip.SetItemByID then
+            GameTooltip:SetItemByID(row.itemId)
+        else
+            GameTooltip:SetHyperlink("item:" .. row.itemId)
+        end
+        GameTooltip:AddLine(L["Tooltip_AutoItem"], 0.9, 0.6, 1)
+    else
+        GameTooltip:SetText(row.label, 1, 1, 1, 1, true)
+        if row.note then
+            GameTooltip:AddLine(row.note, 0.7, 0.7, 0.7, true)
+        end
+        if data.hasWaypoint then
+            GameTooltip:AddLine(" ")
+            GameTooltip:AddLine(string.format(L["Gathering_Coords"], row.x, row.y), 0.7, 1, 0.9)
+            GameTooltip:AddLine(L["Gathering_ClickWaypoint"], 0.45, 0.85, 1)
+        end
+        if row.tooltipFunc then
+            row.tooltipFunc(GameTooltip)
+        end
+        if row.noDefaultTooltipHint then
+        elseif row.liveKey or row.autoTracked or (row.currencyId and row.noBlizzardTooltip) then
+            GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
+        elseif row.questIds then
+            GameTooltip:AddLine(L["Tooltip_AutoQuest"], 0.4, 1, 0.6)
+        elseif row.spellId or row.itemId then
+            GameTooltip:AddLine(L["Tooltip_AutoItem"], 0.9, 0.6, 1)
+        elseif not data.hasWaypoint then
+            GameTooltip:AddLine(L["Tooltip_ManualClick"], 0.5, 0.5, 0.5)
+        end
+    end
+    GameTooltip:Show()
+end
+
+local function MainRowOnLeave(selfRow)
+    if selfRow._hover then
+        selfRow._hover:SetColorTexture(1, 1, 1, 0)
+    end
+    HideTooltipIfOwned(selfRow)
+end
+
+local function MainRowOnMouseDown(selfRow, button)
+    local data = selfRow._mrData
+    if not data or data.mode ~= "normal" then
+        return
+    end
+
+    local row = data.row
+    local mod = data.mod
+    local done = data.done
+
+    if button == "LeftButton" and row.onLeftClick then
+        local handled = row.onLeftClick(row, mod, done, selfRow)
+        if handled ~= false then
+            return
+        end
+    elseif button == "RightButton" and row.onRightClick then
+        local handled = row.onRightClick(row, mod, done, selfRow)
+        if handled ~= false then
+            return
+        end
+    end
+
+    if button == "LeftButton" and data.hasWaypoint then
+        local ok, source = MR:SetWaypoint(row)
+        if ok then
+            print(string.format(L["Waypoint_Set"], source, row.waypointTitle or row.label, row.x, row.y))
+        else
+            print(L["Waypoint_Unavailable"])
+        end
+    elseif not data.isAutoTracked and button == "LeftButton" then
+        MR:BumpProgress(mod.key, row.key, 1, row.max)
+    elseif not data.isAutoTracked and button == "RightButton" then
+        MR:BumpProgress(mod.key, row.key, -1, row.max)
+    end
+end
+
+local function MainStatusButtonOnClick(selfBtn)
+    local owner = selfBtn._mrOwner
+    local data = owner and owner._mrData
+    if not data or data.mode ~= "normal" then
+        return
+    end
+
+    local row = data.row
+    local mod = data.mod
+    if row.toggleStatus and MR.ToggleCustomTask and mod.key == "custom_tasks" then
+        MR:ToggleCustomTask(tonumber((row.key or ""):match("task_(%d+)")))
+        return
+    end
+
+    local cur = MR:GetManualOverride(mod.key, row.key)
+    MR:SetManualOverride(mod.key, row.key, cur >= row.max and 0 or row.max, row.max)
+end
+
+local function MainStatusButtonOnEnter(selfBtn)
+    local owner = selfBtn._mrOwner
+    local data = owner and owner._mrData
+    if not data or data.mode ~= "normal" then
+        return
+    end
+
+    if owner._hover then
+        owner._hover:SetColorTexture(1, 1, 1, data.transparent and 0 or (0.04 * data.frameAlpha))
+    end
+
+    local row = data.row
+    local mo = row.toggleStatus and MR:GetProgress(data.mod.key, row.key) or MR:GetManualOverride(data.mod.key, row.key)
+    GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+    GameTooltip:SetText(row.label, 1, 1, 1, 1, true)
+    if row.note then
+        GameTooltip:AddLine(row.note, 0.7, 0.7, 0.7, true)
+    end
+    GameTooltip:AddLine(" ")
+    if mo >= row.max then
+        GameTooltip:AddLine(L["Tooltip_ManualDot_Active"], 1, 0.85, 0.1, true)
+    else
+        GameTooltip:AddLine(L["Tooltip_ManualDot_Hint"], 0.7, 0.7, 0.7, true)
+    end
+    GameTooltip:Show()
+end
+
+local function MainStatusButtonOnLeave(selfBtn)
+    local owner = selfBtn._mrOwner
+    if owner and owner._hover then
+        owner._hover:SetColorTexture(1, 1, 1, 0)
+    end
+    HideTooltipIfOwned(selfBtn)
+end
+
+local function HideMainRowWidget(rowFrame)
+    if not rowFrame then
+        return
+    end
+
+    HideTooltipIfOwned(rowFrame)
+    if rowFrame._headerActionButton then
+        HideTooltipIfOwned(rowFrame._headerActionButton)
+    end
+    if rowFrame._statusBtn then
+        HideTooltipIfOwned(rowFrame._statusBtn)
+    end
+    rowFrame._mrData = nil
+    rowFrame._timerUpdate = nil
+    rowFrame:Hide()
+end
+
+local function HideMainSectionWidget(section)
+    if not section then
+        return
+    end
+
+    if section._hdrFrame then
+        HideTooltipIfOwned(section._hdrFrame)
+    end
+    if section._rows then
+        for _, rowFrame in pairs(section._rows) do
+            HideMainRowWidget(rowFrame)
+        end
+    end
+    section:Hide()
+end
+
+local GetTextOnlyHeaderAlpha
+local ShouldShowIcons
+local ShouldShowSectionHeaders
+local NormalizeIconInfo
+local GetRowIconInfo
+local GetModuleIconInfo
+local ShouldShowModuleHeaderIcon
+local GetModuleFallbackIconInfo
+local ApplyIconToTexture
+local EnsureMainRowWidget
+local UpdateMainRowWidget
+
+local function EnsureMainSeparator(self, index)
+    self._mainColumnSeparators = self._mainColumnSeparators or {}
+    local sep = self._mainColumnSeparators[index]
+    if sep then
+        sep:SetParent(self.content)
+        sep:Show()
+        return sep
+    end
+
+    sep = CreateFrame("Frame", nil, self.content)
+    sep._tex = sep:CreateTexture(nil, "ARTWORK")
+    sep._tex:SetAllPoints()
+    sep._tex:SetColorTexture(1, 1, 1, 0.08)
+    self._mainColumnSeparators[index] = sep
+    return sep
+end
+
+local function EnsureMainSectionWidget(self, modKey)
+    self._mainSectionFrames = self._mainSectionFrames or {}
+    local card = self._mainSectionFrames[modKey]
+    if card then
+        card:SetParent(self.content)
+        card:Show()
+        return card
+    end
+
+    card = CreateFrame("Frame", nil, self.content, "BackdropTemplate")
+    card._glow = card:CreateTexture(nil, "BACKGROUND")
+    card._glow:SetPoint("TOPLEFT", card, "TOPLEFT", 1, -1)
+    card._glow:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -1, 1)
+    card._glow:SetTexture("Interface\\Buttons\\WHITE8X8")
+
+    card._hdrFrame = CreateFrame("Frame", nil, card)
+    card._hdrFrame:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
+    card._hdrFrame:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
+    card._hdrFrame:EnableMouse(true)
+    card._hdrFrame._hdrHover = card._hdrFrame:CreateTexture(nil, "BORDER")
+    card._hdrFrame._hdrHover:SetAllPoints()
+    card._hdrFrame._hdrBg = card._hdrFrame:CreateTexture(nil, "BACKGROUND")
+    card._hdrFrame._hdrBg:SetAllPoints()
+    card._hdrFrame._iconPlate = CreateFrame("Frame", nil, card._hdrFrame, "BackdropTemplate")
+    card._hdrFrame._icon = card._hdrFrame:CreateTexture(nil, "ARTWORK")
+    card._hdrFrame._label = card._hdrFrame:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._count = card._hdrFrame:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._arrow = card._hdrFrame:CreateTexture(nil, "OVERLAY")
+    card._hdrFrame:SetScript("OnMouseDown", MainSectionHeaderOnMouseDown)
+    card._hdrFrame:SetScript("OnMouseUp", MainSectionHeaderOnMouseUp)
+    card._hdrFrame:SetScript("OnDragStart", MainSectionHeaderOnDragStart)
+    card._hdrFrame:SetScript("OnDragStop", MainSectionHeaderOnDragStop)
+    card._hdrFrame:SetScript("OnEnter", MainSectionHeaderOnEnter)
+    card._hdrFrame:SetScript("OnLeave", MainSectionHeaderOnLeave)
+
+    card._divider = CreateFrame("Frame", nil, card, "BackdropTemplate")
+    card._divider:SetBackdrop(MakeBackdrop(false))
+
+    card._rows = {}
+    self._mainSectionFrames[modKey] = card
+    return card
+end
+
+local function EnsureDetachedSectionWidget(frame, modKey)
+    frame._sectionFrames = frame._sectionFrames or {}
+    local card = frame._sectionFrames[modKey]
+    if card then
+        card:SetParent(frame.content)
+        card:Show()
+        return card
+    end
+
+    card = CreateFrame("Frame", nil, frame.content, "BackdropTemplate")
+    card._glow = card:CreateTexture(nil, "BACKGROUND")
+    card._glow:SetPoint("TOPLEFT", card, "TOPLEFT", 1, -1)
+    card._glow:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -1, 1)
+    card._glow:SetTexture("Interface\\Buttons\\WHITE8X8")
+
+    card._hdrFrame = CreateFrame("Frame", nil, card)
+    card._hdrFrame:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
+    card._hdrFrame:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
+    card._hdrFrame:EnableMouse(true)
+    card._hdrFrame:RegisterForDrag("LeftButton")
+    card._hdrFrame._hdrHover = card._hdrFrame:CreateTexture(nil, "BORDER")
+    card._hdrFrame._hdrHover:SetAllPoints()
+    card._hdrFrame._hdrBg = card._hdrFrame:CreateTexture(nil, "BACKGROUND")
+    card._hdrFrame._hdrBg:SetAllPoints()
+    card._hdrFrame._iconPlate = CreateFrame("Frame", nil, card._hdrFrame, "BackdropTemplate")
+    card._hdrFrame._icon = card._hdrFrame:CreateTexture(nil, "ARTWORK")
+    card._hdrFrame._label = card._hdrFrame:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._count = card._hdrFrame:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._arrow = card._hdrFrame:CreateTexture(nil, "OVERLAY")
+    card._hdrFrame:SetScript("OnMouseDown", MainSectionHeaderOnMouseDown)
+    card._hdrFrame:SetScript("OnMouseUp", MainSectionHeaderOnMouseUp)
+    card._hdrFrame:SetScript("OnDragStart", MainSectionHeaderOnDragStart)
+    card._hdrFrame:SetScript("OnDragStop", MainSectionHeaderOnDragStop)
+    card._hdrFrame:SetScript("OnEnter", MainSectionHeaderOnEnter)
+    card._hdrFrame:SetScript("OnLeave", MainSectionHeaderOnLeave)
+
+    card._divider = CreateFrame("Frame", nil, card, "BackdropTemplate")
+    card._divider:SetBackdrop(MakeBackdrop(false))
+
+    card._rows = {}
+    frame._sectionFrames[modKey] = card
+    return card
+end
+
+local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
+    local transparent = IsMainTextOnlyMode()
+    local frameAlpha = MR.db.profile.frameAlpha or 1.0
+    local showSectionHeaders = ShouldShowSectionHeaders()
+    local textOnlyHeaderAlpha = showSectionHeaders and GetTextOnlyHeaderAlpha() or 0
+    local headerAlpha = transparent and textOnlyHeaderAlpha or ((showSectionHeaders and 0.90 or 0) * frameAlpha)
+    local dividerAlpha = transparent and (0.50 * textOnlyHeaderAlpha) or ((showSectionHeaders and 0.09 or 0) * frameAlpha)
+    local showSoftHeaders = transparent and textOnlyHeaderAlpha > 0
+    local showIcons = ShouldShowIcons()
+    local stats = GetModuleStats(self, mod)
+    local isOpen = stats and stats.isOpen
+    local secTotal = stats and stats.totalRows or 0
+    local secDone = stats and stats.doneRows or 0
+    local shownRows = stats and stats.shownRows or 0
+    if shownRows == 0 then
+        return nil
+    end
+
+    local allDone = (secTotal > 0) and (secDone == secTotal)
+    local card = EnsureDetachedSectionWidget(hostFrame, mod.key)
+    local sectionHeight = math.max((stats and stats.height or 0) - SECTION_GAP, HEADER_HEIGHT + 1)
+    card:ClearAllPoints()
+    card:SetPoint("TOPLEFT", hostFrame.content, "TOPLEFT", 0, 0)
+    card:SetSize(math.max(contentWidth, 1), sectionHeight)
+    card:SetBackdrop(MakeBackdrop())
+    if ns.HookBackdropFrame then ns.HookBackdropFrame(card) end
+    card._hdrFrame._mrDetachedHost = nil
+    if transparent then
+        card:SetBackdropColor(0, 0, 0, 0)
+        card:SetBackdropBorderColor(0, 0, 0, 0)
+    else
+        card:SetBackdropColor(0.02, 0.03, 0.05, 0.94 * frameAlpha)
+        card:SetBackdropBorderColor(0.18, 0.22, 0.28, 0.95 * frameAlpha)
+    end
+    card._glow:SetColorTexture(0.12, 0.14, 0.18, transparent and 0 or (0.10 * frameAlpha))
+
+    card._hdrFrame:SetHeight(HEADER_HEIGHT)
+    card._hdrFrame._mrMod = mod
+    card._hdrFrame._mrDetachedHost = hostFrame
+    card._hdrFrame._mrHoverAlpha = transparent and (0.10 * textOnlyHeaderAlpha) or ((showSectionHeaders and 0.05 or 0) * frameAlpha)
+    local customHeaderBg = MR.GetHeaderBackgroundColor and MR:GetHeaderBackgroundColor(mod.key) or nil
+    local hdrR, hdrG, hdrB = 0.08, 0.09, 0.12
+    if customHeaderBg then
+        hdrR, hdrG, hdrB = hex(customHeaderBg)
+    end
+    card._hdrFrame._hdrBg:SetColorTexture(hdrR, hdrG, hdrB, headerAlpha)
+
+    local explicitColor = MR.db.profile.headerColors and MR.db.profile.headerColors[mod.key]
+    local customColor = MR:GetHeaderColor(mod.key)
+    local headerColor = customColor or mod.labelColor or "#ffffff"
+    local lr, lg, lb = hex(headerColor)
+    local accentA = transparent and textOnlyHeaderAlpha or ((showSectionHeaders and 1 or 0) * frameAlpha)
+    local accentR, accentG, accentB = lr, lg, lb
+    if allDone then
+        accentR, accentG, accentB = COL.complete[1], COL.complete[2], COL.complete[3]
+    end
+
+    card._hdrFrame._iconPlate:ClearAllPoints()
+    card._hdrFrame._iconPlate:SetSize(math.max(HEADER_HEIGHT - 6, 12), math.max(HEADER_HEIGHT - 6, 12))
+    card._hdrFrame._iconPlate:SetPoint("LEFT", card._hdrFrame, "LEFT", 4, 0)
+    card._hdrFrame._iconPlate:SetBackdrop(MakeBackdrop())
+    local iconPlateBgAlpha = transparent and (showSoftHeaders and (0.16 * accentA) or 0) or ((showSectionHeaders and 0.16 or 0) * frameAlpha)
+    local iconPlateBorderAlpha = transparent and (showSoftHeaders and (0.50 * accentA) or 0) or ((showSectionHeaders and 0.50 or 0) * frameAlpha)
+    card._hdrFrame._iconPlate:SetBackdropColor(accentR, accentG, accentB, iconPlateBgAlpha)
+    card._hdrFrame._iconPlate:SetBackdropBorderColor(accentR, accentG, accentB, iconPlateBorderAlpha)
+
+    local iconInfo = showIcons and ShouldShowModuleHeaderIcon(mod.key) and GetModuleIconInfo(mod) or nil
+    card._hdrFrame._icon:ClearAllPoints()
+    card._hdrFrame._icon:SetSize(math.max(HEADER_HEIGHT - 12, 9), math.max(HEADER_HEIGHT - 12, 9))
+    card._hdrFrame._icon:SetPoint("CENTER", card._hdrFrame._iconPlate, "CENTER", 0, 0)
+    local hasHeaderIcon = ApplyIconToTexture(card._hdrFrame._icon, iconInfo, { 0.14, 0.86, 0.14, 0.86 })
+    card._hdrFrame._iconPlate:SetShown(hasHeaderIcon and (showIcons or showSectionHeaders))
+
+    card._hdrFrame._label:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
+    card._hdrFrame._label:ClearAllPoints()
+    if hasHeaderIcon then
+        card._hdrFrame._label:SetPoint("LEFT", card._hdrFrame._iconPlate, "RIGHT", 6, 0)
+    else
+        card._hdrFrame._label:SetPoint("LEFT", card._hdrFrame, "LEFT", 9, 0)
+    end
+    card._hdrFrame._label:SetJustifyH("LEFT")
+    if card._hdrFrame._label.SetWordWrap then
+        card._hdrFrame._label:SetWordWrap(false)
+    end
+    card._hdrFrame._label:SetText((allDone and not explicitColor) and WC("00ff96", mod.label) or WC(headerColor:gsub("#", ""), mod.label))
+
+    card._hdrFrame._count:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+    card._hdrFrame._count:ClearAllPoints()
+    card._hdrFrame._count:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -18, 0)
+    card._hdrFrame._count:SetText(string.format(L["%d / %d complete"], secDone, secTotal))
+    card._hdrFrame._count:SetTextColor(countColor(secDone, secTotal))
+    card._hdrFrame._count:SetJustifyH("RIGHT")
+    card._hdrFrame._label:SetPoint("RIGHT", card._hdrFrame._count, "LEFT", -8, 0)
+
+    card._hdrFrame._arrow:SetSize(10, 10)
+    card._hdrFrame._arrow:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -6, 0)
+    if isOpen then
+        card._hdrFrame._arrow:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+    else
+        card._hdrFrame._arrow:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up")
+    end
+    card._hdrFrame._arrow:SetVertexColor(0.45, 0.45, 0.45)
+
+    local localY = HEADER_HEIGHT
+    card._divider:ClearAllPoints()
+    card._divider:SetPoint("TOPLEFT", card, "TOPLEFT", 0, -localY)
+    card._divider:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, -localY)
+    card._divider:SetHeight(1)
+    card._divider:SetBackdropColor(1, 1, 1, dividerAlpha)
+
+    local usedRows = {}
+    if isOpen then
+        localY = localY + 1
+        local hideComplete = stats and stats.hideComplete
+        for _, row in ipairs(mod.rows) do
+            local rowVisible = not row.isVisible or row.isVisible()
+            if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
+                local done = MR:GetProgress(mod.key, row.key)
+                local rowComplete = self:IsRowComplete(mod, row, done)
+                if row.control or not (hideComplete and rowComplete) then
+                    local _, nextY, rowId = UpdateMainRowWidget(self, card, mod, row, done, localY, card:GetWidth())
+                    localY = nextY
+                    usedRows[rowId] = true
+                end
+            end
+        end
+    end
+
+    for key, rowFrame in pairs(card._rows or {}) do
+        if not usedRows[key] then
+            HideMainRowWidget(rowFrame)
+        end
+    end
+
+    return card
+end
+
+EnsureMainRowWidget = function(section, rowKey)
+    section._rows = section._rows or {}
+    local rowFrame = section._rows[rowKey]
+    if rowFrame then
+        rowFrame:SetParent(section)
+        rowFrame:Show()
+        return rowFrame
+    end
+
+    rowFrame = CreateFrame("Frame", nil, section)
+    rowFrame:EnableMouse(true)
+    rowFrame:SetScript("OnEnter", MainRowOnEnter)
+    rowFrame:SetScript("OnLeave", MainRowOnLeave)
+    rowFrame:SetScript("OnMouseDown", MainRowOnMouseDown)
+
+    rowFrame._headerBg = rowFrame:CreateTexture(nil, "BACKGROUND")
+    rowFrame._headerBg:SetAllPoints()
+    rowFrame._headerText = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._headerText:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
+    rowFrame._headerActionButton = CreateFrame("Button", nil, rowFrame, "BackdropTemplate")
+    rowFrame._headerActionButton._mrOwner = rowFrame
+    rowFrame._headerActionButton:SetScript("OnClick", MainHeaderActionOnClick)
+    rowFrame._headerActionButton:SetScript("OnEnter", MainHeaderActionOnEnter)
+    rowFrame._headerActionButton:SetScript("OnLeave", MainHeaderActionOnLeave)
+    rowFrame._headerActionText = rowFrame._headerActionButton:CreateFontString(nil, "OVERLAY")
+    rowFrame._headerActionText:SetFont(FONT_ROWS, 9, GetFontFlags())
+    rowFrame._headerCount = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._headerCount:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+
+    rowFrame._collapsedLine = rowFrame:CreateTexture(nil, "ARTWORK")
+    rowFrame._collapsedDot = rowFrame:CreateTexture(nil, "ARTWORK")
+
+    rowFrame._hover = rowFrame:CreateTexture(nil, "BACKGROUND")
+    rowFrame._hover:SetAllPoints()
+    rowFrame._rowShade = rowFrame:CreateTexture(nil, "BORDER")
+    rowFrame._separator = rowFrame:CreateTexture(nil, "ARTWORK")
+
+    rowFrame._statusBtn = CreateFrame("Button", nil, rowFrame, "BackdropTemplate")
+    rowFrame._statusBtn._mrOwner = rowFrame
+    rowFrame._statusBtn:SetScript("OnClick", MainStatusButtonOnClick)
+    rowFrame._statusBtn:SetScript("OnEnter", MainStatusButtonOnEnter)
+    rowFrame._statusBtn:SetScript("OnLeave", MainStatusButtonOnLeave)
+    rowFrame._statusFill = rowFrame._statusBtn:CreateTexture(nil, "ARTWORK")
+    rowFrame._statusFill:SetPoint("TOPLEFT", rowFrame._statusBtn, "TOPLEFT", 2, -2)
+    rowFrame._statusFill:SetPoint("BOTTOMRIGHT", rowFrame._statusBtn, "BOTTOMRIGHT", -2, 2)
+    rowFrame._statusCheck = rowFrame._statusBtn:CreateFontString(nil, "OVERLAY")
+    rowFrame._statusCheck:SetFont(FONT_HEADERS, 9, GetFontFlags())
+    rowFrame._statusCheck:SetPoint("CENTER", rowFrame._statusBtn, "CENTER", 0, 1)
+    rowFrame._statusCheck:SetText("x")
+
+    rowFrame._rowIcon = rowFrame:CreateTexture(nil, "ARTWORK")
+    rowFrame._label = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._label:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    rowFrame._count = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._count:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    rowFrame._wallet = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._wallet:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    rowFrame._coords = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._coords:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 1), GetFontFlags())
+    rowFrame._vault = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._vault:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+
+    section._rows[rowKey] = rowFrame
+    return rowFrame
+end
+
+UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
+    local rowId = row.key or tostring(row.label or yOff)
+    local rowFrame = EnsureMainRowWidget(section, rowId)
+    local transparent = IsMainTextOnlyMode()
+    local showIcons = ShouldShowIcons()
+    local frameAlpha = MR.db.profile.frameAlpha or 1.0
+    local isAutoTracked = row.autoTracked
+        or (row.questIds ~= nil)
+        or (row.liveKey ~= nil)
+        or (row.spellId ~= nil)
+        or (row.currencyId ~= nil)
+        or (row.itemId ~= nil)
+    local hasWaypoint = row.zone and row.x and row.y
+    local isComplete = self:IsRowComplete(mod, row, done)
+    local collapsed = false
+    local rowH = collapsed and 8 or ROW_HEIGHT
+
+    rowFrame._mrData = rowFrame._mrData or {}
+    rowFrame._mrData.mod = mod
+    rowFrame._mrData.row = row
+    rowFrame._mrData.done = done
+    rowFrame._mrData.transparent = transparent
+    rowFrame._mrData.frameAlpha = frameAlpha
+    rowFrame._mrData.isAutoTracked = isAutoTracked
+    rowFrame._mrData.hasWaypoint = hasWaypoint
+    rowFrame._mrData.isComplete = isComplete
+    rowFrame:ClearAllPoints()
+    rowFrame:SetPoint("TOPLEFT", section, "TOPLEFT", 0, -yOff)
+    rowFrame:SetSize(colW, rowH)
+    rowFrame._timerUpdate = nil
+    rowFrame:Show()
+
+    rowFrame._headerBg:Hide()
+    rowFrame._headerText:Hide()
+    rowFrame._headerActionButton:Hide()
+    rowFrame._headerCount:Hide()
+    rowFrame._collapsedLine:Hide()
+    rowFrame._collapsedDot:Hide()
+    rowFrame._hover:Hide()
+    rowFrame._rowShade:Hide()
+    rowFrame._separator:Hide()
+    rowFrame._statusBtn:Hide()
+    rowFrame._rowIcon:Hide()
+    rowFrame._label:Hide()
+    rowFrame._count:Hide()
+    rowFrame._wallet:Hide()
+    rowFrame._coords:Hide()
+    rowFrame._vault:Hide()
+
+    if row.sectionHeader then
+        rowFrame._mrData.mode = "sectionHeader"
+        rowFrame._headerBg:Show()
+        if transparent then
+            rowFrame._headerBg:SetColorTexture(1, 1, 1, 0)
+        else
+            rowFrame._headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
+        end
+
+        rowFrame._headerText:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        rowFrame._headerText:ClearAllPoints()
+        rowFrame._headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
+        rowFrame._headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
+        rowFrame._headerText:SetJustifyH("LEFT")
+        rowFrame._headerText:SetText(row.label)
+        rowFrame._headerText:SetTextColor(0.82, 0.66, 0.98)
+        rowFrame._headerText:Show()
+
+        local headerActionButton = nil
+        if ((row.headerActionText and row.headerActionText ~= "") or row.headerActionStyle == "visibility") and row.onHeaderActionClick then
+            headerActionButton = rowFrame._headerActionButton
+            headerActionButton:ClearAllPoints()
+            headerActionButton:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+            headerActionButton:Show()
+            rowFrame._headerActionText:ClearAllPoints()
+
+            if row.headerActionStyle == "visibility" then
+                headerActionButton:SetSize(14, 14)
+                headerActionButton:SetBackdrop(MakeBackdrop())
+                headerActionButton:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                headerActionButton:SetBackdropBorderColor(
+                    row.headerActionVisible and 0.15 or 0.35,
+                    row.headerActionVisible and 0.32 or 0.12,
+                    row.headerActionVisible and 0.38 or 0.12,
+                    1
+                )
+                rowFrame._headerActionText:SetFont(FONT_ROWS, 9, GetFontFlags())
+                rowFrame._headerActionText:SetPoint("CENTER", headerActionButton, "CENTER", 0, 0)
+                rowFrame._headerActionText:SetJustifyH("CENTER")
+                rowFrame._headerActionText:SetText(row.headerActionVisible and "o" or "-")
+                rowFrame._headerActionText:SetTextColor(
+                    row.headerActionVisible and 0.25 or 0.55,
+                    row.headerActionVisible and 0.85 or 0.25,
+                    row.headerActionVisible and 0.70 or 0.25
+                )
+            else
+                headerActionButton:SetSize(26, rowH)
+                rowFrame._headerActionText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+                rowFrame._headerActionText:SetPoint("CENTER", headerActionButton, "CENTER", 0, 0)
+                rowFrame._headerActionText:SetJustifyH("CENTER")
+                rowFrame._headerActionText:SetText(row.headerActionText)
+                if row.headerActionColor then
+                    rowFrame._headerActionText:SetTextColor(row.headerActionColor[1], row.headerActionColor[2], row.headerActionColor[3])
+                else
+                    rowFrame._headerActionText:SetTextColor(0.92, 0.78, 0.24)
+                end
+            end
+            rowFrame._headerActionText:Show()
+        end
+
+        if row.countText and row.countText ~= "" then
+            rowFrame._headerCount:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+            rowFrame._headerCount:ClearAllPoints()
+            if headerActionButton then
+                rowFrame._headerCount:SetPoint("RIGHT", headerActionButton, "LEFT", -8, 0)
+            else
+                rowFrame._headerCount:SetPoint("RIGHT", rowFrame, "RIGHT", -8, 0)
+            end
+            rowFrame._headerCount:SetJustifyH("RIGHT")
+            rowFrame._headerCount:SetText(row.countText)
+            if row.countColor then
+                rowFrame._headerCount:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+            else
+                rowFrame._headerCount:SetTextColor(0.74, 0.80, 0.88)
+            end
+            rowFrame._headerCount:Show()
+        end
+
+        return rowFrame, yOff + rowH, rowId
+    end
+
+    rowFrame._mrData.mode = "normal"
+    rowFrame._hover:SetColorTexture(1, 1, 1, 0)
+    rowFrame._hover:Show()
+    rowFrame._rowShade:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 0, -1)
+    rowFrame._rowShade:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", 0, 0)
+    if isComplete and not transparent then
+        rowFrame._rowShade:SetColorTexture(0.12, 0.16, 0.12, 0.18 * frameAlpha)
+    else
+        rowFrame._rowShade:SetColorTexture(0, 0, 0, 0)
+    end
+    rowFrame._rowShade:Show()
+
+    rowFrame._separator:SetPoint("BOTTOMLEFT", rowFrame, "BOTTOMLEFT", 12, 0)
+    rowFrame._separator:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", -12, 0)
+    rowFrame._separator:SetHeight(1)
+    rowFrame._separator:SetColorTexture(1, 1, 1, transparent and 0 or (0.06 * frameAlpha))
+    rowFrame._separator:Show()
+
+    rowFrame._statusBtn:ClearAllPoints()
+    rowFrame._statusBtn:SetSize(14, 14)
+    rowFrame._statusBtn:SetPoint("LEFT", rowFrame, "LEFT", PADDING + 2, 0)
+    rowFrame._statusBtn:SetBackdrop(MakeBackdrop())
+
+    local mo = MR:GetManualOverride(mod.key, row.key)
+    local forcedComplete = row.max and mo >= row.max
+    local activeDone = forcedComplete and row.max or done
+    if transparent then
+        rowFrame._statusBtn:SetBackdropColor(0, 0, 0, 0)
+    else
+        rowFrame._statusBtn:SetBackdropColor(0.03, 0.04, 0.06, 0.95 * frameAlpha)
+    end
+    if forcedComplete then
+        rowFrame._statusBtn:SetBackdropBorderColor(transparent and 0 or 0.88, transparent and 0 or 0.74, transparent and 0 or 0.22, transparent and 0 or frameAlpha)
+        rowFrame._statusFill:SetColorTexture(0.88, 0.74, 0.22, transparent and 0 or (0.85 * frameAlpha))
+        rowFrame._statusCheck:SetFont(FONT_HEADERS, 9, GetFontFlags())
+        rowFrame._statusCheck:SetTextColor(0.10, 0.08, 0.02, transparent and 0 or 1)
+        if transparent then rowFrame._statusCheck:Hide() else rowFrame._statusCheck:Show() end
+    elseif isComplete then
+        rowFrame._statusBtn:SetBackdropBorderColor(transparent and 0 or 0.24, transparent and 0 or 0.76, transparent and 0 or 0.46, transparent and 0 or frameAlpha)
+        rowFrame._statusFill:SetColorTexture(0.20, 0.72, 0.42, transparent and 0 or (0.85 * frameAlpha))
+        rowFrame._statusCheck:SetFont(FONT_HEADERS, 9, GetFontFlags())
+        rowFrame._statusCheck:SetTextColor(0.03, 0.08, 0.04, transparent and 0 or 1)
+        if transparent then rowFrame._statusCheck:Hide() else rowFrame._statusCheck:Show() end
+    elseif row.max and activeDone > 0 then
+        rowFrame._statusBtn:SetBackdropBorderColor(transparent and 0 or 0.62, transparent and 0 or 0.52, transparent and 0 or 0.22, transparent and 0 or (0.95 * frameAlpha))
+        rowFrame._statusFill:SetColorTexture(0.78, 0.62, 0.22, transparent and 0 or (0.70 * frameAlpha))
+        rowFrame._statusCheck:Hide()
+    else
+        rowFrame._statusBtn:SetBackdropBorderColor(transparent and 0 or 0.24, transparent and 0 or 0.28, transparent and 0 or 0.34, transparent and 0 or (0.95 * frameAlpha))
+        rowFrame._statusFill:SetColorTexture(0.09, 0.10, 0.14, transparent and 0 or (0.70 * frameAlpha))
+        rowFrame._statusCheck:Hide()
+    end
+    if row.hideStatus then
+        rowFrame._statusBtn:Hide()
+    else
+        rowFrame._statusBtn:Show()
+    end
+    rowFrame._statusBtn:EnableMouse((((isAutoTracked and not row.noMax) or row.toggleStatus) and not row.hideStatus) and true or false)
+
+    local isCurrencyModule = mod and (mod.key == "currencies" or mod.key == "pvp_currencies")
+    local rowIconInfo = (showIcons and isCurrencyModule) and GetRowIconInfo(mod, row) or nil
+    local iconSize = math.max(ROW_HEIGHT - 8, 12)
+    rowFrame._rowIcon:ClearAllPoints()
+    rowFrame._rowIcon:SetSize(iconSize, iconSize)
+    rowFrame._rowIcon:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
+    local hasRowIcon = ApplyIconToTexture(rowFrame._rowIcon, rowIconInfo)
+    if isComplete and hasRowIcon then
+        rowFrame._rowIcon:SetVertexColor(0.55, 0.55, 0.55, 0.7)
+    else
+        rowFrame._rowIcon:SetVertexColor(1, 1, 1, 1)
+    end
+    rowFrame._rowIcon:SetShown(hasRowIcon)
+
+    local hasNumericMax = type(row.max) == "number" and row.max > 0
+    local isCurrencyRow = row.currencyId and hasNumericMax and not row.noMax
+    local hasCoordText = hasWaypoint and not row.hideCoordText
+    local lblRightOff = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
+
+    if row.useClientFont then
+        rowFrame._label:SetFontObject(ChatFontNormal)
+    else
+        rowFrame._label:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    end
+    rowFrame._label:ClearAllPoints()
+    if hasRowIcon then
+        rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
+    else
+        rowFrame._label:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
+    end
+    rowFrame._label:SetPoint("RIGHT", rowFrame, "RIGHT", lblRightOff, 0)
+    rowFrame._label:SetJustifyH("LEFT")
+
+    local rowCustom = MR:GetRowColor(mod.key, row.key)
+    local headerCustom = MR.db.profile.headerColors and MR.db.profile.headerColors[mod.key]
+    local effectiveColor = rowCustom or headerCustom
+    if isComplete then
+        rowFrame._label:SetText(CleanLabelText(row.label))
+        if effectiveColor then
+            local cr, cg, cb = hex(effectiveColor)
+            rowFrame._label:SetTextColor(cr * 0.45, cg * 0.45, cb * 0.45)
+        else
+            rowFrame._label:SetTextColor(0.38, 0.38, 0.38)
+        end
+    elseif effectiveColor then
+        rowFrame._label:SetText(CleanLabelText(row.label))
+        rowFrame._label:SetTextColor(hex(effectiveColor))
+    else
+        rowFrame._label:SetText(row.label)
+        rowFrame._label:SetTextColor(1, 1, 1)
+    end
+    rowFrame._label:Show()
+
+    rowFrame._count:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    rowFrame._count:ClearAllPoints()
+    rowFrame._count:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    rowFrame._count:SetJustifyH("RIGHT")
+    if rowFrame._count.SetWordWrap then
+        rowFrame._count:SetWordWrap(false)
+    end
+    rowFrame._count:SetWidth(0)
+
+    if row.countText then
+        rowFrame._count:SetText(row.countText)
+        if row.countColor then
+            rowFrame._count:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+        else
+            rowFrame._count:SetTextColor(0.8, 0.8, 0.8)
+        end
+
+        if not isCurrencyRow and not hasCoordText then
+            local reservedWidth
+            if type(row.countWidth) == "number" and row.countWidth > 0 then
+                reservedWidth = row.countWidth
+            else
+                reservedWidth = math.min(
+                    math.max(math.floor((rowFrame._count:GetStringWidth() or 0) + 8), 64),
+                    math.floor(math.max(rowFrame:GetWidth() * 0.5, 64))
+                )
+            end
+            rowFrame._count:SetWidth(reservedWidth)
+            rowFrame._label:ClearAllPoints()
+            if hasRowIcon then
+                rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
+            else
+                rowFrame._label:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
+            end
+            rowFrame._label:SetPoint("RIGHT", rowFrame._count, "LEFT", -8, 0)
+        else
+            rowFrame._count:SetWidth(0)
+        end
+    elseif isCurrencyRow then
+        local mdb = MR.db and MR.db.char.progress[mod.key]
+        local wallet = (mdb and mdb[row.key .. "_wallet"]) or done
+        rowFrame._count:SetText(string.format("%d/%d", done, row.max))
+        rowFrame._count:SetTextColor(countColor(done, row.max))
+        rowFrame._wallet:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+        rowFrame._wallet:ClearAllPoints()
+        rowFrame._wallet:SetPoint("RIGHT", rowFrame._count, "LEFT", -5, 0)
+        rowFrame._wallet:SetJustifyH("RIGHT")
+        rowFrame._wallet:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
+        rowFrame._wallet:Show()
+    else
+        rowFrame._count:SetText((row.noMax or not hasNumericMax) and tostring(done) or string.format("%d / %d", done, row.max))
+        if row.noMax or not hasNumericMax then
+            rowFrame._count:SetTextColor(0.8, 0.8, 0.8)
+        else
+            rowFrame._count:SetTextColor(countColor(done, row.max))
+        end
+    end
+    rowFrame._count:Show()
+
+    if hasCoordText then
+        rowFrame._coords:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 1), GetFontFlags())
+        rowFrame._coords:ClearAllPoints()
+        rowFrame._coords:SetPoint("RIGHT", rowFrame._count, "LEFT", -8, 0)
+        rowFrame._coords:SetJustifyH("RIGHT")
+        rowFrame._coords:SetText(string.format("%.2f, %.2f", row.x, row.y))
+        if isComplete then
+            rowFrame._coords:SetTextColor(0.4, 0.4, 0.4, 0.6)
+        else
+            rowFrame._coords:SetTextColor(0.65, 0.9, 1, 0.95)
+        end
+        rowFrame._coords:Show()
+    end
+
+    if row.vaultLabel then
+        rowFrame._vault:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+        rowFrame._vault:ClearAllPoints()
+        rowFrame._vault:SetPoint("RIGHT", rowFrame._count, "LEFT", -4, 0)
+        rowFrame._vault:SetText(row.vaultLabel)
+        rowFrame._vault:SetTextColor(hex(row.vaultColor or "#ffffff"))
+        rowFrame._vault:Show()
+    end
+
+    if row.timerEpoch and not isComplete and not collapsed then
+        local function FormatMMSS(s)
+            return string.format("%d:%02d", math.floor(s / 60), s % 60)
+        end
+        local function UpdateTimer()
+            local now = GetServerTime()
+            local offset = (now - row.timerEpoch) % row.timerInterval
+            if offset < row.timerDuration then
+                local rem = row.timerDuration - offset
+                rowFrame._count:SetText(L["Timer_Live"] .. FormatMMSS(rem))
+                rowFrame._count:SetTextColor(0.25, 0.88, 0.50, 1)
+            else
+                local rem = row.timerInterval - offset
+                rowFrame._count:SetText(L["Timer_Next"] .. FormatMMSS(rem))
+                rowFrame._count:SetTextColor(0.55, 0.55, 0.55, 1)
+            end
+        end
+        UpdateTimer()
+        rowFrame._timerUpdate = UpdateTimer
+        table.insert(MR._timerRows, rowFrame)
+    end
+
+    return rowFrame, yOff + rowH, rowId
+end
+
+local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordRegistry)
+    local transparent = IsMainTextOnlyMode()
+    local frameAlpha = MR.db.profile.frameAlpha or 1.0
+    local showSectionHeaders = ShouldShowSectionHeaders()
+    local textOnlyHeaderAlpha = showSectionHeaders and GetTextOnlyHeaderAlpha() or 0
+    local headerAlpha = transparent and textOnlyHeaderAlpha or ((showSectionHeaders and 0.90 or 0) * frameAlpha)
+    local dividerAlpha = transparent and (0.50 * textOnlyHeaderAlpha) or ((showSectionHeaders and 0.09 or 0) * frameAlpha)
+    local showSoftHeaders = transparent and textOnlyHeaderAlpha > 0
+    local showIcons = ShouldShowIcons()
+    local stats = GetModuleStats(self, mod)
+    local isOpen = stats and stats.isOpen
+    local secTotal = stats and stats.totalRows or 0
+    local secDone = stats and stats.doneRows or 0
+    local shownRows = stats and stats.shownRows or 0
+    if shownRows == 0 then
+        return nil
+    end
+
+    local allDone = (secTotal > 0) and (secDone == secTotal)
+    local card = EnsureMainSectionWidget(self, mod.key)
+    local sectionHeight = math.max((stats and stats.height or 0) - SECTION_GAP, HEADER_HEIGHT + 1)
+    card:ClearAllPoints()
+    card:SetPoint("TOPLEFT", self.content, "TOPLEFT", xOff + 3, -yOff)
+    card:SetSize(math.max(colW - 6, 1), sectionHeight)
+    card:SetBackdrop(MakeBackdrop())
+    if ns.HookBackdropFrame then ns.HookBackdropFrame(card) end
+    if transparent then
+        card:SetBackdropColor(0, 0, 0, 0)
+        card:SetBackdropBorderColor(0, 0, 0, 0)
+    else
+        card:SetBackdropColor(0.02, 0.03, 0.05, 0.94 * frameAlpha)
+        card:SetBackdropBorderColor(0.18, 0.22, 0.28, 0.95 * frameAlpha)
+    end
+    card._glow:SetColorTexture(0.12, 0.14, 0.18, transparent and 0 or (0.10 * frameAlpha))
+
+    card._hdrFrame:SetHeight(HEADER_HEIGHT)
+    card._hdrFrame._mrMod = mod
+    card._hdrFrame._mrHoverAlpha = transparent and (0.10 * textOnlyHeaderAlpha) or ((showSectionHeaders and 0.05 or 0) * frameAlpha)
+    local customHeaderBg = MR.GetHeaderBackgroundColor and MR:GetHeaderBackgroundColor(mod.key) or nil
+    local hdrR, hdrG, hdrB = 0.08, 0.09, 0.12
+    if customHeaderBg then
+        hdrR, hdrG, hdrB = hex(customHeaderBg)
+    end
+    card._hdrFrame._hdrBg:SetColorTexture(hdrR, hdrG, hdrB, headerAlpha)
+
+    local explicitColor = MR.db.profile.headerColors and MR.db.profile.headerColors[mod.key]
+    local customColor = MR:GetHeaderColor(mod.key)
+    local headerColor = customColor or mod.labelColor or "#ffffff"
+    local lr, lg, lb = hex(headerColor)
+    local accentA = transparent and textOnlyHeaderAlpha or ((showSectionHeaders and 1 or 0) * frameAlpha)
+    local accentR, accentG, accentB = lr, lg, lb
+    if allDone then
+        accentR, accentG, accentB = COL.complete[1], COL.complete[2], COL.complete[3]
+    end
+
+    card._hdrFrame._iconPlate:ClearAllPoints()
+    card._hdrFrame._iconPlate:SetSize(math.max(HEADER_HEIGHT - 6, 12), math.max(HEADER_HEIGHT - 6, 12))
+    card._hdrFrame._iconPlate:SetPoint("LEFT", card._hdrFrame, "LEFT", 4, 0)
+    card._hdrFrame._iconPlate:SetBackdrop(MakeBackdrop())
+    local iconPlateBgAlpha = transparent and (showSoftHeaders and (0.16 * accentA) or 0) or ((showSectionHeaders and 0.16 or 0) * frameAlpha)
+    local iconPlateBorderAlpha = transparent and (showSoftHeaders and (0.50 * accentA) or 0) or ((showSectionHeaders and 0.50 or 0) * frameAlpha)
+    card._hdrFrame._iconPlate:SetBackdropColor(accentR, accentG, accentB, iconPlateBgAlpha)
+    card._hdrFrame._iconPlate:SetBackdropBorderColor(accentR, accentG, accentB, iconPlateBorderAlpha)
+
+    local iconInfo = showIcons and ShouldShowModuleHeaderIcon(mod.key) and GetModuleIconInfo(mod) or nil
+    card._hdrFrame._icon:ClearAllPoints()
+    card._hdrFrame._icon:SetSize(math.max(HEADER_HEIGHT - 12, 9), math.max(HEADER_HEIGHT - 12, 9))
+    card._hdrFrame._icon:SetPoint("CENTER", card._hdrFrame._iconPlate, "CENTER", 0, 0)
+    local hasHeaderIcon = ApplyIconToTexture(card._hdrFrame._icon, iconInfo, { 0.14, 0.86, 0.14, 0.86 })
+    card._hdrFrame._iconPlate:SetShown(hasHeaderIcon and (showIcons or showSectionHeaders))
+
+    card._hdrFrame._label:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
+    card._hdrFrame._label:ClearAllPoints()
+    if hasHeaderIcon then
+        card._hdrFrame._label:SetPoint("LEFT", card._hdrFrame._iconPlate, "RIGHT", 6, 0)
+    else
+        card._hdrFrame._label:SetPoint("LEFT", card._hdrFrame, "LEFT", 9, 0)
+    end
+    card._hdrFrame._label:SetJustifyH("LEFT")
+    if card._hdrFrame._label.SetWordWrap then
+        card._hdrFrame._label:SetWordWrap(false)
+    end
+    card._hdrFrame._label:SetText((allDone and not explicitColor) and WC("00ff96", mod.label) or WC(headerColor:gsub("#", ""), mod.label))
+
+    card._hdrFrame._count:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+    card._hdrFrame._count:ClearAllPoints()
+    card._hdrFrame._count:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -18, 0)
+    card._hdrFrame._count:SetText(string.format(L["%d / %d complete"], secDone, secTotal))
+    card._hdrFrame._count:SetTextColor(countColor(secDone, secTotal))
+    card._hdrFrame._count:SetJustifyH("RIGHT")
+    card._hdrFrame._label:SetPoint("RIGHT", card._hdrFrame._count, "LEFT", -8, 0)
+
+    card._hdrFrame._arrow:SetSize(10, 10)
+    card._hdrFrame._arrow:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -6, 0)
+    if isOpen then
+        card._hdrFrame._arrow:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-NextPage-Up")
+    else
+        card._hdrFrame._arrow:SetTexture("Interface\\Buttons\\UI-SpellbookIcon-PrevPage-Up")
+    end
+    card._hdrFrame._arrow:SetVertexColor(0.45, 0.45, 0.45)
+
+    local localY = HEADER_HEIGHT
+    card._divider:ClearAllPoints()
+    card._divider:SetPoint("TOPLEFT", card, "TOPLEFT", 0, -localY)
+    card._divider:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, -localY)
+    card._divider:SetHeight(1)
+    card._divider:SetBackdropColor(1, 1, 1, dividerAlpha)
+
+    local usedRows = {}
+    if isOpen then
+        localY = localY + 1
+        local hideComplete = stats and stats.hideComplete
+        for _, row in ipairs(mod.rows) do
+            local rowVisible = not row.isVisible or row.isVisible()
+            if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
+                local done = MR:GetProgress(mod.key, row.key)
+                local rowComplete = self:IsRowComplete(mod, row, done)
+                if row.control or not (hideComplete and rowComplete) then
+                    local rowFrame, nextY, rowId = UpdateMainRowWidget(self, card, mod, row, done, localY, card:GetWidth())
+                    localY = nextY
+                    usedRows[rowId] = true
+                end
+            end
+        end
+    end
+
+    for key, rowFrame in pairs(card._rows or {}) do
+        if not usedRows[key] then
+            HideMainRowWidget(rowFrame)
+        end
+    end
+
+    if recordRegistry ~= false then
+        table.insert(self.sectionRegistry, {
+            frame = card,
+            modKey = mod.key,
+            col = col or 1,
+            yOff = yOff,
+            bottom = yOff + (stats and stats.height or 0),
+        })
+    end
+    return card
+end
+
+local function ClearArrayContents(t)
+    if not t then
+        return
+    end
+
+    for i = #t, 1, -1 do
+        t[i] = nil
+    end
+end
+
+function MR:RefreshMainPanelSectionsOnly()
+    if not (self and self.frame and self.content and self.frame:IsShown()) then
+        return false
+    end
+
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self._refreshUIDirty = true
+        return false
+    end
+
+    if self.ShouldDeferForCombat and self:ShouldDeferForCombat("refreshUI") then
+        self._refreshUIDirty = true
+        return false
+    end
+
+    RecalcLayout()
+    self._moduleStatsCache = BuildModuleStatsCache(self)
+
+    self.widgets = self.widgets or {}
+    self.sectionRegistry = self.sectionRegistry or {}
+    self._timerRows = self._timerRows or {}
+    ClearArrayContents(self.widgets)
+    ClearArrayContents(self.sectionRegistry)
+    ClearArrayContents(self._timerRows)
+
+    local allDone, allTotal = 0, 0
+    local frameW = MR.db.profile.width or 260
+    local usableW = frameW - 9
+    local MIN_COL = 200
+    local numCols = math.max(1, math.floor(usableW / MIN_COL))
+    local colW = math.floor(usableW / numCols)
+
+    local visibleMods = self._visibleModsBuffer or {}
+    self._visibleModsBuffer = visibleMods
+    local visibleModCount = 0
+    for _, mod in ipairs(MR:GetOrderedModules()) do
+        local modVisible = not mod.isVisible or mod:isVisible()
+        if MR:IsModuleEnabled(mod.key) and modVisible and not MR:IsModuleDetached(mod.key) then
+            local stats = GetModuleStats(self, mod)
+            local doneRows = stats and stats.doneRows or 0
+            local shownRows = stats and stats.shownRows or 0
+            if shownRows > 0 then
+                visibleModCount = visibleModCount + 1
+                local slot = visibleModCount
+                local entry = visibleMods[slot] or {}
+                entry.mod = mod
+                entry.h = stats and stats.height or 0
+                visibleMods[slot] = entry
+                allTotal = allTotal + shownRows
+                allDone = allDone + math.min(doneRows, shownRows)
+            end
+        end
+    end
+
+    local cols = self._colsBuffer or {}
+    self._colsBuffer = cols
+    for i = 1, numCols do
+        cols[i] = 0
+    end
+    for i = numCols + 1, #cols do
+        cols[i] = nil
+    end
+
+    local totalModH = 0
+    for i = 1, visibleModCount do
+        totalModH = totalModH + visibleMods[i].h
+    end
+
+    local modColAssign = self._modColAssignBuffer or {}
+    self._modColAssignBuffer = modColAssign
+    local modColAssignCount = 0
+    local curCol = 1
+    for i = 1, visibleModCount do
+        local entry = visibleMods[i]
+        if curCol < numCols and cols[curCol] >= totalModH / numCols then
+            curCol = curCol + 1
+        end
+        modColAssignCount = modColAssignCount + 1
+        local slot = modColAssignCount
+        local assign = modColAssign[slot] or {}
+        assign.mod = entry.mod
+        assign.col = curCol
+        assign.yOff = cols[curCol]
+        modColAssign[slot] = assign
+        cols[curCol] = cols[curCol] + entry.h
+    end
+
+    local activeMainSections = self._activeMainSectionsBuffer or {}
+    self._activeMainSectionsBuffer = activeMainSections
+    for key in pairs(activeMainSections) do
+        activeMainSections[key] = nil
+    end
+
+    for i = 1, modColAssignCount do
+        local assign = modColAssign[i]
+        local xOff = (assign.col - 1) * colW
+            local section = UpdateMainSectionWidget(self, assign.mod, assign.yOff, xOff, colW, assign.col, true)
+            if section then
+                activeMainSections[assign.mod.key] = true
+                self.widgets[#self.widgets + 1] = section
+            end
+        end
+
+    if self._mainSectionFrames then
+        for key, section in pairs(self._mainSectionFrames) do
+            if not activeMainSections[key] then
+                HideMainSectionWidget(section)
+            end
+        end
+    end
+
+    for c = 2, numCols do
+        local sep = EnsureMainSeparator(self, c - 1)
+        sep:SetWidth(1)
+        sep:ClearAllPoints()
+        sep:SetPoint("TOPLEFT", self.content, "TOPLEFT", (c - 1) * colW, 0)
+        sep:SetPoint("BOTTOMLEFT", self.content, "BOTTOMLEFT", (c - 1) * colW, 0)
+        self.widgets[#self.widgets + 1] = sep
+    end
+    if self._mainColumnSeparators then
+        for index, sep in pairs(self._mainColumnSeparators) do
+            if index > (numCols - 1) then
+                sep:Hide()
+            end
+        end
+    end
+
+    if self.titleCount then
+        self.titleCount:SetText(string.format("%d / %d", allDone, allTotal))
+        self.titleCount:SetTextColor(countColor(allDone, allTotal))
+    end
+
+    local totalH = 0
+    for c = 1, numCols do
+        if cols[c] > totalH then
+            totalH = cols[c]
+        end
+    end
+
+    self.content:SetWidth(usableW)
+    self.content:SetHeight(math.max(totalH, 1))
+
+    if self.scroll then
+        local maxScroll = math.max(math.max(totalH, 1) - self.scroll:GetHeight(), 0)
+        local cur = self.scroll:GetVerticalScroll()
+        if cur > maxScroll then
+            self.scroll:SetVerticalScroll(maxScroll)
+        end
+    end
+
+    if self.UpdateScrollBar then
+        self.UpdateScrollBar()
+    end
+
+    return true
+end
+
+function MR:FastToggleMainSection(modKey)
+    if not (self and self.frame and self.content and self.frame:IsShown()) then
+        return false
+    end
+
+    if self._refreshUIInProgress or self._refreshUIPending or self._refreshUITimer or self._refreshRequestPending or self._refreshRequestTimer then
+        return false
+    end
+
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self._refreshUIDirty = true
+        return false
+    end
+
+    if self.ShouldDeferForCombat and self:ShouldDeferForCombat("refreshUI") then
+        self._refreshUIDirty = true
+        return false
+    end
+
+    if self:IsModuleDetached(modKey) then
+        return false
+    end
+
+    local mod = self.moduleByKey and self.moduleByKey[modKey]
+    local section = self._mainSectionFrames and self._mainSectionFrames[modKey]
+    local stats = self._moduleStatsCache and self._moduleStatsCache[modKey]
+    if not (mod and section and stats and stats.shownRows and stats.shownRows > 0) then
+        return false
+    end
+
+    local registryEntry
+    for _, info in ipairs(self.sectionRegistry or {}) do
+        if info.modKey == modKey then
+            registryEntry = info
+            break
+        end
+    end
+    if not registryEntry then
+        return false
+    end
+
+    RecalcLayout()
+    local newOpen = not MR:IsModuleOpen(modKey)
+    MR:SetModuleOpen(modKey, newOpen)
+    stats.isOpen = newOpen
+    stats.height = stats.shownRows == 0 and 0 or (HEADER_HEIGHT + 1 + SECTION_GAP + (newOpen and (stats.shownRows * ROW_HEIGHT) or 0))
+
+    local frameW = MR.db.profile.width or 260
+    local usableW = frameW - 9
+    local MIN_COL = 200
+    local numCols = math.max(1, math.floor(usableW / MIN_COL))
+    if numCols ~= 1 then
+        return false
+    end
+    local colW = math.floor(usableW / numCols)
+    local xOff = ((registryEntry.col or 1) - 1) * colW
+
+    UpdateMainSectionWidget(self, mod, registryEntry.yOff or 0, xOff, colW, registryEntry.col or 1, false)
+
+    local colOffsets = self._fastToggleColOffsets or {}
+    self._fastToggleColOffsets = colOffsets
+    for i = 1, numCols do
+        colOffsets[i] = 0
+    end
+    for i = numCols + 1, #colOffsets do
+        colOffsets[i] = nil
+    end
+
+    local totalH = 0
+    for _, info in ipairs(self.sectionRegistry or {}) do
+        local curSection = self._mainSectionFrames and self._mainSectionFrames[info.modKey]
+        local curStats = self._moduleStatsCache and self._moduleStatsCache[info.modKey]
+        if curSection and curSection:IsShown() and curStats and curStats.shownRows > 0 then
+            local col = math.max(1, math.min(info.col or 1, numCols))
+            local yOff = colOffsets[col] or 0
+            local x = (col - 1) * colW
+            curSection:ClearAllPoints()
+            curSection:SetPoint("TOPLEFT", self.content, "TOPLEFT", x + 3, -yOff)
+            curSection:SetSize(math.max(colW - 6, 1), math.max((curStats.height or 0) - SECTION_GAP, HEADER_HEIGHT + 1))
+            info.col = col
+            info.yOff = yOff
+            info.bottom = yOff + (curStats.height or 0)
+            colOffsets[col] = yOff + (curStats.height or 0)
+            if colOffsets[col] > totalH then
+                totalH = colOffsets[col]
+            end
+        end
+    end
+
+    for c = 2, numCols do
+        local sep = EnsureMainSeparator(self, c - 1)
+        sep:SetWidth(1)
+        sep:ClearAllPoints()
+        sep:SetPoint("TOPLEFT", self.content, "TOPLEFT", (c - 1) * colW, 0)
+        sep:SetPoint("BOTTOMLEFT", self.content, "BOTTOMLEFT", (c - 1) * colW, 0)
+    end
+    if self._mainColumnSeparators then
+        for index, sep in pairs(self._mainColumnSeparators) do
+            sep:SetShown(index <= (numCols - 1))
+        end
+    end
+
+    self.content:SetWidth(usableW)
+    self.content:SetHeight(math.max(totalH, 1))
+    if self.scroll then
+        local maxScroll = math.max(math.max(totalH, 1) - self.scroll:GetHeight(), 0)
+        local cur = self.scroll:GetVerticalScroll()
+        if cur > maxScroll then
+            self.scroll:SetVerticalScroll(maxScroll)
+        end
+    end
+    if self.UpdateScrollBar then
+        self.UpdateScrollBar()
+    end
+
+    return true
+end
+
 IsMainTextOnlyMode = function()
     if not (MR and MR.db and MR.db.profile) then
         return false
@@ -252,7 +1683,7 @@ IsMainTextOnlyMode = function()
     return (MR.db.profile.frameAlpha or 1.0) <= 0.01
 end
 
-local function GetTextOnlyHeaderAlpha()
+GetTextOnlyHeaderAlpha = function()
     if not (MR and MR.db and MR.db.profile) then
         return 0
     end
@@ -268,7 +1699,7 @@ local function GetTextOnlyHeaderAlpha()
     return 0.32
 end
 
-local function ShouldShowIcons()
+ShouldShowIcons = function()
     if not (MR and MR.db and MR.db.profile) then
         return false
     end
@@ -276,7 +1707,7 @@ local function ShouldShowIcons()
     return MR.db.profile.keepIconsVisibleInTextMode ~= false
 end
 
-local function ShouldShowSectionHeaders()
+ShouldShowSectionHeaders = function()
     if not (MR and MR.db and MR.db.profile) then
         return false
     end
@@ -333,7 +1764,7 @@ local MODULE_HEADER_ICON_KEYS = {
     skin_lures = true,
 }
 
-local function ShouldShowModuleHeaderIcon(modKey)
+ShouldShowModuleHeaderIcon = function(modKey)
     if type(modKey) == "string" and modKey:match("^story_campaign_") then
         return true
     end
@@ -341,7 +1772,7 @@ local function ShouldShowModuleHeaderIcon(modKey)
     return MODULE_HEADER_ICON_KEYS[modKey] == true
 end
 
-local function GetModuleFallbackIconInfo(modKey)
+GetModuleFallbackIconInfo = function(modKey)
     if not modKey or modKey == "" then
         return nil
     end
@@ -377,7 +1808,7 @@ local ROW_ICON_FALLBACKS = {
     tw_raid             = { texture = "Interface\\LFGFrame\\LFGICON-RAIDFINDER" },
 }
 
-local function NormalizeIconInfo(info)
+NormalizeIconInfo = function(info)
     if not info then
         return nil
     end
@@ -402,7 +1833,7 @@ local function NormalizeIconInfo(info)
     return nil
 end
 
-local function GetRowIconInfo(mod, row)
+GetRowIconInfo = function(mod, row)
     if not row then
         return nil
     end
@@ -441,7 +1872,7 @@ local function GetRowIconInfo(mod, row)
     return GetModuleFallbackIconInfo(mod and mod.key or "")
 end
 
-local function GetModuleIconInfo(mod)
+GetModuleIconInfo = function(mod)
     if not mod then
         return nil
     end
@@ -470,7 +1901,7 @@ local function GetModuleIconInfo(mod)
     return GetModuleFallbackIconInfo(mod.key)
 end
 
-local function ApplyIconToTexture(texture, info, fallbackTexCoord)
+ApplyIconToTexture = function(texture, info, fallbackTexCoord)
     if not texture then
         return false
     end
@@ -2521,7 +3952,11 @@ local function ApplyWidth(newW)
     newW = math.max(PANEL_MIN_WIDTH, math.min(PANEL_MAX_WIDTH, math.floor(newW)))
     MR.db.profile.width = newW
     if MR.frame then MR.frame:SetWidth(newW) end
-    MR:RefreshUI()
+    if MR.RequestUIRefresh then
+        MR:RequestUIRefresh(0.02)
+    else
+        MR:RefreshUI()
+    end
 end
 MR.ApplyWidth = ApplyWidth
 
@@ -2529,7 +3964,11 @@ local function ApplyHeight(newH)
     newH = math.max(PANEL_MIN_HEIGHT, math.min(PANEL_MAX_HEIGHT, math.floor(newH)))
     MR.db.profile.height = newH
     if MR.frame then MR.frame:SetHeight(newH) end
-    MR:RefreshUI()
+    if MR.RequestUIRefresh then
+        MR:RequestUIRefresh(0.02)
+    else
+        MR:RefreshUI()
+    end
 end
 MR.ApplyHeight = ApplyHeight
 
@@ -2540,13 +3979,14 @@ local function ApplyFontSize(newSize)
     if MR.ApplySharedMediaSettings then
         MR:ApplySharedMediaSettings()
     else
-        MR:RefreshUI()
+        if MR.RequestUIRefresh then
+            MR:RequestUIRefresh(0.02)
+        else
+            MR:RefreshUI()
+        end
     end
 end
 MR.ApplyFontSize = ApplyFontSize
-
-local WC = WrapColor
-countColor = ns.CountColor
 
 GetWindowLayoutValue = function(key)
     if MR and MR.GetWindowLayoutValue then
@@ -3600,15 +5040,10 @@ function MR:RefreshVisibleDetachedFrames()
 
             local shouldRefreshFrame = allowShowing or frame:IsShown()
             if shouldRefreshFrame then
-                for _, w in ipairs(frame._widgets or {}) do
-                    w:Hide()
-                    w:SetParent(nil)
-                end
-                frame._widgets = {}
-
                 local scrollWidth = frame.scroll and frame.scroll:GetWidth() or (frame:GetWidth() - 8)
                 frame.content:SetWidth(math.max(scrollWidth, 1))
-                local sectionHeight = self:BuildSection(mod, 0, 0, math.max(scrollWidth, 1), 1, frame.content, frame._widgets, { detached = true })
+                local section = UpdateDetachedSectionWidget(self, frame, mod, math.max(scrollWidth, 1))
+                local sectionHeight = section and section:GetHeight() or HEADER_HEIGHT
                 frame.content:SetHeight(math.max(sectionHeight, 1))
                 if frame.scroll then
                     local maxScroll = math.max(frame.content:GetHeight() - frame.scroll:GetHeight(), 0)
@@ -3633,6 +5068,11 @@ function MR:RefreshVisibleDetachedFrames()
             end
         elseif frame then
             frame._needsRefresh = true
+            if frame._sectionFrames then
+                for _, section in pairs(frame._sectionFrames) do
+                    HideMainSectionWidget(section)
+                end
+            end
             frame:Hide()
         end
     end
@@ -3640,6 +5080,11 @@ function MR:RefreshVisibleDetachedFrames()
     for key, frame in pairs(self.detachedFrames) do
         if not seenDetached[key] then
             frame._needsRefresh = true
+            if frame._sectionFrames then
+                for _, section in pairs(frame._sectionFrames) do
+                    HideMainSectionWidget(section)
+                end
+            end
             frame:Hide()
         end
     end
@@ -3711,14 +5156,9 @@ function MR:RefreshUI()
             self.expansionDropdown:Update()
         end
         ApplyMainFrameLayout(self.frame)
-
-        for _, w in ipairs(self.widgets or {}) do
-            w:Hide()
-            w:SetParent(nil)
-        end
-        self.widgets         = {}
+        self.widgets = {}
         self.sectionRegistry = {}
-        self._timerRows      = {}
+        self._timerRows = {}
 
         local allDone, allTotal = 0, 0
 
@@ -3728,7 +5168,9 @@ function MR:RefreshUI()
         local numCols  = math.max(1, math.floor(usableW / MIN_COL))
         local colW     = math.floor(usableW / numCols)
 
-        local visibleMods = {}
+        local visibleMods = self._visibleModsBuffer or {}
+        self._visibleModsBuffer = visibleMods
+        local visibleModCount = 0
         for _, mod in ipairs(MR:GetOrderedModules()) do
             local modVisible = not mod.isVisible or mod:isVisible()
             if MR:IsModuleEnabled(mod.key) and modVisible and not MR:IsModuleDetached(mod.key) then
@@ -3738,43 +5180,88 @@ function MR:RefreshUI()
                 local shownRows = stats and stats.shownRows or 0
                 if shownRows > 0 then
                     local h = stats and stats.height or 0
-                    table.insert(visibleMods, { mod = mod, h = h })
+                    visibleModCount = visibleModCount + 1
+                    local slot = visibleModCount
+                    local entry = visibleMods[slot] or {}
+                    entry.mod = mod
+                    entry.h = h
+                    visibleMods[slot] = entry
                     allTotal = allTotal + shownRows
                     allDone = allDone + math.min(doneRows, shownRows)
                 end
             end
         end
 
-        local cols = {}
-        for i = 1, numCols do cols[i] = 0 end
+        local cols = self._colsBuffer or {}
+        self._colsBuffer = cols
+        for i = 1, numCols do
+            cols[i] = 0
+        end
+        for i = numCols + 1, #cols do
+            cols[i] = nil
+        end
 
         local totalModH = 0
-        for _, entry in ipairs(visibleMods) do totalModH = totalModH + entry.h end
+        for i = 1, visibleModCount do
+            totalModH = totalModH + visibleMods[i].h
+        end
 
-        local modColAssign = {}
+        local modColAssign = self._modColAssignBuffer or {}
+        self._modColAssignBuffer = modColAssign
+        local modColAssignCount = 0
         local curCol = 1
-        for _, entry in ipairs(visibleMods) do
+        for i = 1, visibleModCount do
+            local entry = visibleMods[i]
             if curCol < numCols and cols[curCol] >= totalModH / numCols then
                 curCol = curCol + 1
             end
-            table.insert(modColAssign, { mod = entry.mod, col = curCol, yOff = cols[curCol] })
+            modColAssignCount = modColAssignCount + 1
+            local slot = modColAssignCount
+            local assign = modColAssign[slot] or {}
+            assign.mod = entry.mod
+            assign.col = curCol
+            assign.yOff = cols[curCol]
+            modColAssign[slot] = assign
             cols[curCol] = cols[curCol] + entry.h
         end
 
-        for _, assign in ipairs(modColAssign) do
+        local activeMainSections = self._activeMainSectionsBuffer or {}
+        self._activeMainSectionsBuffer = activeMainSections
+        for key in pairs(activeMainSections) do
+            activeMainSections[key] = nil
+        end
+        for i = 1, modColAssignCount do
+            local assign = modColAssign[i]
             local xOff = (assign.col - 1) * colW
-            self:BuildSection(assign.mod, assign.yOff, xOff, colW, assign.col)
+            local section = UpdateMainSectionWidget(self, assign.mod, assign.yOff, xOff, colW, assign.col)
+            if section then
+                activeMainSections[assign.mod.key] = true
+                table.insert(self.widgets, section)
+            end
+        end
+
+        if self._mainSectionFrames then
+            for key, section in pairs(self._mainSectionFrames) do
+                if not activeMainSections[key] then
+                    HideMainSectionWidget(section)
+                end
+            end
         end
 
         for c = 2, numCols do
-            local sep = CreateFrame("Frame", nil, self.content)
+            local sep = EnsureMainSeparator(self, c - 1)
             sep:SetWidth(1)
+            sep:ClearAllPoints()
             sep:SetPoint("TOPLEFT",    self.content, "TOPLEFT",    (c - 1) * colW, 0)
             sep:SetPoint("BOTTOMLEFT", self.content, "BOTTOMLEFT", (c - 1) * colW, 0)
-            local sepTex = sep:CreateTexture(nil, "ARTWORK")
-            sepTex:SetAllPoints()
-            sepTex:SetColorTexture(1, 1, 1, 0.08)
             table.insert(self.widgets, sep)
+        end
+        if self._mainColumnSeparators then
+            for index, sep in pairs(self._mainColumnSeparators) do
+                if index > (numCols - 1) then
+                    sep:Hide()
+                end
+            end
         end
 
         self.titleCount:SetText(string.format("%d / %d", allDone, allTotal))
@@ -3907,10 +5394,6 @@ function MR:ApplySharedMediaSettings()
     end
     ApplyTheme()
     local configWasShown = cfgFrame and cfgFrame:IsShown() or false
-    if cfgFrame then
-        cfgFrame:Hide()
-        cfgFrame = nil
-    end
     if self.frame and ns.RefreshFrameBackground then
         ns.RefreshFrameBackground(self.frame)
     end
@@ -3920,7 +5403,11 @@ function MR:ApplySharedMediaSettings()
     if self.RefreshMainHeaderChrome then
         self:RefreshMainHeaderChrome()
     end
-    self:RefreshUI()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
 
     if self.RebuildRaresFrame then self:RebuildRaresFrame() end
     if self.RebuildGatheringLocationsFrame then self:RebuildGatheringLocationsFrame() end
@@ -3928,12 +5415,18 @@ function MR:ApplySharedMediaSettings()
     if self.RepopulateRaresConfig then self:RepopulateRaresConfig() end
     if self.RepopulateGatheringConfig then self:RepopulateGatheringConfig() end
     if self.RepopulateRenownConfig then self:RepopulateRenownConfig() end
-    if configWasShown then
-        cfgFrame = self:BuildConfigFrame()
-        self:PopulateConfigFrame(cfgFrame)
-        cfgFrame:Show()
+    if configWasShown and cfgFrame then
+        if self.RequestConfigRepopulate then
+            self:RequestConfigRepopulate(cfgFrame, 0.08)
+        else
+            self:PopulateConfigFrame(cfgFrame)
+        end
     elseif cfgFrame and cfgFrame:IsShown() then
-        self:PopulateConfigFrame(cfgFrame)
+        if self.RequestConfigRepopulate then
+            self:RequestConfigRepopulate(cfgFrame, 0.08)
+        else
+            self:PopulateConfigFrame(cfgFrame)
+        end
     end
 end
 
@@ -3948,7 +5441,9 @@ function MR:IsRowComplete(mod, row, done)
 end
 
 BuildModuleStatsCache = function(self)
-    local cache = {}
+    local cache = self._moduleStatsCache or {}
+    local seen = self._moduleStatsSeen or {}
+    self._moduleStatsSeen = seen
 
     for _, mod in ipairs(MR:GetOrderedModules()) do
         local hideComplete = MR:IsModuleHideComplete(mod.key)
@@ -3982,14 +5477,22 @@ BuildModuleStatsCache = function(self)
             height = 0
         end
 
-        cache[mod.key] = {
-            doneRows = doneRows,
-            height = height,
-            hideComplete = hideComplete,
-            isOpen = isOpen,
-            shownRows = shownRows,
-            totalRows = totalRows,
-        }
+        local entry = cache[mod.key] or {}
+        entry.doneRows = doneRows
+        entry.height = height
+        entry.hideComplete = hideComplete
+        entry.isOpen = isOpen
+        entry.shownRows = shownRows
+        entry.totalRows = totalRows
+        cache[mod.key] = entry
+        seen[mod.key] = true
+    end
+
+    for key in pairs(cache) do
+        if not seen[key] then
+            cache[key] = nil
+        end
+        seen[key] = nil
     end
 
     return cache
@@ -5328,13 +6831,27 @@ function MR:PopulateConfigFrame(f)
 
         yOff = OptionsSlider(body, yOff, L["WIDTH"], PANEL_MIN_WIDTH, PANEL_MAX_WIDTH, 10,
             function() return MR.db.profile.width or 260 end,
-            function(v) ApplyWidth(v); MR:PopulateConfigFrame(f) end,
+            function(v)
+                ApplyWidth(v)
+                if MR.RequestConfigRepopulate then
+                    MR:RequestConfigRepopulate(f, 0.08)
+                else
+                    MR:PopulateConfigFrame(f)
+                end
+            end,
             0.16, 0.78, 0.75, 8, nil, cfgFs)
 
         Gap(6)
         yOff = OptionsSlider(body, yOff, L["HEIGHT"], PANEL_MIN_HEIGHT, PANEL_MAX_HEIGHT, 10,
             function() return MR.db.profile.height or 400 end,
-            function(v) ApplyHeight(v); MR:PopulateConfigFrame(f) end,
+            function(v)
+                ApplyHeight(v)
+                if MR.RequestConfigRepopulate then
+                    MR:RequestConfigRepopulate(f, 0.08)
+                else
+                    MR:PopulateConfigFrame(f)
+                end
+            end,
             0.16, 0.75, 0.78, 8, nil, cfgFs)
 
         Gap(6)
@@ -5437,7 +6954,11 @@ function MR:PopulateConfigFrame(f)
                 else
                     ApplyFontSize(math.floor(v))
                 end
-                MR:PopulateConfigFrame(f)
+                if MR.RequestConfigRepopulate then
+                    MR:RequestConfigRepopulate(f, 0.08)
+                else
+                    MR:PopulateConfigFrame(f)
+                end
             end,
             0.78, 0.55, 0.16, 8, nil, cfgFs)
 
@@ -5462,7 +6983,11 @@ function MR:PopulateConfigFrame(f)
                 else
                     ApplyFontSize(p[2])
                 end
-                MR:PopulateConfigFrame(f)
+                if MR.RequestConfigRepopulate then
+                    MR:RequestConfigRepopulate(f, 0.08)
+                else
+                    MR:PopulateConfigFrame(f)
+                end
             end)
             pb:SetScript("OnEnter", function()
                 pb:SetBackdropColor(0.10, 0.28, 0.28, 1)
