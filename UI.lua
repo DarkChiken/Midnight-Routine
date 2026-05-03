@@ -39,6 +39,8 @@ local ROW_HEIGHT    = 18
 local HEADER_HEIGHT = 18
 local PADDING       = 6
 local SECTION_GAP   = 6
+local ApplyCustomTaskDialogTheme
+local ApplyCustomTasksTitleDialogTheme
 local BuildModuleStatsCache
 local GetModuleStats
 local IsMainTextOnlyMode
@@ -98,8 +100,300 @@ local function GetClientDefaultFont()
     return FONT_ROWS or "Fonts\\FRIZQT__.TTF"
 end
 
+local function TextNeedsClientFont(text)
+    if type(text) ~= "string" then
+        return false
+    end
+
+    return text:find("[\128-\255]") ~= nil
+end
+
+local clientFontObjects = {}
+
+local function DetectWideGlyphFont(text)
+    if type(text) ~= "string" or text == "" or not utf8 or not utf8.codes then
+        return nil
+    end
+
+    for _, codepoint in utf8.codes(text) do
+        if (codepoint >= 0x1100 and codepoint <= 0x11FF)
+            or (codepoint >= 0x3130 and codepoint <= 0x318F)
+            or (codepoint >= 0xAC00 and codepoint <= 0xD7AF) then
+            return "Fonts\\2002.ttf"
+        end
+
+        if (codepoint >= 0x4E00 and codepoint <= 0x9FFF)
+            or (codepoint >= 0x3400 and codepoint <= 0x4DBF)
+            or (codepoint >= 0xF900 and codepoint <= 0xFAFF) then
+            local locale = GetLocale and GetLocale() or ""
+            if locale == "zhTW" then
+                return "Fonts\\blei00d.ttf"
+            end
+            return "Fonts\\ARKai_T.ttf"
+        end
+    end
+
+    return nil
+end
+
+local function GetClientFontObject(fontSize, flags)
+    local key = string.format("%s|%s", tostring(fontSize or 0), tostring(flags or ""))
+    local fontObject = clientFontObjects[key]
+    if fontObject then
+        return fontObject
+    end
+
+    if not CreateFont or not ChatFontNormal then
+        return nil
+    end
+
+    local name = "MidnightRoutineClientFont_" .. key:gsub("[^%w_]", "_")
+    fontObject = _G[name] or CreateFont(name)
+    if fontObject.CopyFontObject then
+        fontObject:CopyFontObject(ChatFontNormal)
+    end
+
+    local fontPath, objectSize, objectFlags = ChatFontNormal:GetFont()
+    if type(fontPath) == "string" and fontPath ~= "" then
+        fontObject:SetFont(fontPath, fontSize or objectSize or 12, objectFlags or "")
+    end
+
+    clientFontObjects[key] = fontObject
+    return fontObject
+end
+
+local function ApplyClientFont(fontString, fontSize, flags, text)
+    if not fontString then
+        return
+    end
+
+    local wideGlyphFont = DetectWideGlyphFont(text)
+    if wideGlyphFont then
+        fontString:SetFont(wideGlyphFont, fontSize, flags)
+        return
+    end
+
+    local clientFontObject = GetClientFontObject(fontSize, flags)
+    if clientFontObject then
+        fontString:SetFontObject(clientFontObject)
+        return
+    end
+
+    fontString:SetFont(GetClientDefaultFont(), fontSize, "")
+end
+
+local function ApplyFontForText(fontString, text, sharedFont, fontSize, flags, preferClientFont)
+    if not fontString then
+        return
+    end
+
+    if preferClientFont or TextNeedsClientFont(text) then
+        ApplyClientFont(fontString, fontSize, flags, text)
+        return
+    end
+
+    fontString:SetFont(sharedFont, fontSize, flags)
+end
+
 local function GetMainHeaderHeight()
     return math.max(24, GetFontSize() + 11)
+end
+
+local function ApplyDialogEditBoxFont(editBox, fontSize)
+    if not editBox then
+        return
+    end
+
+    ApplyFontForText(editBox, editBox.GetText and editBox:GetText() or "", FONT_ROWS, math.max(9, fontSize), GetFontFlags())
+end
+
+ApplyCustomTaskDialogTheme = function(frame)
+    if not frame then
+        return
+    end
+
+    RefreshFonts()
+    local fontSize = GetFontSize()
+    local rowFont = math.max(8, fontSize - 1)
+    local hintFont = math.max(8, fontSize - 2)
+    local editFont = math.max(9, fontSize)
+    local boxHeight = math.max(32, fontSize + 20)
+    local hintGap = math.max(8, math.floor(fontSize * 0.7))
+    local sectionGap = math.max(14, fontSize + 3)
+    local frameWidth = math.max(380, 260 + (fontSize * 10))
+    local frameHeight = math.max(500, 390 + (fontSize * 13))
+
+    frame:SetSize(frameWidth, frameHeight)
+
+    if frame.title then
+        frame.title:SetFont(FONT_HEADERS, math.max(10, fontSize + 1), GetFontFlags())
+        frame.title:SetWidth(frameWidth - 24)
+    end
+    if frame.subtitle then
+        frame.subtitle:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+        frame.subtitle:SetWidth(frameWidth - 24)
+    end
+    if frame.nameLabel then
+        frame.nameLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+        frame.nameLabel:ClearAllPoints()
+        frame.nameLabel:SetPoint("TOPLEFT", frame.subtitle, "BOTTOMLEFT", 0, -sectionGap)
+    end
+    if frame.resetLabel then
+        frame.resetLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+    end
+    if frame.weeklyCheck and frame.weeklyCheck._text then
+        frame.weeklyCheck._text:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+    end
+    if frame.dailyCheck and frame.dailyCheck._text then
+        frame.dailyCheck._text:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+    end
+
+    if frame.inputBg then
+        frame.inputBg:SetHeight(boxHeight)
+        frame.inputBg:ClearAllPoints()
+        frame.inputBg:SetPoint("TOPLEFT", frame.nameLabel, "BOTTOMLEFT", 0, -6)
+        frame.inputBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -6)
+    end
+    if frame.input then
+        ApplyDialogEditBoxFont(frame.input, editFont)
+    end
+    if frame.hint then
+        frame.hint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
+        frame.hint:ClearAllPoints()
+        frame.hint:SetPoint("TOPLEFT", frame.inputBg, "BOTTOMLEFT", 0, -hintGap)
+        frame.hint:SetPoint("TOPRIGHT", frame.inputBg, "BOTTOMRIGHT", 0, -hintGap)
+    end
+
+    if frame.questLabel then
+        frame.questLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+        frame.questLabel:ClearAllPoints()
+        frame.questLabel:SetPoint("TOPLEFT", frame.hint, "BOTTOMLEFT", 0, -sectionGap)
+    end
+    if frame.questBg then
+        frame.questBg:SetHeight(boxHeight)
+        frame.questBg:ClearAllPoints()
+        frame.questBg:SetPoint("TOPLEFT", frame.questLabel, "BOTTOMLEFT", 0, -6)
+        frame.questBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -6)
+    end
+    if frame.questInput then
+        ApplyDialogEditBoxFont(frame.questInput, editFont)
+    end
+    if frame.questHint then
+        frame.questHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
+        frame.questHint:ClearAllPoints()
+        frame.questHint:SetPoint("TOPLEFT", frame.questBg, "BOTTOMLEFT", 0, -hintGap)
+        frame.questHint:SetPoint("TOPRIGHT", frame.questBg, "BOTTOMRIGHT", 0, -hintGap)
+    end
+
+    if frame.manualQuestCheck then
+        frame.manualQuestCheck:ClearAllPoints()
+        frame.manualQuestCheck:SetPoint("TOPLEFT", frame.questHint, "BOTTOMLEFT", 0, -sectionGap)
+        if frame.manualQuestCheck._text then
+            frame.manualQuestCheck._text:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+        end
+    end
+    if frame.manualQuestHint then
+        frame.manualQuestHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
+        frame.manualQuestHint:ClearAllPoints()
+        frame.manualQuestHint:SetPoint("TOPLEFT", frame.manualQuestCheck, "BOTTOMLEFT", 0, -hintGap)
+        frame.manualQuestHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
+    end
+
+    if frame.targetLabel then
+        frame.targetLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+        frame.targetLabel:ClearAllPoints()
+        frame.targetLabel:SetPoint("TOPLEFT", frame.manualQuestHint, "BOTTOMLEFT", 0, -sectionGap)
+    end
+    if frame.targetBg then
+        frame.targetBg:SetSize(math.max(86, fontSize * 5), boxHeight)
+        frame.targetBg:ClearAllPoints()
+        frame.targetBg:SetPoint("TOPLEFT", frame.targetLabel, "BOTTOMLEFT", 0, -6)
+    end
+    if frame.targetInput then
+        ApplyDialogEditBoxFont(frame.targetInput, editFont)
+    end
+    if frame.targetHint then
+        frame.targetHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
+        frame.targetHint:ClearAllPoints()
+        frame.targetHint:SetPoint("TOPLEFT", frame.targetBg, "BOTTOMLEFT", 0, -hintGap)
+        frame.targetHint:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
+        frame.targetHint:SetJustifyH("LEFT")
+    end
+
+    if frame.resetLabel then
+        frame.resetLabel:ClearAllPoints()
+        frame.resetLabel:SetPoint("TOPLEFT", frame.targetHint, "BOTTOMLEFT", 0, -sectionGap)
+    end
+    if frame.weeklyCheck then
+        frame.weeklyCheck:ClearAllPoints()
+        frame.weeklyCheck:SetPoint("TOPLEFT", frame.resetLabel, "TOPLEFT", 0, -28)
+    end
+    if frame.dailyCheck then
+        frame.dailyCheck:ClearAllPoints()
+        frame.dailyCheck:SetPoint("TOPLEFT", frame.resetLabel, "TOPLEFT", 140, -28)
+    end
+    if frame.resetHint then
+        frame.resetHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
+        frame.resetHint:ClearAllPoints()
+        frame.resetHint:SetPoint("TOPLEFT", frame.weeklyCheck, "BOTTOMLEFT", 0, -hintGap)
+        frame.resetHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
+    end
+
+
+    if frame.saveBtn and frame.saveBtn._label then
+        frame.saveBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    end
+    if frame.cancelBtn and frame.cancelBtn._label then
+        frame.cancelBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    end
+    if frame.deleteBtn and frame.deleteBtn._label then
+        frame.deleteBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    end
+end
+
+ApplyCustomTasksTitleDialogTheme = function(frame)
+    if not frame then
+        return
+    end
+
+    RefreshFonts()
+    local fontSize = GetFontSize()
+    local rowFont = math.max(8, fontSize - 1)
+    local hintFont = math.max(8, fontSize - 2)
+    local editFont = math.max(9, fontSize)
+    local boxHeight = math.max(32, fontSize + 20)
+    local hintGap = math.max(8, math.floor(fontSize * 0.7))
+    local frameWidth = math.max(340, 220 + (fontSize * 8))
+    local frameHeight = math.max(190, 150 + (fontSize * 9))
+
+    frame:SetSize(frameWidth, frameHeight)
+
+    if frame.titleText then
+        frame.titleText:SetFont(FONT_HEADERS, math.max(10, fontSize + 1), GetFontFlags())
+        frame.titleText:SetWidth(frameWidth - 24)
+    end
+    if frame.subtitle then
+        frame.subtitle:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+        frame.subtitle:SetWidth(frameWidth - 24)
+    end
+    if frame.inputBg then
+        frame.inputBg:SetHeight(boxHeight)
+    end
+    if frame.input then
+        ApplyDialogEditBoxFont(frame.input, editFont)
+    end
+    if frame.hint then
+        frame.hint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
+        frame.hint:ClearAllPoints()
+        frame.hint:SetPoint("TOPLEFT", frame.inputBg, "BOTTOMLEFT", 0, -hintGap)
+        frame.hint:SetPoint("TOPRIGHT", frame.inputBg, "BOTTOMRIGHT", 0, -hintGap)
+    end
+    if frame.saveBtn and frame.saveBtn._label then
+        frame.saveBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    end
+    if frame.cancelBtn and frame.cancelBtn._label then
+        frame.cancelBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    end
 end
 
 local function GetMainHeaderMetrics()
@@ -844,8 +1138,7 @@ EnsureMainRowWidget = function(section, rowKey)
 
     rowFrame._headerBg = rowFrame:CreateTexture(nil, "BACKGROUND")
     rowFrame._headerBg:SetAllPoints()
-    rowFrame._headerText = rowFrame:CreateFontString(nil, "OVERLAY")
-    rowFrame._headerText:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
+    rowFrame._headerText = rowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     rowFrame._headerActionButton = CreateFrame("Button", nil, rowFrame, "BackdropTemplate")
     rowFrame._headerActionButton._mrOwner = rowFrame
     rowFrame._headerActionButton:SetScript("OnClick", MainHeaderActionOnClick)
@@ -878,8 +1171,7 @@ EnsureMainRowWidget = function(section, rowKey)
     rowFrame._statusCheck:SetText("x")
 
     rowFrame._rowIcon = rowFrame:CreateTexture(nil, "ARTWORK")
-    rowFrame._label = rowFrame:CreateFontString(nil, "OVERLAY")
-    rowFrame._label:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+    rowFrame._label = rowFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
     rowFrame._count = rowFrame:CreateFontString(nil, "OVERLAY")
     rowFrame._count:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
     rowFrame._wallet = rowFrame:CreateFontString(nil, "OVERLAY")
@@ -900,7 +1192,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     local showIcons = ShouldShowIcons()
     local frameAlpha = MR.db.profile.frameAlpha or 1.0
     local isAutoTracked = row.autoTracked
-        or (row.questIds ~= nil)
+        or ((row.questIds ~= nil) and not row.allowManualQuestClicks)
         or (row.liveKey ~= nil)
         or (row.spellId ~= nil)
         or (row.currencyId ~= nil)
@@ -951,7 +1243,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
             rowFrame._headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
         end
 
-        rowFrame._headerText:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        ApplyFontForText(rowFrame._headerText, row.label, FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags(), row.useClientFont)
         rowFrame._headerText:ClearAllPoints()
         rowFrame._headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
         rowFrame._headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
@@ -1101,11 +1393,14 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     local hasCoordText = hasWaypoint and not row.hideCoordText
     local lblRightOff = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
-    if row.useClientFont then
-        rowFrame._label:SetFontObject(ChatFontNormal)
-    else
-        rowFrame._label:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
-    end
+    ApplyFontForText(
+        rowFrame._label,
+        CleanLabelText(row.label),
+        row.useClientFont and GetClientDefaultFont() or FONT_ROWS,
+        GetFontSize(),
+        GetFontFlags(),
+        row.useClientFont
+    )
     rowFrame._label:ClearAllPoints()
     if hasRowIcon then
         rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
@@ -3550,7 +3845,7 @@ local function EnsureCustomTaskDialog()
     end
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(360, 300)
+    frame:SetSize(360, 390)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(80)
     frame:SetClampedToScreen(true)
@@ -3590,6 +3885,15 @@ local function EnsureCustomTaskDialog()
     subtitle:SetJustifyH("LEFT")
     subtitle:SetText(L["CustomTasks_DialogSubtitle"] or "Create a character-specific task that behaves like the rest of your Midnight modules.")
     subtitle:SetTextColor(0.68, 0.78, 0.86)
+    frame.subtitle = subtitle
+
+    local nameLabel = frame:CreateFontString(nil, "OVERLAY")
+    nameLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    nameLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
+    nameLabel:SetJustifyH("LEFT")
+    nameLabel:SetText(L["CustomTasks_NameLabel"] or "Task name")
+    nameLabel:SetTextColor(0.74, 0.84, 0.92)
+    frame.nameLabel = nameLabel
 
     local resetLabel = frame:CreateFontString(nil, "OVERLAY")
     resetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
@@ -3597,6 +3901,7 @@ local function EnsureCustomTaskDialog()
     resetLabel:SetJustifyH("LEFT")
     resetLabel:SetText(L["CustomTasks_ResetType"] or "Reset")
     resetLabel:SetTextColor(0.74, 0.84, 0.92)
+    frame.resetLabel = resetLabel
 
     local function CreateResetCheckbox(anchorTo, xOffset, labelText, value)
         local cb = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
@@ -3630,12 +3935,13 @@ local function EnsureCustomTaskDialog()
     frame.dailyCheck = dailyCheck
 
     local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    inputBg:SetPoint("TOPLEFT", resetLabel, "BOTTOMLEFT", 0, -42)
+    inputBg:SetPoint("TOPLEFT", nameLabel, "BOTTOMLEFT", 0, -6)
     inputBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -102)
     inputBg:SetHeight(34)
     inputBg:SetBackdrop(MakeBackdrop())
     inputBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
     inputBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+    frame.inputBg = inputBg
 
     local input = CreateFrame("EditBox", nil, inputBg, "InputBoxTemplate")
     input:SetAutoFocus(false)
@@ -3648,6 +3954,9 @@ local function EnsureCustomTaskDialog()
     input:SetScript("OnEscapePressed", function()
         frame:Hide()
     end)
+    input:SetScript("OnTextChanged", function(selfEdit)
+        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
+    end)
     frame.input = input
 
     local hint = frame:CreateFontString(nil, "OVERLAY")
@@ -3655,15 +3964,62 @@ local function EnsureCustomTaskDialog()
     hint:SetPoint("TOPLEFT", inputBg, "BOTTOMLEFT", 0, -8)
     hint:SetPoint("TOPRIGHT", inputBg, "BOTTOMRIGHT", 0, -8)
     hint:SetJustifyH("LEFT")
-    hint:SetText(L["CustomTasks_DialogHint"] or "Use the checkbox to toggle tasks, and shift-click existing tasks to edit them.")
+    hint:SetText(L["CustomTasks_DialogHint"] or "Name it anything you like. Leave quest IDs blank for a manual task, or add quest IDs to make it auto-track.")
     hint:SetTextColor(0.60, 0.72, 0.82)
+    frame.hint = hint
+
+    local questLabel = frame:CreateFontString(nil, "OVERLAY")
+    questLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    questLabel:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -14)
+    questLabel:SetJustifyH("LEFT")
+    questLabel:SetText(L["CustomTasks_QuestIdsLabel"] or "Quest ID(s)")
+    questLabel:SetTextColor(0.74, 0.84, 0.92)
+    frame.questLabel = questLabel
+
+    local questBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    questBg:SetPoint("TOPLEFT", questLabel, "BOTTOMLEFT", 0, -6)
+    questBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -190)
+    questBg:SetHeight(32)
+    questBg:SetBackdrop(MakeBackdrop())
+    questBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
+    questBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+    frame.questBg = questBg
+
+    local questInput = CreateFrame("EditBox", nil, questBg, "InputBoxTemplate")
+    questInput:SetAutoFocus(false)
+    questInput:SetPoint("TOPLEFT", questBg, "TOPLEFT", 8, -8)
+    questInput:SetPoint("BOTTOMRIGHT", questBg, "BOTTOMRIGHT", -8, 8)
+    questInput:SetFontObject(ChatFontNormal)
+    questInput:SetTextInsets(0, 0, 0, 0)
+    questInput:SetMaxLetters(120)
+    questInput:SetTextColor(0.95, 0.97, 1)
+    questInput:SetScript("OnEscapePressed", function()
+        frame:Hide()
+    end)
+    questInput:SetScript("OnTextChanged", function(selfEdit)
+        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
+        if frame.RefreshSmartState then
+            frame:RefreshSmartState()
+        end
+    end)
+    frame.questInput = questInput
+
+    local questHint = frame:CreateFontString(nil, "OVERLAY")
+    questHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    questHint:SetPoint("TOPLEFT", questBg, "BOTTOMLEFT", 0, -8)
+    questHint:SetPoint("TOPRIGHT", questBg, "BOTTOMRIGHT", 0, -8)
+    questHint:SetJustifyH("LEFT")
+    questHint:SetText(L["CustomTasks_QuestIdsHint"] or "Optional. Enter one or more quest IDs separated by commas to auto-track quest completion.")
+    questHint:SetTextColor(0.60, 0.72, 0.82)
+    frame.questHint = questHint
 
     local targetLabel = frame:CreateFontString(nil, "OVERLAY")
     targetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    targetLabel:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -14)
+    targetLabel:SetPoint("TOPLEFT", questHint, "BOTTOMLEFT", 0, -14)
     targetLabel:SetJustifyH("LEFT")
     targetLabel:SetText(L["CustomTasks_TargetLabel"] or "Target")
     targetLabel:SetTextColor(0.74, 0.84, 0.92)
+    frame.targetLabel = targetLabel
 
     local targetBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     targetBg:SetPoint("TOPLEFT", targetLabel, "BOTTOMLEFT", 0, -6)
@@ -3671,6 +4027,7 @@ local function EnsureCustomTaskDialog()
     targetBg:SetBackdrop(MakeBackdrop())
     targetBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
     targetBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+    frame.targetBg = targetBg
 
     local targetInput = CreateFrame("EditBox", nil, targetBg, "InputBoxTemplate")
     targetInput:SetAutoFocus(false)
@@ -3684,6 +4041,9 @@ local function EnsureCustomTaskDialog()
     targetInput:SetScript("OnEscapePressed", function()
         frame:Hide()
     end)
+    targetInput:SetScript("OnTextChanged", function(selfEdit)
+        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
+    end)
     frame.targetInput = targetInput
 
     local targetHint = frame:CreateFontString(nil, "OVERLAY")
@@ -3693,6 +4053,58 @@ local function EnsureCustomTaskDialog()
     targetHint:SetJustifyH("LEFT")
     targetHint:SetText(L["CustomTasks_TargetHint"] or "Set to 1 for a checkbox, or higher for a counter task like 0/2.")
     targetHint:SetTextColor(0.60, 0.72, 0.82)
+    frame.targetHint = targetHint
+
+    local resetHint = frame:CreateFontString(nil, "OVERLAY")
+    resetHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    resetHint:SetPoint("TOPLEFT", weeklyCheck, "BOTTOMLEFT", 0, -8)
+    resetHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
+    resetHint:SetJustifyH("LEFT")
+    resetHint:SetTextColor(0.60, 0.72, 0.82)
+    frame.resetHint = resetHint
+
+    local manualQuestCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    manualQuestCheck:SetSize(20, 20)
+    manualQuestCheck:SetPoint("TOPLEFT", resetHint, "BOTTOMLEFT", 0, -14)
+    local manualQuestText = frame:CreateFontString(nil, "OVERLAY")
+    manualQuestText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    manualQuestText:SetPoint("LEFT", manualQuestCheck, "RIGHT", 2, 0)
+    manualQuestText:SetText(L["CustomTasks_ManualQuestClicks"] or "Allow manual clicks for quest task")
+    manualQuestText:SetTextColor(0.84, 0.90, 0.96)
+    manualQuestCheck._text = manualQuestText
+    manualQuestCheck:SetScript("OnClick", function(selfBtn)
+        frame.allowManualQuestClicks = selfBtn:GetChecked() and true or false
+        if frame.RefreshSmartState then
+            frame:RefreshSmartState()
+        end
+    end)
+    frame.manualQuestCheck = manualQuestCheck
+
+    local manualQuestHint = frame:CreateFontString(nil, "OVERLAY")
+    manualQuestHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    manualQuestHint:SetPoint("TOPLEFT", manualQuestCheck, "BOTTOMLEFT", 0, -8)
+    manualQuestHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
+    manualQuestHint:SetJustifyH("LEFT")
+    manualQuestHint:SetTextColor(0.60, 0.72, 0.82)
+    frame.manualQuestHint = manualQuestHint
+
+    function frame:RefreshSmartState()
+        local hasQuestIds = self.questInput and (self.questInput:GetText() or ""):match("%d") ~= nil
+        if self.manualQuestCheck then
+            self.manualQuestCheck:SetShown(true)
+            self.manualQuestCheck:EnableMouse(hasQuestIds)
+        end
+        if self.manualQuestCheck then
+            self.manualQuestCheck:SetChecked(hasQuestIds and self.allowManualQuestClicks == true or false)
+            if self.manualQuestCheck._text then
+                self.manualQuestCheck._text:SetAlpha(hasQuestIds and 1 or 0.65)
+            end
+        end
+        if self.manualQuestHint then
+            self.manualQuestHint:SetShown(true)
+            self.manualQuestHint:SetText(L["CustomTasks_ManualQuestClicksHint"] or "Optional. Keeps automatic quest tracking, but also lets you left/right click this quest task manually. Add a quest ID above to enable this option.")
+        end
+    end
 
     function frame:RefreshResetChecks()
         local isDaily = self.resetType == "daily"
@@ -3739,6 +4151,7 @@ local function EnsureCustomTaskDialog()
     cancelBtn:SetScript("OnClick", function()
         frame:Hide()
     end)
+    frame.cancelBtn = cancelBtn
 
     local deleteBtn = CreateDialogButton(92, L["CustomTasks_Delete"] or "Delete", { 0.22, 0.08, 0.08 }, { 0.72, 0.20, 0.20 })
     deleteBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 12)
@@ -3770,9 +4183,9 @@ local function EnsureCustomTaskDialog()
         end
 
         if self.taskId then
-            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue)
+            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks)
         else
-            MR:AddCustomTask(text, self.resetType, maxValue)
+            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks)
         end
         self:Hide()
     end
@@ -3783,11 +4196,18 @@ local function EnsureCustomTaskDialog()
     input:SetScript("OnEnterPressed", function()
         frame:Commit()
     end)
+    questInput:SetScript("OnEnterPressed", function()
+        frame:Commit()
+    end)
     targetInput:SetScript("OnEnterPressed", function()
         frame:Commit()
     end)
 
+    if frame.RefreshSmartState then
+        frame:RefreshSmartState()
+    end
     MR.customTaskDialog = frame
+    ApplyCustomTaskDialogTheme(frame)
     return frame
 end
 
@@ -3799,11 +4219,17 @@ function MR:ShowCustomTaskDialog(taskId, presetResetType)
     dialog.resetType = (task and task.resetType) or presetResetType or "weekly"
     dialog.title:SetText(task and (L["CustomTasks_EditTitle"] or "Edit Custom Task") or (L["CustomTasks_AddTitle"] or "Add Custom Task"))
     dialog.input:SetText(task and task.label or "")
+    dialog.questInput:SetText((task and task.questIds and table.concat(task.questIds, ", ")) or "")
     dialog.targetInput:SetText(tostring((task and task.max) or 1))
+    dialog.allowManualQuestClicks = task and task.allowManualQuestClicks or false
     dialog.deleteBtn:SetShown(task ~= nil)
     if dialog.RefreshResetChecks then
         dialog:RefreshResetChecks()
     end
+    if dialog.RefreshSmartState then
+        dialog:RefreshSmartState()
+    end
+    ApplyCustomTaskDialogTheme(dialog)
     dialog:Show()
     dialog.input:SetFocus()
     dialog.input:HighlightText(0, -1)
@@ -3854,6 +4280,8 @@ local function EnsureCustomTasksTitleDialog()
     subtitle:SetJustifyH("LEFT")
     subtitle:SetText(L["CustomTasks_EditModuleTitleNote"] or "Click to rename the Custom Tasks header for this character.")
     subtitle:SetTextColor(0.68, 0.78, 0.86)
+    frame.titleText = title
+    frame.subtitle = subtitle
 
     local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     inputBg:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -14)
@@ -3883,6 +4311,7 @@ local function EnsureCustomTasksTitleDialog()
     hint:SetJustifyH("LEFT")
     hint:SetText(L["CustomTasks_EditModuleTitleHint"] or "Leave it as Custom Tasks, or rename it to something like Weekly Goals.")
     hint:SetTextColor(0.60, 0.72, 0.82)
+    frame.hint = hint
 
     local function CreateDialogButton(width, label, color, borderColor)
         local btn = CreateFrame("Button", nil, frame, "BackdropTemplate")
@@ -3896,6 +4325,7 @@ local function EnsureCustomTasksTitleDialog()
         text:SetPoint("CENTER", btn, "CENTER", 0, 1)
         text:SetText(label)
         text:SetTextColor(0.92, 0.96, 1)
+        btn._label = text
 
         btn:SetScript("OnEnter", function(selfBtn)
             selfBtn:SetBackdropColor(color[1] + 0.04, color[2] + 0.04, color[3] + 0.04, 1)
@@ -3911,12 +4341,14 @@ local function EnsureCustomTasksTitleDialog()
 
     local saveBtn = CreateDialogButton(92, L["CustomTasks_Save"] or "Save", { 0.10, 0.26, 0.20 }, { 0.28, 0.78, 0.50 })
     saveBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 12)
+    frame.saveBtn = saveBtn
 
     local cancelBtn = CreateDialogButton(92, L["CustomTasks_Cancel"] or "Cancel", { 0.10, 0.12, 0.16 }, { 0.28, 0.34, 0.42 })
     cancelBtn:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
     cancelBtn:SetScript("OnClick", function()
         frame:Hide()
     end)
+    frame.cancelBtn = cancelBtn
 
     function frame:Commit()
         local text = self.input:GetText() or ""
@@ -3932,12 +4364,14 @@ local function EnsureCustomTasksTitleDialog()
     end)
 
     MR.customTasksTitleDialog = frame
+    ApplyCustomTasksTitleDialogTheme(frame)
     return frame
 end
 
 function MR:ShowCustomTasksTitleDialog()
     local dialog = EnsureCustomTasksTitleDialog()
     dialog.input:SetText(self.GetCustomTasksTitle and self:GetCustomTasksTitle() or (L["CustomTasks_Title"] or "Custom Tasks"))
+    ApplyCustomTasksTitleDialogTheme(dialog)
     dialog:Show()
     dialog.input:SetFocus()
     dialog.input:HighlightText(0, -1)
@@ -5356,6 +5790,12 @@ function MR:ApplySharedMediaSettings()
     if self.warbandBtnText then
         self.warbandBtnText:SetFont(FONT_HEADERS, 9, GetFontFlags())
     end
+    if self.customTaskDialog then
+        ApplyCustomTaskDialogTheme(self.customTaskDialog)
+    end
+    if self.customTasksTitleDialog then
+        ApplyCustomTasksTitleDialogTheme(self.customTasksTitleDialog)
+    end
     if self.expansionDropdown and self.expansionDropdown.ApplyFonts then
         self.expansionDropdown:ApplyFonts()
     end
@@ -5763,7 +6203,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local showIcons = ShouldShowIcons()
     local frameAlpha = MR.db.profile.frameAlpha or 1.0
     local isAutoTracked = row.autoTracked
-        or (row.questIds ~= nil)
+        or ((row.questIds ~= nil) and not row.allowManualQuestClicks)
         or (row.liveKey ~= nil)
         or (row.spellId ~= nil)
         or (row.currencyId ~= nil)
@@ -5787,8 +6227,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
         end
 
-        local headerText = rowFrame:CreateFontString(nil, "OVERLAY")
-        headerText:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        local headerText = rowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        ApplyFontForText(headerText, row.label, FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags(), row.useClientFont)
         headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
         headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
         headerText:SetJustifyH("LEFT")
@@ -6095,12 +6535,15 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local hasCoordText  = hasWaypoint and not row.hideCoordText
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
-    local lbl = rowFrame:CreateFontString(nil, "OVERLAY")
-    if row.useClientFont then
-        lbl:SetFontObject(ChatFontNormal)
-    else
-        lbl:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
-    end
+    local lbl = rowFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    ApplyFontForText(
+        lbl,
+        CleanLabelText(row.label),
+        row.useClientFont and GetClientDefaultFont() or FONT_ROWS,
+        GetFontSize(),
+        GetFontFlags(),
+        row.useClientFont
+    )
     if hasRowIcon then
         lbl:SetPoint("LEFT", rowIcon, "RIGHT", 8, 0)
     else

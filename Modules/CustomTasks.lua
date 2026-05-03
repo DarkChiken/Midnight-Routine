@@ -44,6 +44,128 @@ local function NormalizeTaskMax(maxValue)
     return value
 end
 
+local function NormalizeQuestIds(value)
+    if value == nil or value == "" then
+        return nil
+    end
+
+    local ids = {}
+    local seen = {}
+
+    local function addQuestId(raw)
+        local questId = tonumber(raw)
+        if not questId then
+            return
+        end
+
+        questId = math.floor(questId)
+        if questId <= 0 or seen[questId] then
+            return
+        end
+
+        seen[questId] = true
+        ids[#ids + 1] = questId
+    end
+
+    if type(value) == "table" then
+        for _, entry in ipairs(value) do
+            addQuestId(entry)
+        end
+    elseif type(value) == "number" then
+        addQuestId(value)
+    elseif type(value) == "string" then
+        for token in value:gmatch("%d+") do
+            addQuestId(token)
+        end
+    end
+
+    if #ids == 0 then
+        return nil
+    end
+
+    table.sort(ids)
+    return ids
+end
+
+local function GetQuestFrequencyResetType(questId)
+    if not questId or not C_QuestLog then
+        return nil
+    end
+
+    local logIndex = C_QuestLog.GetLogIndexForQuestID and C_QuestLog.GetLogIndexForQuestID(questId)
+    if logIndex and logIndex > 0 and C_QuestLog.GetInfo then
+        local info = C_QuestLog.GetInfo(logIndex)
+        local frequency = info and info.frequency
+        local dailyValue = (Enum and Enum.QuestFrequency and Enum.QuestFrequency.Daily) or 1
+        local weeklyValue = (Enum and Enum.QuestFrequency and Enum.QuestFrequency.Weekly) or 2
+
+        if frequency == dailyValue then
+            return "daily"
+        elseif frequency == weeklyValue then
+            return "weekly"
+        end
+    end
+
+    if GetQuestID and GetQuestID() == questId then
+        if QuestIsDaily and QuestIsDaily() then
+            return "daily"
+        end
+        if QuestIsWeekly and QuestIsWeekly() then
+            return "weekly"
+        end
+    end
+
+    return nil
+end
+
+local function ResolveQuestResetType(questIds, fallbackResetType)
+    if type(questIds) ~= "table" then
+        return NormalizeResetType(fallbackResetType)
+    end
+
+    for _, questId in ipairs(questIds) do
+        local resetType = GetQuestFrequencyResetType(questId)
+        if resetType then
+            return resetType
+        end
+    end
+
+    return NormalizeResetType(fallbackResetType)
+end
+
+local function BuildQuestIdsText(questIds)
+    if type(questIds) ~= "table" or #questIds == 0 then
+        return nil
+    end
+
+    local values = {}
+    for _, questId in ipairs(questIds) do
+        values[#values + 1] = tostring(questId)
+    end
+    return table.concat(values, ", ")
+end
+
+local function NormalizeBoolean(value)
+    return value == true
+end
+
+local function ShouldUseClientFontForLocale()
+    local locale = GetLocale and GetLocale() or nil
+    return locale == "zhCN" or locale == "zhTW" or locale == "koKR"
+end
+
+local function ShouldUseClientFontForText(text)
+    if ShouldUseClientFontForLocale() then
+        return true
+    end
+
+    if type(text) ~= "string" then
+        return false
+    end
+
+    return text:find("[\128-\255]") ~= nil
+end
+
 local RefreshCustomTaskViews
 
 local function SortTasks(tasks)
@@ -71,7 +193,10 @@ function MR:GetCustomTasks()
         task.label = TrimText(task.label ~= "" and task.label or (L["CustomTasks_Untitled"] or "Untitled Task"))
         task.max = NormalizeTaskMax(task.max)
         task.order = tonumber(task.order) or index
-        task.resetType = NormalizeResetType(task.resetType)
+        task.questIds = NormalizeQuestIds(task.questIds or task.questId)
+        task.resetType = ResolveQuestResetType(task.questIds, task.resetType)
+        task.allowManualQuestClicks = NormalizeBoolean(task.allowManualQuestClicks)
+        task.questId = nil
     end
     SortTasks(tasks)
     return tasks
@@ -135,6 +260,8 @@ end
 local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, headerLabel, headerNote, addLabel)
     local doneCount = 0
     local addRowVisible = MR:IsRowEnabled(CUSTOM_MODULE_KEY, addKey)
+    local headerUsesClientFont = ShouldUseClientFontForText(headerLabel)
+    local addRowUsesClientFont = ShouldUseClientFontForText(addLabel)
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
             if tonumber(MR:GetProgress(CUSTOM_MODULE_KEY, GetTaskRowKey(task.id))) >= NormalizeTaskMax(task.max) then
@@ -148,7 +275,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
         label = headerLabel,
         note = headerNote,
         control = true,
-        useClientFont = true,
+        useClientFont = headerUsesClientFont,
         sectionHeader = true,
         hideStatus = true,
         noDefaultTooltipHint = true,
@@ -173,24 +300,55 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                 local resetLabel = (resetType == "daily")
                     and (L["CustomTasks_ResetDaily"] or "Daily reset")
                     or (L["CustomTasks_ResetWeekly"] or "Weekly reset")
-                rows[#rows + 1] = {
-                    key = rowKey,
-                    label = task.label,
-                    max = task.max,
-                    useClientFont = true,
-                    note = string.format(
+                local questIds = NormalizeQuestIds(task.questIds)
+                local questIdText = BuildQuestIdsText(questIds)
+                local taskUsesClientFont = ShouldUseClientFontForText(task.label)
+                local noteText
+                if questIds then
+                    noteText = string.format(
+                        "%s\n%s",
+                        resetLabel,
+                        string.format(
+                            L["CustomTasks_QuestNote"] or "Auto-tracks quest completion for quest ID%s %s. Shift-left-click to edit. Shift-right-click to delete.",
+                            (#questIds == 1) and "" or "s",
+                            questIdText or ""
+                        )
+                    )
+                else
+                    noteText = string.format(
                         "%s\n%s",
                         resetLabel,
                         (task.max > 1)
                             and (L["CustomTasks_CounterNote"] or "Left-click to add progress. Right-click to remove progress. Shift-left-click to edit. Shift-right-click to delete.")
                             or (L["CustomTasks_TaskNote"] or "Left-click the checkbox to toggle. Shift-left-click to rename. Shift-right-click to delete.")
-                    ),
-                    toggleStatus = task.max <= 1,
+                    )
+                end
+                rows[#rows + 1] = {
+                    key = rowKey,
+                    label = task.label,
+                    max = task.max,
+                    useClientFont = taskUsesClientFont,
+                    note = noteText,
+                    toggleStatus = (task.max <= 1) and ((not questIds) or task.allowManualQuestClicks),
+                    questIds = questIds,
+                    allowManualQuestClicks = task.allowManualQuestClicks,
                     noDefaultTooltipHint = true,
                     tooltipFunc = function(tip)
                         tip:AddLine(" ")
                         tip:AddLine(resetLabel, 0.80, 0.90, 1.00, true)
-                        if task.max > 1 then
+                        if questIds then
+                            tip:AddLine(
+                                string.format(
+                                    L["CustomTasks_QuestHint"] or "Tracks quest completion automatically for quest ID%s %s.",
+                                    (#questIds == 1) and "" or "s",
+                                    questIdText or ""
+                                ),
+                                0.70, 0.90, 0.70, true
+                            )
+                            if task.allowManualQuestClicks then
+                                tip:AddLine(L["CustomTasks_QuestManualHint"] or "Manual clicking is enabled for this quest task.", 0.95, 0.82, 0.50, true)
+                            end
+                        elseif task.max > 1 then
                             tip:AddLine(L["CustomTasks_CounterIncreaseHint"] or "Left-click to add progress", 0.70, 0.90, 0.70, true)
                             tip:AddLine(L["CustomTasks_CounterDecreaseHint"] or "Right-click to remove progress", 1, 0.80, 0.45, true)
                         else
@@ -223,7 +381,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
         label = addLabel,
         note = L["CustomTasks_AddNote"] or "Click to create a new custom task for this character.",
         control = true,
-        useClientFont = true,
+        useClientFont = addRowUsesClientFont,
         hideStatus = true,
         noDefaultTooltipHint = true,
         countText = L["CustomTasks_AddButton"] or "[ + ]",
@@ -243,12 +401,16 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
     }
 end
 
-function MR:AddCustomTask(label, resetType, maxValue)
+function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks)
     local tasks = GetTaskStorage()
     local cleanLabel = TrimText(label)
     if not tasks or cleanLabel == "" then
         return nil
     end
+
+    questIds = NormalizeQuestIds(questIds)
+    resetType = ResolveQuestResetType(questIds, resetType)
+    allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
 
     local taskId = tonumber(self.db.char.customTaskNextId) or 1
     self.db.char.customTaskNextId = taskId + 1
@@ -258,24 +420,37 @@ function MR:AddCustomTask(label, resetType, maxValue)
         label = cleanLabel,
         max = NormalizeTaskMax(maxValue),
         order = #tasks + 1,
-        resetType = NormalizeResetType(resetType),
+        resetType = resetType,
+        questIds = questIds,
+        allowManualQuestClicks = allowManualQuestClicks,
     }
 
     RefreshCustomTaskViews(self)
+    if questIds and self.RefreshQuestProgress then
+        self:RefreshQuestProgress(nil, true)
+    end
     return taskId
 end
 
-function MR:UpdateCustomTask(taskId, label, resetType, maxValue)
+function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks)
     local task = self:GetCustomTaskById(taskId)
     local cleanLabel = TrimText(label)
     if not task or cleanLabel == "" then
         return false
     end
 
+    questIds = NormalizeQuestIds(questIds)
+    resetType = ResolveQuestResetType(questIds, resetType)
+    allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
     task.label = cleanLabel
-    task.resetType = NormalizeResetType(resetType)
+    task.resetType = resetType
     task.max = NormalizeTaskMax(maxValue)
+    task.questIds = questIds
+    task.allowManualQuestClicks = allowManualQuestClicks
     RefreshCustomTaskViews(self)
+    if self.RefreshQuestProgress then
+        self:RefreshQuestProgress(nil, true)
+    end
     return true
 end
 
