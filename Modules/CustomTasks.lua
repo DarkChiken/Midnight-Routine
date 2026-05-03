@@ -149,21 +149,8 @@ local function NormalizeBoolean(value)
     return value == true
 end
 
-local function ShouldUseClientFontForLocale()
-    local locale = GetLocale and GetLocale() or nil
-    return locale == "zhCN" or locale == "zhTW" or locale == "koKR"
-end
-
 local function ShouldUseClientFontForText(text)
-    if ShouldUseClientFontForLocale() then
-        return true
-    end
-
-    if type(text) ~= "string" then
-        return false
-    end
-
-    return text:find("[\128-\255]") ~= nil
+    return false
 end
 
 local RefreshCustomTaskViews

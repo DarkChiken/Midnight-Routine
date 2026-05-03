@@ -187,7 +187,7 @@ local function ApplyFontForText(fontString, text, sharedFont, fontSize, flags, p
         return
     end
 
-    if preferClientFont or TextNeedsClientFont(text) then
+    if preferClientFont then
         ApplyClientFont(fontString, fontSize, flags, text)
         return
     end

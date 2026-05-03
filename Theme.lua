@@ -163,11 +163,6 @@ GetResolvedMediaSetting = function(key)
     return profile and profile[key]
 end
 
-local function ShouldForceLocaleDefaultFont()
-    local locale = GetLocale and GetLocale() or nil
-    return locale == "zhCN" or locale == "zhTW" or locale == "koKR"
-end
-
 function ns.ApplySharedMedia(profile)
     profile = profile or GetActiveMediaProfile()
 
@@ -180,13 +175,8 @@ function ns.ApplySharedMedia(profile)
     local fontPath = (profile and profile.fontMediaPath) or GetResolvedMediaSetting("fontMediaPath")
     local backgroundPath = (profile and profile.backgroundMediaPath) or GetResolvedMediaSetting("backgroundMediaPath")
 
-    if ShouldForceLocaleDefaultFont() then
-        ns.FONT_HEADERS = defaultFont
-        ns.FONT_ROWS = defaultFont
-    else
-        ns.FONT_HEADERS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
-        ns.FONT_ROWS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
-    end
+    ns.FONT_HEADERS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
+    ns.FONT_ROWS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
     ns.BACKDROP_FILE = ResolveMediaPath("background", backgroundMedia, backgroundPath, defaultBackground)
 
     return ns.FONT_HEADERS, ns.FONT_ROWS, ns.BACKDROP_FILE
@@ -200,13 +190,8 @@ function ns.EnsureFonts()
         or (profile and profile.headerFontMedia) or GetResolvedMediaSetting("headerFontMedia")
     local fontPath = (profile and profile.fontMediaPath) or GetResolvedMediaSetting("fontMediaPath")
 
-    if ShouldForceLocaleDefaultFont() then
-        ns.FONT_HEADERS = defaultFont
-        ns.FONT_ROWS = defaultFont
-    else
-        ns.FONT_HEADERS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
-        ns.FONT_ROWS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
-    end
+    ns.FONT_HEADERS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
+    ns.FONT_ROWS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
 
     if type(ns.FONT_HEADERS) ~= "string" or ns.FONT_HEADERS == "" then
         ns.FONT_HEADERS = defaultFont
