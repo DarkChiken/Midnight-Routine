@@ -1041,7 +1041,7 @@ local function BuildGatheringLocationsFrame(isRetry)
                                 end
 
                                 local nameText = row:CreateFontString(nil, "OVERLAY")
-                                nameText:SetFont(FONT_ROWS, fontSize - 1, nil)
+                                nameText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
                                 nameText:SetPoint("LEFT", dot, "RIGHT", 6, 0)
                                 nameText:SetPoint("RIGHT", row, "RIGHT", waypointIcon and -102 or -86, 0)
                                 nameText:SetJustifyH("LEFT")
