@@ -273,6 +273,10 @@ local function BuildRenownFrame()
     f:SetSize(FRAME_W, minimized and HEADER_H or totalH)
     f:SetBackdropColor(0.02, 0.03, 0.08, 0.97)
     f:SetBackdropBorderColor(0.55, 0.42, 0.08, 1)
+    f.rowSpace = ROW_SPACE
+    f.layoutPad = PAD
+    f.headerHeight = HEADER_H
+    f.headerBottom = headerBottom
 
     RestoreManagedFramePos(f, "renownPos", 300, 0)
     f.topAccent = TopAccent(f)
@@ -551,6 +555,10 @@ RefreshRenownFrame = function()
     local hideMaxed  = db.renownHideMaxed
     local showLevel  = db.renownShowLevel ~= false
     local minimized  = db.renownMinimized
+    local rowSpace   = renownFrame.rowSpace or ((db.renownCompact and ((db.renownBarH or 18) + 8)) or ((db.renownBarH or 18) + 34))
+    local pad        = renownFrame.layoutPad or 12
+    local headerH    = renownFrame.headerHeight or ((renownFrame.titleBar and renownFrame.titleBar:GetHeight()) or 24)
+    local headerBottom = renownFrame.headerBottom == true
 
     if minimized then
         for _, row in pairs(renownFrame.factionRows) do
@@ -565,7 +573,11 @@ RefreshRenownFrame = function()
         return
     end
 
-    for _, row in pairs(renownFrame.factionRows) do
+    local visibleRows = 0
+
+    for _, faction in ipairs(GetOrderedFactions()) do
+        local row = renownFrame.factionRows[faction.key]
+        if row then
         local faction   = row.faction
         local renown, maxRenown, rep, needed = GetRenownData(faction)
         local cr, cg, cb = GetFactionColor(faction)
@@ -574,7 +586,19 @@ RefreshRenownFrame = function()
         if hideMaxed and capped then
             row.rowFrame:Hide()
         else
-            if row.rowFrame then row.rowFrame:Show() end
+            visibleRows = visibleRows + 1
+            if row.rowFrame then
+                local yOff = headerH + pad + ((visibleRows - 1) * rowSpace)
+                row.rowFrame:ClearAllPoints()
+                if headerBottom then
+                    row.rowFrame:SetPoint("BOTTOMLEFT",  renownFrame, "BOTTOMLEFT",  pad,  yOff)
+                    row.rowFrame:SetPoint("BOTTOMRIGHT", renownFrame, "BOTTOMRIGHT", -pad, yOff)
+                else
+                    row.rowFrame:SetPoint("TOPLEFT",  renownFrame, "TOPLEFT",  pad,  -yOff)
+                    row.rowFrame:SetPoint("TOPRIGHT", renownFrame, "TOPRIGHT", -pad, -yOff)
+                end
+                row.rowFrame:Show()
+            end
         end
 
         if row.nameLabel then
@@ -630,10 +654,18 @@ RefreshRenownFrame = function()
                 row.barLabel:SetTextColor(0.85, 0.85, 0.85)
             end
         end
+        end
     end
 
     if renownFrame.divider then
-        renownFrame.divider:Show()
+        renownFrame.divider:SetShown(visibleRows > 0)
+    end
+
+    SyncManagedFramePos(renownFrame, "renownPos", headerBottom and "bottom" or "top")
+    if visibleRows > 0 then
+        renownFrame:SetHeight(headerH + pad + (visibleRows * rowSpace) + pad)
+    else
+        renownFrame:SetHeight(headerH)
     end
 end
 
