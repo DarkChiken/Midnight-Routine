@@ -2540,6 +2540,13 @@ function MR:OnEnable()
                 if modProgress then
                     modProgress["uatv_completed_branch_name"] = modProgress["uatv_branch_name"]
                 end
+            elseif entry.mod == "s1_weekly" and entry.row == "ritual_sites" then
+                if modProgress then
+                    modProgress["ritual_site_completed_name"] = modProgress["ritual_site_active_name"]
+                        or modProgress["ritual_site_completed_name"]
+                    modProgress["ritual_site_completed_map_id"] = modProgress["ritual_site_active_map_id"]
+                        or modProgress["ritual_site_completed_map_id"]
+                end
             end
             if not ch.progress[entry.mod] then ch.progress[entry.mod] = {} end
             ch.progress[entry.mod][entry.row] = 1

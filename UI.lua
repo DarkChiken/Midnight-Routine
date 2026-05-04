@@ -64,18 +64,8 @@ local function GetFontSize()
     return 11
 end
 
-local function RefreshFonts()
-    if ns.EnsureFonts then
-        FONT_HEADERS, FONT_ROWS = ns.EnsureFonts()
-        return
-    end
-
-    FONT_ROWS = ns.FONT_ROWS or FONT_ROWS or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
-    FONT_HEADERS = ns.FONT_HEADERS or FONT_HEADERS or STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
-end
-
 local function GetFontFlags()
-    if ns.GetFontFlags then
+    if type(ns.GetFontFlags) == "function" then
         local flags = ns.GetFontFlags()
         if flags ~= nil then
             return flags
@@ -85,114 +75,39 @@ local function GetFontFlags()
     return "OUTLINE"
 end
 
-local function GetClientDefaultFont()
-    if ns.GetDefaultFontTexture then
-        local font = ns.GetDefaultFontTexture()
-        if type(font) == "string" and font ~= "" then
-            return font
-        end
-    end
-
+local function GetLocaleFont()
     if type(STANDARD_TEXT_FONT) == "string" and STANDARD_TEXT_FONT ~= "" then
         return STANDARD_TEXT_FONT
     end
-
-    return FONT_ROWS or "Fonts\\FRIZQT__.TTF"
+    if GameFontNormal and GameFontNormal.GetFont then
+        local f = GameFontNormal:GetFont()
+        if type(f) == "string" and f ~= "" then return f end
+    end
+    if ns.GetDefaultFontTexture then
+        local f = ns.GetDefaultFontTexture()
+        if type(f) == "string" and f ~= "" then return f end
+    end
+    return "Fonts\\FRIZQT__.TTF"
 end
 
-local function TextNeedsClientFont(text)
-    if type(text) ~= "string" then
-        return false
+local function RefreshFonts()
+    if ns.EnsureFonts then
+        FONT_HEADERS, FONT_ROWS = ns.EnsureFonts()
     end
-
-    return text:find("[\128-\255]") ~= nil
+    local loc = GetLocaleFont()
+    if not FONT_ROWS    or FONT_ROWS    == "" then FONT_ROWS    = loc end
+    if not FONT_HEADERS or FONT_HEADERS == "" then FONT_HEADERS = loc end
 end
 
-local clientFontObjects = {}
-
-local function DetectWideGlyphFont(text)
-    if type(text) ~= "string" or text == "" or not utf8 or not utf8.codes then
-        return nil
+local function SetFontForText(fontString, text, size, flags)
+    if not fontString then return end
+    local fontPath = FONT_ROWS
+    if ns.ResolveFontForText then
+        fontPath = ns.ResolveFontForText(text, FONT_ROWS)
+    elseif ns.ScriptFontForText then
+        fontPath = ns.ScriptFontForText(text) or FONT_ROWS
     end
-
-    for _, codepoint in utf8.codes(text) do
-        if (codepoint >= 0x1100 and codepoint <= 0x11FF)
-            or (codepoint >= 0x3130 and codepoint <= 0x318F)
-            or (codepoint >= 0xAC00 and codepoint <= 0xD7AF) then
-            return "Fonts\\2002.ttf"
-        end
-
-        if (codepoint >= 0x4E00 and codepoint <= 0x9FFF)
-            or (codepoint >= 0x3400 and codepoint <= 0x4DBF)
-            or (codepoint >= 0xF900 and codepoint <= 0xFAFF) then
-            local locale = GetLocale and GetLocale() or ""
-            if locale == "zhTW" then
-                return "Fonts\\blei00d.ttf"
-            end
-            return "Fonts\\ARKai_T.ttf"
-        end
-    end
-
-    return nil
-end
-
-local function GetClientFontObject(fontSize, flags)
-    local key = string.format("%s|%s", tostring(fontSize or 0), tostring(flags or ""))
-    local fontObject = clientFontObjects[key]
-    if fontObject then
-        return fontObject
-    end
-
-    if not CreateFont or not ChatFontNormal then
-        return nil
-    end
-
-    local name = "MidnightRoutineClientFont_" .. key:gsub("[^%w_]", "_")
-    fontObject = _G[name] or CreateFont(name)
-    if fontObject.CopyFontObject then
-        fontObject:CopyFontObject(ChatFontNormal)
-    end
-
-    local fontPath, objectSize, objectFlags = ChatFontNormal:GetFont()
-    if type(fontPath) == "string" and fontPath ~= "" then
-        fontObject:SetFont(fontPath, fontSize or objectSize or 12, objectFlags or "")
-    end
-
-    clientFontObjects[key] = fontObject
-    return fontObject
-end
-
-local function ApplyClientFont(fontString, fontSize, flags, text)
-    if not fontString then
-        return
-    end
-
-    local wideGlyphFont = DetectWideGlyphFont(text)
-    if wideGlyphFont then
-        fontString:SetFont(wideGlyphFont, fontSize, flags)
-        return
-    end
-
-    local clientFontObject = GetClientFontObject(fontSize, flags)
-    if clientFontObject then
-        fontString:SetFontObject(clientFontObject)
-        return
-    end
-
-    fontString:SetFont(GetClientDefaultFont(), fontSize, "")
-end
-
-local function ApplyFontForText(fontString, text, sharedFont, fontSize, flags, preferClientFont)
-    if not fontString then
-        return
-    end
-
-    if preferClientFont then
-        ApplyClientFont(fontString, fontSize, flags, text)
-        return
-    end
-
-    fontString:SetFont(sharedFont, fontSize, flags)
+    fontString:SetFont(fontPath, size, flags)
 end
 
 local function GetMainHeaderHeight()
@@ -200,11 +115,8 @@ local function GetMainHeaderHeight()
 end
 
 local function ApplyDialogEditBoxFont(editBox, fontSize)
-    if not editBox then
-        return
-    end
-
-    ApplyFontForText(editBox, editBox.GetText and editBox:GetText() or "", FONT_ROWS, math.max(9, fontSize), GetFontFlags())
+    if not editBox then return end
+    SetFontForText(editBox, editBox.GetText and editBox:GetText() or "", math.max(9, fontSize), GetFontFlags())
 end
 
 ApplyCustomTaskDialogTheme = function(frame)
@@ -1243,7 +1155,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
             rowFrame._headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
         end
 
-        ApplyFontForText(rowFrame._headerText, row.label, FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags(), row.useClientFont)
+        SetFontForText(rowFrame._headerText, row.label, math.max(9, GetFontSize() - 1), GetFontFlags())
         rowFrame._headerText:ClearAllPoints()
         rowFrame._headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
         rowFrame._headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
@@ -1393,14 +1305,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     local hasCoordText = hasWaypoint and not row.hideCoordText
     local lblRightOff = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
-    ApplyFontForText(
-        rowFrame._label,
-        CleanLabelText(row.label),
-        row.useClientFont and GetClientDefaultFont() or FONT_ROWS,
-        GetFontSize(),
-        GetFontFlags(),
-        row.useClientFont
-    )
+    SetFontForText(rowFrame._label, CleanLabelText(row.label), GetFontSize(), GetFontFlags())
     rowFrame._label:ClearAllPoints()
     if hasRowIcon then
         rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
@@ -6228,7 +6133,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         end
 
         local headerText = rowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        ApplyFontForText(headerText, row.label, FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags(), row.useClientFont)
+        SetFontForText(headerText, row.label, math.max(9, GetFontSize() - 1), GetFontFlags())
         headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
         headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
         headerText:SetJustifyH("LEFT")
@@ -6536,14 +6441,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
     local lbl = rowFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
-    ApplyFontForText(
-        lbl,
-        CleanLabelText(row.label),
-        row.useClientFont and GetClientDefaultFont() or FONT_ROWS,
-        GetFontSize(),
-        GetFontFlags(),
-        row.useClientFont
-    )
+    SetFontForText(lbl, CleanLabelText(row.label), GetFontSize(), GetFontFlags())
     if hasRowIcon then
         lbl:SetPoint("LEFT", rowIcon, "RIGHT", 8, 0)
     else

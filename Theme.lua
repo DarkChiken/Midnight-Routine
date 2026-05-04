@@ -1,4 +1,4 @@
-local _, ns = ...
+﻿local _, ns = ...
 local LSM = LibStub and LibStub:GetLibrary("LibSharedMedia-3.0", true)
 ns.MEDIA_DEFAULT_TOKEN = "__MIDNIGHT_DEFAULT__"
 
@@ -10,6 +10,7 @@ local MEDIA_KIND_TO_LSM = {
 local DEFAULT_FONT_FLAGS = "OUTLINE"
 local GetActiveMediaProfile
 local GetResolvedMediaSetting
+local ResolveSelectedFontPath
 
 local function NormalizeFontFlags(flags)
     if flags == nil then
@@ -67,19 +68,64 @@ function ns.GetFontFlags(profile)
     return flags
 end
 
+local SCRIPT_FONTS = {
+    koKR = "Fonts\\2002.TTF",
+    zhCN = "Fonts\\ARKai_T.ttf",
+    zhTW = "Fonts\\blei00d.ttf",
+    ruRU = "Fonts\\FRIZQT___CYR.TTF",
+}
+
+local SCRIPT_RANGES = {
+    { 0x0400, 0x04FF, "ruRU" },   
+    { 0x1100, 0x11FF, "koKR" },   
+    { 0x3130, 0x318F, "koKR" },  
+    { 0x3400, 0x4DBF, nil      }, 
+    { 0x4E00, 0x9FFF, nil      }, 
+    { 0xAC00, 0xD7AF, "koKR" },   
+    { 0xF900, 0xFAFF, nil      }, 
+}
+
+local function DetectScriptFont(text)
+    if type(text) ~= "string" or text == "" then
+        return nil
+    end
+
+    if not utf8 or not utf8.codes then
+        if text:find("[\128-\255]") then
+            local loc = GetLocale and GetLocale() or ""
+            return SCRIPT_FONTS[loc] or SCRIPT_FONTS.zhCN
+        end
+        return nil
+    end
+
+    local locale = GetLocale and GetLocale() or ""
+    for _, cp in utf8.codes(text) do
+        for _, r in ipairs(SCRIPT_RANGES) do
+            if cp >= r[1] and cp <= r[2] then
+                if r[3] then
+                    return SCRIPT_FONTS[r[3]]
+                end
+
+                return (locale == "zhTW") and SCRIPT_FONTS.zhTW or SCRIPT_FONTS.zhCN
+            end
+        end
+    end
+
+    return nil
+end
+
 local function ResolveDefaultFont()
     if type(STANDARD_TEXT_FONT) == "string" and STANDARD_TEXT_FONT ~= "" then
         return STANDARD_TEXT_FONT
     end
-
     if GameFontNormal and GameFontNormal.GetFont then
         local font = GameFontNormal:GetFont()
         if type(font) == "string" and font ~= "" then
             return font
         end
     end
-
-    return "Fonts\\FRIZQT__.TTF"
+    local locale = GetLocale and GetLocale() or ""
+    return SCRIPT_FONTS[locale] or "Fonts\\FRIZQT__.TTF"
 end
 
 function ns.GetDefaultFontTexture()
@@ -110,7 +156,7 @@ end
 
 local function ResolveMediaPath(kind, name, explicitPath, fallback)
     if name == ns.MEDIA_DEFAULT_TOKEN then
-        return explicitPath or fallback
+        return fallback
     end
 
     if type(explicitPath) == "string" and explicitPath ~= "" then
@@ -163,20 +209,61 @@ GetResolvedMediaSetting = function(key)
     return profile and profile[key]
 end
 
-function ns.ApplySharedMedia(profile)
+ResolveSelectedFontPath = function(profile)
     profile = profile or GetActiveMediaProfile()
 
     local defaultFont = ResolveDefaultFont()
-    local defaultBackground = ResolveDefaultBackground()
     local sharedFont = (profile and profile.fontMedia) or GetResolvedMediaSetting("fontMedia")
         or (profile and profile.rowFontMedia) or GetResolvedMediaSetting("rowFontMedia")
         or (profile and profile.headerFontMedia) or GetResolvedMediaSetting("headerFontMedia")
-    local backgroundMedia = (profile and profile.backgroundMedia) or GetResolvedMediaSetting("backgroundMedia")
     local fontPath = (profile and profile.fontMediaPath) or GetResolvedMediaSetting("fontMediaPath")
+
+    local resolved = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
+    if type(resolved) ~= "string" or resolved == "" then
+        return defaultFont
+    end
+
+    return resolved
+end
+
+function ns.ResolveFontForText(text, preferredFont, profile)
+    local baseFont = preferredFont
+    if type(baseFont) ~= "string" or baseFont == "" then
+        baseFont = ResolveSelectedFontPath(profile)
+    end
+
+    local scriptFont = DetectScriptFont(text)
+    if not scriptFont then
+        return baseFont
+    end
+
+    local defaultFont = ResolveDefaultFont()
+    if baseFont == defaultFont then
+        return scriptFont
+    end
+
+    return baseFont
+end
+
+function ns.ScriptFontForText(text)
+    local baseFont = ResolveSelectedFontPath()
+    local resolved = ns.ResolveFontForText(text, baseFont)
+    if resolved ~= baseFont then
+        return resolved
+    end
+
+    return nil
+end
+
+function ns.ApplySharedMedia(profile)
+    profile = profile or GetActiveMediaProfile()
+
+    local defaultBackground = ResolveDefaultBackground()
+    local backgroundMedia = (profile and profile.backgroundMedia) or GetResolvedMediaSetting("backgroundMedia")
     local backgroundPath = (profile and profile.backgroundMediaPath) or GetResolvedMediaSetting("backgroundMediaPath")
 
-    ns.FONT_HEADERS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
-    ns.FONT_ROWS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
+    ns.FONT_HEADERS = ResolveSelectedFontPath(profile)
+    ns.FONT_ROWS = ns.FONT_HEADERS
     ns.BACKDROP_FILE = ResolveMediaPath("background", backgroundMedia, backgroundPath, defaultBackground)
 
     return ns.FONT_HEADERS, ns.FONT_ROWS, ns.BACKDROP_FILE
@@ -185,13 +272,9 @@ end
 function ns.EnsureFonts()
     local profile = GetActiveMediaProfile()
     local defaultFont = ResolveDefaultFont()
-    local sharedFont = (profile and profile.fontMedia) or GetResolvedMediaSetting("fontMedia")
-        or (profile and profile.rowFontMedia) or GetResolvedMediaSetting("rowFontMedia")
-        or (profile and profile.headerFontMedia) or GetResolvedMediaSetting("headerFontMedia")
-    local fontPath = (profile and profile.fontMediaPath) or GetResolvedMediaSetting("fontMediaPath")
 
-    ns.FONT_HEADERS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
-    ns.FONT_ROWS = ResolveMediaPath("font", sharedFont, fontPath, defaultFont)
+    ns.FONT_HEADERS = ResolveSelectedFontPath(profile)
+    ns.FONT_ROWS = ns.FONT_HEADERS
 
     if type(ns.FONT_HEADERS) ~= "string" or ns.FONT_HEADERS == "" then
         ns.FONT_HEADERS = defaultFont

@@ -59,13 +59,13 @@ local ARCANTINA_WEEKLIES = {
 }
 
 local VOID_ASSAULT_WEEKLIES = {
-    { quest = 94385, name = L["Zone_EversongWoods"] or "Eversong Woods" },
-    { quest = 94386, name = L["Zone_ZulAman"] or "Zul'Aman" },
+    { quest = 94385, mapId = 2395, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+    { quest = 94386, mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
 }
 
 local RITUAL_SITE_WEEKLIES = {
-    { quest = 94880, name = L["Zone_EversongWoods"] or "Eversong Woods" },
-    { quest = 94878, name = L["Zone_ZulAman"] or "Zul'Aman" },
+    { quest = 94880, mapId = 2395, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+    { quest = 94878, mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
 }
 
 local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
@@ -89,6 +89,30 @@ local function IsPlayerInMidnightArea()
     local checked = 0
     while mapId and checked < 10 do
         if MIDNIGHT_MAP_IDS[mapId] then
+            return true
+        end
+
+        local info = C_Map.GetMapInfo(mapId)
+        if not info or not info.parentMapID or info.parentMapID == 0 then
+            break
+        end
+
+        mapId = info.parentMapID
+        checked = checked + 1
+    end
+
+    return false
+end
+
+local function IsPlayerInMapHierarchy(targetMapId)
+    if not targetMapId or not (C_Map and C_Map.GetBestMapForUnit and C_Map.GetMapInfo) then
+        return false
+    end
+
+    local mapId = C_Map.GetBestMapForUnit("player")
+    local checked = 0
+    while mapId and checked < 10 do
+        if mapId == targetMapId then
             return true
         end
 
@@ -270,27 +294,22 @@ local function CollectQuestVariants(variants)
     return completed, active
 end
 
-local function FindActivityZoneFromAreaPois(matchTerms)
+local function FindActivityZoneFromAreaPois(variants, matchTerms)
     if not (C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap and C_AreaPoiInfo.GetAreaPOIInfo) then
-        return nil, nil
+        return nil, nil, nil
     end
 
-    local zones = {
-        { mapId = 2395, name = L["Zone_EversongWoods"] or "Eversong Woods" },
-        { mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
-    }
-
-    for _, zone in ipairs(zones) do
-        local poiIds = C_AreaPoiInfo.GetAreaPOIForMap(zone.mapId)
+    for _, variant in ipairs(variants or {}) do
+        local poiIds = C_AreaPoiInfo.GetAreaPOIForMap(variant.mapId)
         if poiIds then
             for _, poiId in ipairs(poiIds) do
-                local info = C_AreaPoiInfo.GetAreaPOIInfo(zone.mapId, poiId)
+                local info = C_AreaPoiInfo.GetAreaPOIInfo(variant.mapId, poiId)
                 local poiName = info and info.name
                 local normalized = NormalizeActivityText(poiName)
                 if normalized ~= "" then
                     for _, term in ipairs(matchTerms) do
                         if normalized:find(term, 1, true) then
-                            return zone.name, poiName
+                            return variant.name, poiName, variant.mapId
                         end
                     end
                 end
@@ -298,7 +317,7 @@ local function FindActivityZoneFromAreaPois(matchTerms)
         end
     end
 
-    return nil, nil
+    return nil, nil, nil
 end
 
 function MR:DebugSpecialAssignments()
@@ -329,6 +348,10 @@ MR:RegisterModule({
     onScan = function(mod)
         local db = MR.db.char.progress
         if not db[mod.key] then db[mod.key] = {} end
+        local previousRitualActiveName = db[mod.key]["ritual_site_active_name"]
+        local previousRitualActiveMapId = db[mod.key]["ritual_site_active_map_id"]
+        local previousRitualCompletedName = db[mod.key]["ritual_site_completed_name"]
+        local previousRitualCompletedMapId = db[mod.key]["ritual_site_completed_map_id"]
         local beforeProgress = {}
         for key, value in pairs(db[mod.key]) do
             beforeProgress[key] = value
@@ -358,8 +381,10 @@ MR:RegisterModule({
         db[mod.key]["void_assault_active_poi_name"] = nil
         db[mod.key]["void_assault_completed_name"] = nil
         db[mod.key]["ritual_site_active_name"] = nil
+        db[mod.key]["ritual_site_active_map_id"] = nil
         db[mod.key]["ritual_site_active_poi_name"] = nil
         db[mod.key]["ritual_site_completed_name"] = nil
+        db[mod.key]["ritual_site_completed_map_id"] = nil
 
         local completedAssignments, activeAssignments = CollectSpecialAssignments()
         local totalAssignments = math.max(#completedAssignments + #activeAssignments, 1)
@@ -429,7 +454,10 @@ MR:RegisterModule({
         end
 
         local completedVoidAssaultWeeklies, activeVoidAssaultWeeklies = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
-        local activeVoidAssaultZone, activeVoidAssaultPoiName = FindActivityZoneFromAreaPois({ "voidstrike", "voidincursion", "voidassault" })
+        local activeVoidAssaultZone, activeVoidAssaultPoiName = FindActivityZoneFromAreaPois(
+            VOID_ASSAULT_WEEKLIES,
+            { "voidstrike", "voidincursion", "voidassault" }
+        )
         if #activeVoidAssaultWeeklies > 0 then
             db[mod.key]["void_assault_active_name"] = activeVoidAssaultWeeklies[1].name
         elseif activeVoidAssaultZone then
@@ -458,20 +486,55 @@ MR:RegisterModule({
         end
 
         local completedRitualSiteWeeklies, activeRitualSiteWeeklies = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
-        local activeRitualSiteZone, activeRitualSitePoiName = FindActivityZoneFromAreaPois({ "ritualsite" })
-        if #activeRitualSiteWeeklies > 0 then
-            db[mod.key]["ritual_site_active_name"] = activeRitualSiteWeeklies[1].name
+        local activeRitualSiteZone, activeRitualSitePoiName, activeRitualSiteMapId = FindActivityZoneFromAreaPois(
+            RITUAL_SITE_WEEKLIES,
+            { "ritualsite", "ritual" }
+        )
+        local activeRitualSiteVariant = activeRitualSiteWeeklies[1]
+        local completedRitualSiteVariant = completedRitualSiteWeeklies[1]
+        local ritualMetaDone = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843) or false
+
+        if activeRitualSiteVariant then
+            db[mod.key]["ritual_site_active_name"] = activeRitualSiteVariant.name
+            db[mod.key]["ritual_site_active_map_id"] = activeRitualSiteVariant.mapId
         elseif activeRitualSiteZone then
             db[mod.key]["ritual_site_active_name"] = activeRitualSiteZone
+            db[mod.key]["ritual_site_active_map_id"] = activeRitualSiteMapId
         end
         db[mod.key]["ritual_site_active_poi_name"] = activeRitualSitePoiName
-        if #completedRitualSiteWeeklies > 0 then
-            db[mod.key]["ritual_site_completed_name"] = completedRitualSiteWeeklies[1].name
+
+        if completedRitualSiteVariant then
+            db[mod.key]["ritual_site_completed_name"] = completedRitualSiteVariant.name
+            db[mod.key]["ritual_site_completed_map_id"] = completedRitualSiteVariant.mapId
+        elseif ritualMetaDone then
+            db[mod.key]["ritual_site_completed_name"] = previousRitualCompletedName
+                or previousRitualActiveName
+                or db[mod.key]["ritual_site_active_name"]
+            db[mod.key]["ritual_site_completed_map_id"] = previousRitualCompletedMapId
+                or previousRitualActiveMapId
+                or db[mod.key]["ritual_site_active_map_id"]
+        elseif not activeRitualSiteVariant
+            and not activeRitualSiteZone
+            and not IsQuestCurrentlyActive(95843)
+            and previousRitualActiveMapId
+            and IsPlayerInMapHierarchy(previousRitualActiveMapId) then
+            db[mod.key]["ritual_sites"] = 1
+            db[mod.key]["ritual_site_completed_name"] = previousRitualCompletedName or previousRitualActiveName
+            db[mod.key]["ritual_site_completed_map_id"] = previousRitualCompletedMapId or previousRitualActiveMapId
+        elseif (tonumber(db[mod.key]["ritual_sites"]) or 0) > 0 then
+            db[mod.key]["ritual_site_completed_name"] = previousRitualCompletedName
+                or db[mod.key]["ritual_site_active_name"]
+                or previousRitualActiveName
+            db[mod.key]["ritual_site_completed_map_id"] = previousRitualCompletedMapId
+                or db[mod.key]["ritual_site_active_map_id"]
+                or previousRitualActiveMapId
         end
 
         for _, row in ipairs(mod.rows) do
             if row.key == "ritual_sites" then
-                if db[mod.key]["ritual_site_completed_name"] or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
+                if db[mod.key]["ritual_site_completed_name"]
+                    or ritualMetaDone
+                    or (tonumber(db[mod.key]["ritual_sites"]) or 0) > 0 then
                     row.countText = db[mod.key]["ritual_site_completed_name"] or (L["Done"] or "Done")
                     row.countColor = { 0.4, 0.85, 0.4 }
                 elseif db[mod.key]["ritual_site_active_name"] then
@@ -728,16 +791,19 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_RitualSites_Note"] or "Complete a Ritual Site in Midnight for a Spark of Radiance.",
             questIds = { 95843, 94880, 94878 },
+            turnInTracked = true,
+            allowQuestFlagBackfill = true,
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
                 local s1db = MR.db.char.progress["s1_weekly"] or {}
                 local completedName = s1db["ritual_site_completed_name"]
                 local activeName = s1db["ritual_site_active_name"]
                 local activePoiName = s1db["ritual_site_active_poi_name"]
+                local rowDone = (tonumber(s1db["ritual_sites"]) or 0) > 0
                 local fallbackName = L["Done"] or "Done"
 
                 tip:AddLine(" ")
-                if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
+                if completedName or #completedVariants > 0 or rowDone or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
                     tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
                 elseif activeName or #activeVariants > 0 or IsQuestCurrentlyActive(95843) then

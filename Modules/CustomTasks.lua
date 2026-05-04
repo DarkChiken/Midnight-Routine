@@ -149,10 +149,6 @@ local function NormalizeBoolean(value)
     return value == true
 end
 
-local function ShouldUseClientFontForText(text)
-    return false
-end
-
 local RefreshCustomTaskViews
 
 local function SortTasks(tasks)
@@ -247,8 +243,6 @@ end
 local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, headerLabel, headerNote, addLabel)
     local doneCount = 0
     local addRowVisible = MR:IsRowEnabled(CUSTOM_MODULE_KEY, addKey)
-    local headerUsesClientFont = ShouldUseClientFontForText(headerLabel)
-    local addRowUsesClientFont = ShouldUseClientFontForText(addLabel)
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
             if tonumber(MR:GetProgress(CUSTOM_MODULE_KEY, GetTaskRowKey(task.id))) >= NormalizeTaskMax(task.max) then
@@ -262,7 +256,6 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
         label = headerLabel,
         note = headerNote,
         control = true,
-        useClientFont = headerUsesClientFont,
         sectionHeader = true,
         hideStatus = true,
         noDefaultTooltipHint = true,
@@ -289,7 +282,6 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     or (L["CustomTasks_ResetWeekly"] or "Weekly reset")
                 local questIds = NormalizeQuestIds(task.questIds)
                 local questIdText = BuildQuestIdsText(questIds)
-                local taskUsesClientFont = ShouldUseClientFontForText(task.label)
                 local noteText
                 if questIds then
                     noteText = string.format(
@@ -314,7 +306,6 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     key = rowKey,
                     label = task.label,
                     max = task.max,
-                    useClientFont = taskUsesClientFont,
                     note = noteText,
                     toggleStatus = (task.max <= 1) and ((not questIds) or task.allowManualQuestClicks),
                     questIds = questIds,
@@ -368,7 +359,6 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
         label = addLabel,
         note = L["CustomTasks_AddNote"] or "Click to create a new custom task for this character.",
         control = true,
-        useClientFont = addRowUsesClientFont,
         hideStatus = true,
         noDefaultTooltipHint = true,
         countText = L["CustomTasks_AddButton"] or "[ + ]",
