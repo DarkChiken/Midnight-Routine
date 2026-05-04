@@ -58,7 +58,7 @@ local MIN_W = 250
 local MAX_W = 700
 local MIN_H = 150
 local MAX_H = 800
-local TITLE_H = 24
+local TITLE_H = 22
 
 local function E(kind, data)
     data.kind = kind
@@ -70,6 +70,42 @@ local function S(data) data.mode = data.mode or "single"; return E("study", data
 local function WQ(data) data.mode = data.mode or "any"; return E("weeklyQuest", data) end
 local function WD(data) data.mode = data.mode or "single"; return E("weeklyDrop", data) end
 local function DMF(data) data.mode = "single"; return E("darkmoon", data) end
+
+local PROFESSION_ICONS = {
+    alchemy = "Interface\\Icons\\Trade_Alchemy",
+    blacksmithing = "Interface\\Icons\\Trade_BlackSmithing",
+    enchanting = "Interface\\Icons\\Trade_Engraving",
+    engineering = "Interface\\Icons\\Trade_Engineering",
+    herbalism = "Interface\\Icons\\Trade_Herbalism",
+    inscription = "Interface\\Icons\\INV_Inscription_Tradeskill01",
+    jewelcrafting = "Interface\\Icons\\INV_Misc_Gem_01",
+    leatherworking = "Interface\\Icons\\Trade_LeatherWorking",
+    mining = "Interface\\Icons\\Trade_Mining",
+    skinning = "Interface\\Icons\\INV_Misc_Pelt_Wolf_01",
+    tailoring = "Interface\\Icons\\Trade_Tailoring",
+}
+
+local PROFESSION_CATCHUP_CURRENCIES = {
+    [2906] = 3189,
+    [2907] = 3199,
+    [2909] = 3198,
+    [2910] = 3197,
+    [2912] = 3196,
+    [2913] = 3195,
+    [2914] = 3194,
+    [2915] = 3193,
+    [2916] = 3192,
+    [2917] = 3191,
+    [2918] = 3190,
+}
+
+local ENTRY_FALLBACK_ICONS = {
+    treasure = "Interface\\Icons\\INV_Misc_Map_01",
+    study = "Interface\\Icons\\INV_Inscription_Tradeskill01",
+    weeklyQuest = "Interface\\Icons\\INV_Misc_Note_01",
+    weeklyDrop = "Interface\\Icons\\INV_Box_01",
+    darkmoon = "Interface\\Icons\\INV_Misc_Ticket_Tarot_BlueDragon",
+}
 
 local PROFESSIONS = {
     { key = "alchemy", label = L["Alchemy"], color = { 0.20, 0.73, 1.00 }, skillLine = 2906, sections = {
@@ -352,6 +388,71 @@ local function ProfessionStats(profession)
     return done, total, kpDone, kpTotal
 end
 
+local function ProfessionWeeklyStats(profession)
+    local kpDone, kpTotal = 0, 0
+    for _, section in ipairs(profession.sections) do
+        if not ShowInKnowledgeTracker(section) then
+            for _, entry in ipairs(section.entries) do
+                kpDone = kpDone + KPDone(entry)
+                kpTotal = kpTotal + KPTotal(entry)
+            end
+        end
+    end
+    return kpDone, kpTotal
+end
+
+local function GetProfessionSkillSummary(skillLineID)
+    if not (C_TradeSkillUI and C_TradeSkillUI.GetProfessionInfoBySkillLineID) then
+        return nil
+    end
+
+    local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID)
+    if not info then
+        return nil
+    end
+
+    local skill = info.skillLevel or 0
+    local maxSkill = info.maxSkillLevel or 0
+    if skill <= 0 or maxSkill <= 0 then
+        return nil
+    end
+
+    local bonus = info.bonusSkillLevel or info.bonusSkill or 0
+    if bonus > 0 then
+        return string.format("%d/%d +%d", skill, maxSkill, bonus)
+    end
+
+    return string.format("%d/%d", skill, maxSkill)
+end
+
+local function GetProfessionCatchupAmount(skillLineID)
+    local currencyID = PROFESSION_CATCHUP_CURRENCIES[skillLineID]
+    if not (currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then
+        return 0
+    end
+
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    return (info and info.quantity) or 0
+end
+
+local function GetEntryIcon(entry)
+    if entry.itemID and C_Item and C_Item.GetItemIconByID then
+        local icon = C_Item.GetItemIconByID(entry.itemID)
+        if icon then
+            return icon
+        end
+    end
+
+    if entry.itemID then
+        local icon = GetItemIcon(entry.itemID)
+        if icon then
+            return icon
+        end
+    end
+
+    return ENTRY_FALLBACK_ICONS[entry.kind] or "Interface\\Icons\\INV_Misc_QuestionMark"
+end
+
 local watchedItemIDs = {}
 for _, profession in ipairs(PROFESSIONS) do
     for _, section in ipairs(profession.sections) do
@@ -431,6 +532,106 @@ local function GetProfessionColor(professionKey)
     return 1, 1, 1
 end
 
+local function MixColor(r, g, b, mix, target)
+    target = target or 1
+    return r + ((target - r) * mix), g + ((target - g) * mix), b + ((target - b) * mix)
+end
+
+local function CreateSummaryChip(parent, x, y, width, height, text, r, g, b, fontSize)
+    local chip = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    chip:SetPoint("TOPLEFT", parent, "TOPLEFT", x, -y)
+    chip:SetSize(width, height)
+    chip:SetBackdrop(MakeBackdrop())
+    chip:SetBackdropColor(r * 0.12, g * 0.12, b * 0.12, 0.90)
+    chip:SetBackdropBorderColor(r * 0.55, g * 0.55, b * 0.55, 0.95)
+
+    local glow = chip:CreateTexture(nil, "ARTWORK")
+    glow:SetPoint("TOPLEFT", chip, "TOPLEFT", 1, -1)
+    glow:SetPoint("BOTTOMRIGHT", chip, "BOTTOMRIGHT", -1, 1)
+    glow:SetColorTexture(r * 0.18, g * 0.18, b * 0.18, 0.55)
+
+    local label = chip:CreateFontString(nil, "OVERLAY")
+    label:SetFont(FONT_ROWS, fontSize or 9, GetFontFlags())
+    label:SetPoint("CENTER", chip, "CENTER", 0, 0)
+    label:SetText(text)
+    label:SetTextColor(MixColor(r, g, b, 0.55))
+
+    return chip
+end
+
+local function GetVisibleKnowledgeTotals()
+    local professions, sourcesDone, sourcesTotal, kpDone, kpTotal = 0, 0, 0, 0, 0
+    for _, profession in ipairs(PROFESSIONS) do
+        if HasProfessionLearned(profession.skillLine) then
+            professions = professions + 1
+            local pd, pt, kd, kt = ProfessionStats(profession)
+            sourcesDone = sourcesDone + pd
+            sourcesTotal = sourcesTotal + pt
+            kpDone = kpDone + kd
+            kpTotal = kpTotal + kt
+        end
+    end
+    return professions, sourcesDone, sourcesTotal, kpDone, kpTotal
+end
+
+local function IsProfessionCollapsed(professionKey)
+    local profile = MR.db and MR.db.profile
+    return profile and profile.gatheringCollapsedProfessions and profile.gatheringCollapsedProfessions[professionKey] == true or false
+end
+
+local function SetProfessionCollapsed(professionKey, collapsed)
+    if not (MR.db and MR.db.profile) then
+        return
+    end
+
+    MR.db.profile.gatheringCollapsedProfessions = MR.db.profile.gatheringCollapsedProfessions or {}
+    MR.db.profile.gatheringCollapsedProfessions[professionKey] = collapsed and true or nil
+end
+
+local function ApplyGatheringFrameTheme(frame, opts)
+    if not frame then
+        return
+    end
+
+    opts = opts or {}
+    local alpha = opts.alpha or 1
+    local bg = opts.bg or { 0.03, 0.05, 0.09, 0.97 * alpha }
+    local border = opts.border or { 0.24, 0.31, 0.42, alpha }
+    local accent = opts.accent or { 0.18, 0.78, 0.72 }
+
+    frame:SetBackdropColor(bg[1], bg[2], bg[3], bg[4])
+    frame:SetBackdropBorderColor(border[1], border[2], border[3], border[4] or 1)
+
+    if not frame._gatheringTopAccent then
+        frame._gatheringTopAccent = TopAccent(frame, accent[1], accent[2], accent[3])
+    else
+        frame._gatheringTopAccent:SetColorTexture(accent[1], accent[2], accent[3], 1)
+    end
+    frame.topAccent = frame._gatheringTopAccent
+    frame.topAccent:SetAlpha(alpha)
+
+    if not frame._gatheringGlow then
+        frame._gatheringGlow = frame:CreateTexture(nil, "BACKGROUND")
+        frame._gatheringGlow:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
+        frame._gatheringGlow:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
+    end
+    frame._gatheringGlow:SetColorTexture(bg[1], math.min(bg[2] + 0.07, 1), math.min(bg[3] + 0.07, 1), 0.30)
+
+    if opts.headerGlow ~= false then
+        if not frame._gatheringHeaderGlow then
+            frame._gatheringHeaderGlow = frame:CreateTexture(nil, "BORDER")
+            frame._gatheringHeaderGlow:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+            frame._gatheringHeaderGlow:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, 0)
+            frame._gatheringHeaderGlow:SetHeight(opts.headerHeight or 64)
+        end
+        frame._gatheringHeaderGlow:SetHeight(opts.headerHeight or 64)
+        frame._gatheringHeaderGlow:SetColorTexture(accent[1] * 0.45, accent[2] * 0.45, accent[3] * 0.45, 0.22)
+        frame._gatheringHeaderGlow:Show()
+    elseif frame._gatheringHeaderGlow then
+        frame._gatheringHeaderGlow:Hide()
+    end
+end
+
 local function BuildGatheringLocationsFrame(isRetry)
     RefreshFonts()
     local db = MR.db and MR.db.profile or {}
@@ -443,6 +644,10 @@ local function BuildGatheringLocationsFrame(isRetry)
     local minimized = db.gatheringMinimized or false
     local headerBottom = IsManagedHeaderBottom()
     gatheringMinimized = minimized
+    local panelAlpha = math.max(0, math.min(alpha, 1))
+    local contentAlpha = panelAlpha
+    local borderAlpha = 0.20 + (0.75 * panelAlpha)
+    local accentAlpha = 0.10 + (0.85 * panelAlpha)
 
     local function ApplyFrameHeight(frame, targetHeight)
         AnimateManagedFrameHeight(frame, targetHeight, function(self)
@@ -452,13 +657,15 @@ local function BuildGatheringLocationsFrame(isRetry)
 
     local frame = StyledFrame(UIParent, nil, "MEDIUM", 10)
     frame:SetSize(width, minimized and TITLE_H or height)
-    frame:SetBackdropColor(0.03, 0.05, 0.08, 0.97 * alpha)
-    frame:SetBackdropBorderColor(0.22, 0.18, 0.28, alpha)
     RestoreManagedFramePos(frame, "gatheringLocPos", 860, 0)
     frame.leftAccent = nil
-    frame.topAccent = TopAccent(frame, 0.80, 0.53, 0.20)
-    if frame.leftAccent then frame.leftAccent:SetAlpha(alpha) end
-    if frame.topAccent then frame.topAccent:SetAlpha(alpha) end
+    ApplyGatheringFrameTheme(frame, {
+        alpha = alpha,
+        bg = { 0.03, 0.05, 0.09, 0.97 * alpha },
+        border = { 0.24, 0.31, 0.42, alpha },
+        accent = { 0.18, 0.78, 0.72 },
+        headerHeight = 64,
+    })
 
     local titleBar = TitleBar(frame, TITLE_H)
     frame.titleBar = titleBar
@@ -479,10 +686,10 @@ local function BuildGatheringLocationsFrame(isRetry)
     if MR.ApplyPanelHeaderAutoHide then MR:ApplyPanelHeaderAutoHide(frame, titleBar) end
 
     local titleIcon = titleBar:CreateTexture(nil, "ARTWORK")
-    titleIcon:SetSize(14, 14)
-    titleIcon:SetPoint("LEFT", titleBar, "LEFT", 8, 0)
+    titleIcon:SetSize(16, 16)
+    titleIcon:SetPoint("LEFT", titleBar, "LEFT", 9, 0)
     titleIcon:SetTexture("Interface\\AddOns\\MidnightRoutine\\Media\\Icon")
-    titleIcon:SetVertexColor(0.80, 0.53, 0.20, 1)
+    titleIcon:SetVertexColor(0.18, 0.82, 0.74, 1)
 
     local closeBtn = CloseButton(titleBar, function()
         frame:Hide()
@@ -499,10 +706,11 @@ local function BuildGatheringLocationsFrame(isRetry)
     )
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    titleTxt:SetFont(FONT_HEADERS, 11, GetFontFlags())
     titleTxt:SetPoint("LEFT", titleIcon, "RIGHT", 5, 0)
     titleTxt:SetJustifyH("LEFT")
     titleTxt:SetText(L["ProfKnowledge_Title"])
+    titleTxt:SetTextColor(0.92, 0.97, 1.00)
 
     local scroll = CreateFrame("ScrollFrame", nil, frame)
     if headerBottom then
@@ -637,110 +845,275 @@ local function BuildGatheringLocationsFrame(isRetry)
 
     local yOff = 0
     local fontSize = db.gatheringFontSize or 9
+    local knownProfessions, totalDone, totalSources, totalKPDone, totalKPTotal = GetVisibleKnowledgeTotals()
+
+    if knownProfessions > 0 then
+        local chipGap = 8
+        local chipW = math.floor((math.max(width - 24, 240) - chipGap) / 2)
+        local chip1 = CreateSummaryChip(content, 8, yOff, chipW, 22, string.format(L["ProfKnowledge_SummarySources"], totalDone, totalSources), 0.22, 0.78, 1.00, fontSize - 1)
+        local chip2 = CreateSummaryChip(content, 8 + chipW + chipGap, yOff, chipW, 22, string.format("%d/%d KP", totalKPDone, totalKPTotal), 0.22, 0.86, 0.62, fontSize - 1)
+        for _, chip in ipairs({ chip1, chip2 }) do
+            chip:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
+            local br, bgc, bb = chip:GetBackdropBorderColor()
+            chip:SetBackdropBorderColor(br, bgc, bb, 0.85 * borderAlpha)
+            if chip:GetRegions() then
+                local regions = { chip:GetRegions() }
+                for _, region in ipairs(regions) do
+                    if region and region.GetObjectType and region:GetObjectType() == "Texture" then
+                        region:SetAlpha(0.65 * contentAlpha)
+                    end
+                end
+            end
+        end
+        yOff = yOff + 30
+    end
+
     for _, profession in ipairs(PROFESSIONS) do
         if HasProfessionLearned(profession.skillLine) then
             local cr, cg, cb = GetProfessionColor(profession.key)
             local doneSources, totalSources, kpDone, kpTotal = ProfessionStats(profession)
-            local header = content:CreateFontString(nil, "OVERLAY")
+            local weeklyDone, weeklyTotal = ProfessionWeeklyStats(profession)
+            local weeklyRemaining = math.max(0, weeklyTotal - weeklyDone)
+            local catchupAmount = GetProfessionCatchupAmount(profession.skillLine)
+            local skillSummary = GetProfessionSkillSummary(profession.skillLine)
+            local isCollapsed = IsProfessionCollapsed(profession.key)
+            local card = CreateFrame("Frame", nil, content, "BackdropTemplate")
+            card:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
+            card:SetWidth(width - 24)
+            card:SetBackdrop(MakeBackdrop())
+            card:SetBackdropColor(0, 0, 0, 0.12 * contentAlpha)
+            card:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, borderAlpha)
+
+            local iconPlate = CreateFrame("Frame", nil, card, "BackdropTemplate")
+            iconPlate:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -10)
+            iconPlate:SetSize(24, 24)
+            iconPlate:SetBackdrop(MakeBackdrop())
+            iconPlate:SetBackdropColor(cr * 0.12, cg * 0.12, cb * 0.12, 0.95)
+            iconPlate:SetBackdropBorderColor(cr * 0.45, cg * 0.45, cb * 0.45, 0.90)
+
+            local iconTex = iconPlate:CreateTexture(nil, "ARTWORK")
+            iconTex:SetPoint("TOPLEFT", iconPlate, "TOPLEFT", 2, -2)
+            iconTex:SetPoint("BOTTOMRIGHT", iconPlate, "BOTTOMRIGHT", -2, 2)
+            iconTex:SetTexture(PROFESSION_ICONS[profession.key] or "Interface\\Icons\\INV_Misc_QuestionMark")
+            iconTex:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+            local cardStripe = card:CreateTexture(nil, "ARTWORK")
+            cardStripe:SetPoint("TOPLEFT", card, "TOPLEFT", 1, -1)
+            cardStripe:SetPoint("TOPRIGHT", card, "TOPRIGHT", -1, -1)
+            cardStripe:SetHeight(4)
+            cardStripe:SetColorTexture(cr, cg, cb, accentAlpha)
+
+            local cardGlow = card:CreateTexture(nil, "BACKGROUND")
+            cardGlow:SetPoint("TOPLEFT", card, "TOPLEFT", 1, -1)
+            cardGlow:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -1, 1)
+            cardGlow:SetColorTexture(cr * 0.10, cg * 0.10, cb * 0.10, 0.18 * contentAlpha)
+
+            local header = card:CreateFontString(nil, "OVERLAY")
             header:SetFont(FONT_ROWS, fontSize + 2, GetFontFlags())
-            header:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
-            header:SetTextColor(cr, cg, cb, 1.0)
-            header:SetText(string.format(L["ProfKnowledge_HeaderFormat"], profession.label, doneSources, totalSources, kpDone, kpTotal))
-            yOff = yOff + 20
+            header:SetPoint("TOPLEFT", iconPlate, "TOPRIGHT", 8, -1)
+            local hr, hg, hb = MixColor(cr, cg, cb, 0.15)
+            header:SetTextColor(hr, hg, hb, 1)
+            header:SetText(profession.label)
 
-            for _, section in ipairs(profession.sections) do
-                if ShowInKnowledgeTracker(section) then
-                    local sectionDone, sectionTotal = SectionStats(section)
-                    local sectionHeader = content:CreateFontString(nil, "OVERLAY")
-                    sectionHeader:SetFont(FONT_ROWS, fontSize, GetFontFlags())
-                    sectionHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 16, -yOff)
-                    sectionHeader:SetTextColor(0.85, 0.85, 0.88, 0.95)
-                    sectionHeader:SetText(string.format(L["ProfKnowledge_SectionFormat"], section.label, sectionDone, sectionTotal))
-                    yOff = yOff + 16
+            local headerSub = card:CreateFontString(nil, "OVERLAY")
+            headerSub:SetFont(FONT_ROWS, fontSize - 2, GetFontFlags())
+            headerSub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
+            headerSub:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+            headerSub:SetJustifyH("LEFT")
+            headerSub:SetTextColor(0.72, 0.80, 0.88, 0.95)
+            headerSub:SetWordWrap(false)
 
-                    local rowHeight = math.max(fontSize + 8, 16)
-                    for _, entry in ipairs(section.entries) do
-                        local current, required = Progress(entry)
-                        local done = current >= required
-                        if not (done and db.gatheringHideCompleted) then
-                            local row = CreateFrame("Button", nil, content)
-                            row:SetPoint("TOPLEFT", content, "TOPLEFT", 18, -yOff)
-                            row:SetSize(width - 36, rowHeight)
-                            row:RegisterForClicks("LeftButtonUp")
+            local headerMeta = card:CreateFontString(nil, "OVERLAY")
+            headerMeta:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
+            headerMeta:SetPoint("TOPRIGHT", card, "TOPRIGHT", -24, -11)
+            headerMeta:SetJustifyH("RIGHT")
+            local mr, mg, mb = MixColor(cr, cg, cb, 0.35)
+            headerMeta:SetTextColor(mr, mg, mb, 0.95)
+            headerMeta:SetText(string.format("%d/%d  |  %d/%d KP", doneSources, totalSources, kpDone, kpTotal))
 
-                            local hover = row:CreateTexture(nil, "BACKGROUND")
-                            hover:SetAllPoints()
-                            hover:SetColorTexture(cr, cg, cb, 0)
+            local collapseBtn = CreateFrame("Button", nil, card)
+            collapseBtn:SetPoint("TOPRIGHT", card, "TOPRIGHT", -6, -8)
+            collapseBtn:SetSize(16, 16)
+            collapseBtn:RegisterForClicks("LeftButtonUp")
 
-                            local nameText = row:CreateFontString(nil, "OVERLAY")
-                            nameText:SetFont(FONT_ROWS, fontSize - 1, nil)
-                            nameText:SetPoint("LEFT", row, "LEFT", 2, 0)
-                            nameText:SetPoint("RIGHT", row, "RIGHT", -82, 0)
-                            nameText:SetJustifyH("LEFT")
-                            nameText:SetText(EntryName(entry))
-                            nameText:SetTextColor(done and 0.45 or 0.90, done and 0.45 or 0.90, done and 0.45 or 0.90)
+            local collapseLbl = collapseBtn:CreateFontString(nil, "OVERLAY")
+            collapseLbl:SetFont(FONT_HEADERS, 11, GetFontFlags())
+            collapseLbl:SetPoint("CENTER")
+            collapseLbl:SetText(isCollapsed and "+" or "-")
+            collapseLbl:SetTextColor(0.84, 0.90, 0.95, 0.95)
 
-                            local statusText = row:CreateFontString(nil, "OVERLAY")
-                            statusText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
-                            statusText:SetPoint("RIGHT", row, "RIGHT", -2, 0)
-                            statusText:SetWidth(78)
-                            statusText:SetJustifyH("RIGHT")
-                            statusText:SetText(ProgressText(entry))
-                            if done then statusText:SetTextColor(0.32, 0.80, 0.50, 0.95)
-                            elseif required > 1 and current > 0 then statusText:SetTextColor(0.95, 0.80, 0.25, 0.95)
-                            else statusText:SetTextColor(cr, cg, cb, 0.95) end
+            local function ToggleProfessionCard()
+                SetProfessionCollapsed(profession.key, not IsProfessionCollapsed(profession.key))
+                RebuildGatheringLocationsFrame()
+            end
 
-                            row:SetScript("OnEnter", function()
-                                hover:SetColorTexture(cr, cg, cb, 0.10)
-                                GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
-                                GameTooltip:SetText(EntryName(entry), 1, 1, 1)
-                                GameTooltip:AddLine(string.format(L["ProfKnowledge_KPValue"], KPDone(entry), KPTotal(entry)), 0.80, 0.80, 0.90)
-                                GameTooltip:AddLine(string.format(L["ProfKnowledge_RowProgress"], current, required), 0.70, 0.90, 1)
+            local headerHit = CreateFrame("Button", nil, card)
+            headerHit:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
+            headerHit:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
+            headerHit:SetHeight(36)
+            headerHit:RegisterForClicks("LeftButtonUp")
+            headerHit:SetScript("OnClick", ToggleProfessionCard)
+            headerHit:SetScript("OnEnter", function()
+                card:SetBackdropBorderColor(cr * 0.60, cg * 0.60, cb * 0.60, math.min(1, borderAlpha + 0.15))
+                collapseLbl:SetTextColor(1, 1, 1, 1)
+            end)
+            headerHit:SetScript("OnLeave", function()
+                card:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, borderAlpha)
+                collapseLbl:SetTextColor(0.84, 0.90, 0.95, 0.95)
+            end)
+            collapseBtn:SetScript("OnClick", ToggleProfessionCard)
+
+            if isCollapsed then
+                headerSub:SetText(string.format(L["ProfKnowledge_HeaderSubCollapsed"], weeklyRemaining, catchupAmount))
+                headerMeta:SetFont(FONT_ROWS, fontSize - 2, GetFontFlags())
+                headerMeta:SetText(string.format("%d/%d", doneSources, totalSources))
+            else
+                headerSub:SetText(string.format(L["ProfKnowledge_HeaderSubFormat"], skillSummary or "--", weeklyRemaining, catchupAmount))
+            end
+
+            local cardY = isCollapsed and 34 or 50
+
+            if not isCollapsed then
+                for _, section in ipairs(profession.sections) do
+                    if ShowInKnowledgeTracker(section) then
+                        local sectionDone, sectionTotal = SectionStats(section)
+                        local sectionChip = CreateFrame("Frame", nil, card, "BackdropTemplate")
+                        sectionChip:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -cardY)
+                        sectionChip:SetHeight(18)
+                        sectionChip:SetBackdrop(MakeBackdrop())
+                        sectionChip:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
+                        sectionChip:SetBackdropBorderColor(cr * 0.30, cg * 0.30, cb * 0.30, 0.80 * borderAlpha)
+
+                        local sectionHeader = sectionChip:CreateFontString(nil, "OVERLAY")
+                        sectionHeader:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
+                        sectionHeader:SetPoint("LEFT", sectionChip, "LEFT", 6, 0)
+                        sectionHeader:SetTextColor(0.90, 0.93, 0.97, 0.95)
+                        sectionHeader:SetText(string.format(L["ProfKnowledge_SectionFormat"], section.label, sectionDone, sectionTotal))
+                        sectionChip:SetWidth(math.min((sectionHeader:GetStringWidth() or 90) + 14, width - 48))
+                        cardY = cardY + 22
+
+                        local rowHeight = math.max(fontSize + 11, 22)
+                        for _, entry in ipairs(section.entries) do
+                            local current, required = Progress(entry)
+                            local done = current >= required
+                            if not (done and db.gatheringHideCompleted) then
+                                local row = CreateFrame("Button", nil, card, "BackdropTemplate")
+                                row:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -cardY)
+                                row:SetSize(width - 44, rowHeight + 4)
+                                row:RegisterForClicks("LeftButtonUp")
+                                row:SetBackdrop(MakeBackdrop())
+                                if done then
+                                    row:SetBackdropColor(0, 0, 0, 0.08 * contentAlpha)
+                                    row:SetBackdropBorderColor(0.18, 0.38, 0.28, 0.65 * borderAlpha)
+                                else
+                                    row:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
+                                    row:SetBackdropBorderColor(cr * 0.20, cg * 0.20, cb * 0.20, 0.65 * borderAlpha)
+                                end
+
+                                local hover = row:CreateTexture(nil, "BACKGROUND")
+                                hover:SetAllPoints()
+                                hover:SetColorTexture(cr, cg, cb, 0)
+
+                                local rowIcon = row:CreateTexture(nil, "ARTWORK")
+                                rowIcon:SetSize(14, 14)
+                                rowIcon:SetPoint("LEFT", row, "LEFT", 5, 0)
+                                rowIcon:SetTexture(GetEntryIcon(entry))
+                                rowIcon:SetTexCoord(0.07, 0.93, 0.07, 0.93)
+
+                                local dot = row:CreateTexture(nil, "ARTWORK")
+                                dot:SetSize(6, 6)
+                                dot:SetPoint("LEFT", rowIcon, "RIGHT", 5, 0)
+                                if done then
+                                    dot:SetColorTexture(0.26, 0.86, 0.52, 1)
+                                elseif required > 1 and current > 0 then
+                                    dot:SetColorTexture(0.95, 0.80, 0.25, 1)
+                                else
+                                    dot:SetColorTexture(cr, cg, cb, 1)
+                                end
+
+                                local waypointIcon
                                 if entry.zone and entry.x and entry.y then
+                                    waypointIcon = row:CreateTexture(nil, "ARTWORK")
+                                    waypointIcon:SetAtlas("Waypoint-MapPin-Untracked", true)
+                                    waypointIcon:SetSize(14, 14)
+                                    waypointIcon:SetPoint("RIGHT", row, "RIGHT", -84, 0)
+                                    waypointIcon:SetAlpha(0.75)
+                                end
+
+                                local nameText = row:CreateFontString(nil, "OVERLAY")
+                                nameText:SetFont(FONT_ROWS, fontSize - 1, nil)
+                                nameText:SetPoint("LEFT", dot, "RIGHT", 6, 0)
+                                nameText:SetPoint("RIGHT", row, "RIGHT", waypointIcon and -102 or -86, 0)
+                                nameText:SetJustifyH("LEFT")
+                                nameText:SetWordWrap(false)
+                                nameText:SetText(EntryName(entry))
+                                nameText:SetTextColor(done and 0.45 or 0.90, done and 0.45 or 0.90, done and 0.45 or 0.90)
+
+                                local statusText = row:CreateFontString(nil, "OVERLAY")
+                                statusText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
+                                statusText:SetPoint("RIGHT", row, "RIGHT", -2, 0)
+                                statusText:SetWidth(78)
+                                statusText:SetJustifyH("RIGHT")
+                                statusText:SetText(ProgressText(entry))
+                                if done then statusText:SetTextColor(0.32, 0.80, 0.50, 0.95)
+                                elseif required > 1 and current > 0 then statusText:SetTextColor(0.95, 0.80, 0.25, 0.95)
+                                else statusText:SetTextColor(cr, cg, cb, 0.95) end
+
+                                row:SetScript("OnEnter", function()
+                                    hover:SetColorTexture(cr, cg, cb, 0.12 * accentAlpha)
+                                    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+                                    GameTooltip:SetText(EntryName(entry), 1, 1, 1)
+                                    GameTooltip:AddLine(string.format(L["ProfKnowledge_KPValue"], KPDone(entry), KPTotal(entry)), 0.80, 0.80, 0.90)
+                                    GameTooltip:AddLine(string.format(L["ProfKnowledge_RowProgress"], current, required), 0.70, 0.90, 1)
+                                    if entry.zone and entry.x and entry.y then
+                                        local altKey = entry.itemID or entry.label
+                                        local useAlt = entry.altZone and waypointAlt[altKey]
+                                        local mapID = useAlt and entry.altZone or entry.zone
+                                        local mapX = useAlt and entry.altX or entry.x
+                                        local mapY = useAlt and entry.altY or entry.y
+                                        GameTooltip:AddLine(" ")
+                                        GameTooltip:AddLine(GetGatheringZoneName(mapID), 0.85, 0.85, 0.85)
+                                        GameTooltip:AddLine(string.format(L["Gathering_Coords"], mapX, mapY), 0.7, 1, 0.9)
+                                        if entry.altZone then
+                                            GameTooltip:AddLine(" ")
+                                            GameTooltip:AddLine(L["Gathering_AltLocationLabel"], 0.65, 0.65, 0.65)
+                                            GameTooltip:AddLine(GetGatheringZoneName(useAlt and entry.zone or entry.altZone), 0.6, 0.6, 0.6)
+                                            GameTooltip:AddLine(string.format("%.1f, %.1f", useAlt and entry.x or entry.altX, useAlt and entry.y or entry.altY), 0.45, 0.7, 0.55)
+                                        end
+                                    else
+                                        GameTooltip:AddLine(" ")
+                                        GameTooltip:AddLine(L["ProfKnowledge_NoWaypoint"], 0.65, 0.65, 0.65)
+                                    end
+                                    if entry.note and entry.note ~= "" then
+                                        GameTooltip:AddLine(" ")
+                                        GameTooltip:AddLine(entry.note, 0.65, 0.85, 0.95, true)
+                                    end
+                                    GameTooltip:AddLine(" ")
+                                    if done then GameTooltip:AddLine(L["Gathering_AlreadyCollected"], 0, 0.8, 0.27)
+                                    elseif entry.zone and entry.x and entry.y then GameTooltip:AddLine(entry.altZone and L["Gathering_ClickCycleHint"] or L["Gathering_ClickWaypoint"], 0.45, 0.85, 1) end
+                                    GameTooltip:Show()
+                                end)
+                                row:SetScript("OnLeave", function() hover:SetColorTexture(cr, cg, cb, 0); GameTooltip:Hide() end)
+                                row:SetScript("OnClick", function()
+                                    if not entry.zone or not entry.x or not entry.y then return end
                                     local altKey = entry.itemID or entry.label
                                     local useAlt = entry.altZone and waypointAlt[altKey]
-                                    local mapID = useAlt and entry.altZone or entry.zone
-                                    local mapX = useAlt and entry.altX or entry.x
-                                    local mapY = useAlt and entry.altY or entry.y
-                                    GameTooltip:AddLine(" ")
-                                    GameTooltip:AddLine(GetGatheringZoneName(mapID), 0.85, 0.85, 0.85)
-                                    GameTooltip:AddLine(string.format(L["Gathering_Coords"], mapX, mapY), 0.7, 1, 0.9)
-                                    if entry.altZone then
-                                        GameTooltip:AddLine(" ")
-                                        GameTooltip:AddLine(L["Gathering_AltLocationLabel"], 0.65, 0.65, 0.65)
-                                        GameTooltip:AddLine(GetGatheringZoneName(useAlt and entry.zone or entry.altZone), 0.6, 0.6, 0.6)
-                                        GameTooltip:AddLine(string.format("%.1f, %.1f", useAlt and entry.x or entry.altX, useAlt and entry.y or entry.altY), 0.45, 0.7, 0.55)
-                                    end
-                                else
-                                    GameTooltip:AddLine(" ")
-                                    GameTooltip:AddLine(L["ProfKnowledge_NoWaypoint"], 0.65, 0.65, 0.65)
-                                end
-                                if entry.note and entry.note ~= "" then
-                                    GameTooltip:AddLine(" ")
-                                    GameTooltip:AddLine(entry.note, 0.65, 0.85, 0.95, true)
-                                end
-                                GameTooltip:AddLine(" ")
-                                if done then GameTooltip:AddLine(L["Gathering_AlreadyCollected"], 0, 0.8, 0.27)
-                                elseif entry.zone and entry.x and entry.y then GameTooltip:AddLine(entry.altZone and L["Gathering_ClickCycleHint"] or L["Gathering_ClickWaypoint"], 0.45, 0.85, 1) end
-                                GameTooltip:Show()
-                            end)
-                            row:SetScript("OnLeave", function() hover:SetColorTexture(cr, cg, cb, 0); GameTooltip:Hide() end)
-                            row:SetScript("OnClick", function()
-                                if not entry.zone or not entry.x or not entry.y then return end
-                                local altKey = entry.itemID or entry.label
-                                local useAlt = entry.altZone and waypointAlt[altKey]
-                                local target = useAlt and { itemID = entry.itemID, label = entry.label, zone = entry.altZone, x = entry.altX, y = entry.altY } or entry
-                                if entry.altZone then waypointAlt[altKey] = not waypointAlt[altKey] end
-                                local ok, source = SetGatheringWaypoint(target)
-                                if ok then print(string.format(L["Waypoint_Set"], source, EntryName(entry), target.x, target.y)) else print(L["Waypoint_Unavailable"]) end
-                            end)
-                            yOff = yOff + rowHeight + 1
+                                    local target = useAlt and { itemID = entry.itemID, label = entry.label, zone = entry.altZone, x = entry.altX, y = entry.altY } or entry
+                                    if entry.altZone then waypointAlt[altKey] = not waypointAlt[altKey] end
+                                    local ok, source = SetGatheringWaypoint(target)
+                                    if ok then print(string.format(L["Waypoint_Set"], source, EntryName(entry), target.x, target.y)) else print(L["Waypoint_Unavailable"]) end
+                                end)
+                                cardY = cardY + rowHeight + 6
+                            end
                         end
+                        cardY = cardY + 4
                     end
-                    yOff = yOff + 4
                 end
+            else
+                cardY = cardY + 2
             end
-            yOff = yOff + 6
+            card:SetHeight(cardY + (isCollapsed and 8 or 8))
+            yOff = yOff + card:GetHeight() + 8
         end
     end
 
@@ -825,7 +1198,9 @@ local function BuildGatheringLocationsFrame(isRetry)
             if frame._scroll then frame._scroll:Hide() end
             if frame._scrollTrack then frame._scrollTrack:Hide() end
             if frame._dragger then frame._dragger:Hide() end
-            ApplyFrameHeight(frame, TITLE_H)
+            frame._mrAnimTick = nil
+            frame:SetScript("OnUpdate", nil)
+            frame:SetHeight(TITLE_H)
         else
             SyncManagedFramePos(frame, "gatheringLocPos", headerBottom and "bottom" or "top")
             if frame._scroll then frame._scroll:Show() end
@@ -868,22 +1243,20 @@ local function ResetProfessionColor(professionKey)
 end
 
 local function BuildGatheringConfigFrame()
-    local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    local frame = StyledFrame(UIParent, nil, "HIGH", 20)
     frame:SetWidth(268)
-    frame:SetFrameStrata("HIGH")
-    frame:SetFrameLevel(20)
-    frame:SetClampedToScreen(true)
-    frame:SetMovable(true)
-    frame:SetBackdrop(MakeBackdrop())
-    if ns.HookBackdropFrame then ns.HookBackdropFrame(frame) end
-    frame:SetBackdropColor(0.03, 0.05, 0.02, 0.98)
-    frame:SetBackdropBorderColor(0.50, 0.40, 0.16, 1)
+    ApplyGatheringFrameTheme(frame, {
+        alpha = 1,
+        bg = { 0.03, 0.05, 0.09, 0.98 },
+        border = { 0.24, 0.31, 0.42, 1 },
+        accent = { 0.18, 0.78, 0.72 },
+        headerHeight = 44,
+    })
     frame._configMinHeight = 250
     frame:Hide()
-    TopAccent(frame, 0.80, 0.53, 0.20)
 
     local tbar = TitleBar(frame, 22)
-    tbar:SetBackdropColor(0.10, 0.08, 0.02, 1)
+    tbar:SetBackdropColor(0.05, 0.12, 0.22, 1)
     tbar:SetScript("OnDragStart", function() frame:StartMoving() end)
     tbar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
     local ttitle = tbar:CreateFontString(nil, "OVERLAY")
@@ -934,7 +1307,7 @@ PopulateGatheringConfig = function(frame)
     do
         local tabs = {
             { key = "display", label = L["Config_TabLayout"] or "Layout" },
-            { key = "professions", label = L["Config_TabColors"] or "Colors" },
+            { key = "professions", label = L["Config_TabModules"] or "Professions" },
             { key = "reset", label = L["Config_TabReset"] or "Reset" },
         }
         local tabW = math.floor((contentW - 4) / #tabs)
@@ -1001,10 +1374,13 @@ PopulateGatheringConfig = function(frame)
         Slider(L["BACKGROUND"], 0, 1, 0.05, function() return db.gatheringAlpha or 1.0 end, function(value)
             db.gatheringAlpha = math.floor(value * 20) / 20
             if gatheringLocationsFrame then
-                gatheringLocationsFrame:SetBackdropColor(0.03, 0.05, 0.08, 0.97 * value)
-                gatheringLocationsFrame:SetBackdropBorderColor(0.22, 0.18, 0.28, value)
-                if gatheringLocationsFrame.leftAccent then gatheringLocationsFrame.leftAccent:SetAlpha(value) end
-                if gatheringLocationsFrame.topAccent then gatheringLocationsFrame.topAccent:SetAlpha(value) end
+                ApplyGatheringFrameTheme(gatheringLocationsFrame, {
+                    alpha = value,
+                    bg = { 0.03, 0.05, 0.09, 0.97 * value },
+                    border = { 0.24, 0.31, 0.42, value },
+                    accent = { 0.18, 0.78, 0.72 },
+                    headerHeight = 64,
+                })
             end
         end, 0.40, 0.40, 0.40)
         Slider(L["SCALE"], 0.5, 2.0, 0.05, function() return db.gatheringScale or 1.0 end, function(value)
@@ -1012,15 +1388,34 @@ PopulateGatheringConfig = function(frame)
             if gatheringLocationsFrame then gatheringLocationsFrame:SetScale(value) end
         end, 0.45, 0.22, 0.82, MR.db.profile.syncWindowScale)
     elseif activePage == "professions" then
-        SecLabel(L["Config_ProfessionColors"])
+        SecLabel(L["Config_TabModules"] or "Professions")
         for _, profession in ipairs(PROFESSIONS) do
             if HasProfessionLearned(profession.skillLine) then
                 local cr, cg, cb = GetProfessionColor(profession.key)
                 local row = CreateFrame("Frame", nil, body)
                 row:SetPoint("TOPLEFT", body, "TOPLEFT", pad, yOff)
                 row:SetPoint("TOPRIGHT", body, "TOPRIGHT", -pad, yOff)
-                row:SetHeight(22)
+                row:SetHeight(26)
                 local nameLbl
+                local toggleBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
+                toggleBtn:SetSize(18, 18)
+                toggleBtn:SetPoint("LEFT", row, "LEFT", 0, 0)
+                toggleBtn:SetBackdrop(MakeBackdrop())
+                toggleBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                toggleBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+
+                local toggleLbl = toggleBtn:CreateFontString(nil, "OVERLAY")
+                toggleLbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+                toggleLbl:SetPoint("CENTER")
+                toggleLbl:SetText(IsProfessionCollapsed(profession.key) and "+" or "-")
+                toggleLbl:SetTextColor(0.85, 0.93, 0.98)
+
+                toggleBtn:SetScript("OnClick", function()
+                    SetProfessionCollapsed(profession.key, not IsProfessionCollapsed(profession.key))
+                    RebuildGatheringLocationsFrame()
+                    PopulateGatheringConfig(frame)
+                end)
+
                 local swatch = OptionsColorSwatch(row, cr, cg, cb, function(r, g, b)
                     SetProfessionColor(profession.key, r, g, b)
                     if nameLbl then nameLbl:SetTextColor(r, g, b) end
@@ -1033,12 +1428,12 @@ PopulateGatheringConfig = function(frame)
                 swatch:SetPoint("RIGHT", row, "RIGHT", 0, 0)
                 nameLbl = row:CreateFontString(nil, "OVERLAY")
                 nameLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
-                nameLbl:SetPoint("LEFT", row, "LEFT", 0, 0)
+                nameLbl:SetPoint("LEFT", toggleBtn, "RIGHT", 6, 0)
                 nameLbl:SetPoint("RIGHT", swatch, "LEFT", -4, 0)
                 nameLbl:SetJustifyH("LEFT")
-                nameLbl:SetText(profession.label)
+                nameLbl:SetText(profession.label .. (IsProfessionCollapsed(profession.key) and ("  " .. (L["Config_Collapsed"] or "Collapsed")) or ""))
                 nameLbl:SetTextColor(cr, cg, cb)
-                yOff = yOff - 24
+                yOff = yOff - 28
             end
         end
     else
@@ -1070,6 +1465,7 @@ function MR:ToggleGatheringLocationsConfig()
         if gatheringLocationsFrame then
             local x, y = gatheringLocationsFrame:GetCenter()
             if x and y then
+                gatheringCfgFrame:ClearAllPoints()
                 gatheringCfgFrame:SetPoint("LEFT", gatheringLocationsFrame, "RIGHT", 10, 0)
                 gatheringCfgFrame:SetScale(gatheringLocationsFrame:GetScale())
             end

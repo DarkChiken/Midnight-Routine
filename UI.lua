@@ -4794,20 +4794,7 @@ function MR:BuildUI()
         local collapsed = MR.db.profile.minimized == true
         local targetHeight = collapsed and GetMainFrameCollapsedHeight() or GetMainFrameExpandedHeight()
         local useAnimation = IsAnimatedMinimizeEnabled()
-
-        if collapsed and IsMainHeaderAtBottom() then
-            local collapsedPos = GetBottomHeaderCollapseTarget(f)
-            ApplyExplicitMainFrameAnchor(f, collapsedPos)
-        elseif not collapsed and IsMainHeaderAtBottom() then
-            local collapsedPos = GetStoredMainFrameCollapsedAnchor()
-            if collapsedPos and collapsedPos.point then
-                MR._mainCollapsedAnchorBeforeExpand = collapsedPos
-                MR._mainFrameMovedSinceExpand = false
-                ApplyExplicitMainFrameAnchor(f, collapsedPos)
-            end
-        end
-
-        ApplyMainFrameLayout(f)
+        ApplyMainFrameLayout(f, true)
         if collapsed then
             if MR._dragger then MR._dragger:Hide() end
         else
