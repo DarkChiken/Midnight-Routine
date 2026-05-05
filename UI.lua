@@ -449,6 +449,19 @@ local function CleanLabelText(text)
     return text:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
 end
 
+local function ExtractInlineLabelColor(text)
+    if type(text) ~= "string" then
+        return nil
+    end
+
+    local hexColor = text:match("|cff(%x%x%x%x%x%x)")
+    if not hexColor then
+        return nil
+    end
+
+    return "#" .. hexColor
+end
+
 local function HideTooltipIfOwned(frame)
     if GameTooltip and GameTooltip:IsOwned(frame) then
         GameTooltip:Hide()
@@ -1050,7 +1063,7 @@ EnsureMainRowWidget = function(section, rowKey)
 
     rowFrame._headerBg = rowFrame:CreateTexture(nil, "BACKGROUND")
     rowFrame._headerBg:SetAllPoints()
-    rowFrame._headerText = rowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    rowFrame._headerText = rowFrame:CreateFontString(nil, "OVERLAY")
     rowFrame._headerActionButton = CreateFrame("Button", nil, rowFrame, "BackdropTemplate")
     rowFrame._headerActionButton._mrOwner = rowFrame
     rowFrame._headerActionButton:SetScript("OnClick", MainHeaderActionOnClick)
@@ -1083,7 +1096,16 @@ EnsureMainRowWidget = function(section, rowKey)
     rowFrame._statusCheck:SetText("x")
 
     rowFrame._rowIcon = rowFrame:CreateTexture(nil, "ARTWORK")
-    rowFrame._label = rowFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    rowFrame._label = rowFrame:CreateFontString(nil, "OVERLAY")
+    if rowFrame._label.SetWordWrap then
+        rowFrame._label:SetWordWrap(false)
+    end
+    if rowFrame._label.SetNonSpaceWrap then
+        rowFrame._label:SetNonSpaceWrap(false)
+    end
+    if rowFrame._label.SetShadowOffset then
+        rowFrame._label:SetShadowOffset(0, 0)
+    end
     rowFrame._count = rowFrame:CreateFontString(nil, "OVERLAY")
     rowFrame._count:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
     rowFrame._wallet = rowFrame:CreateFontString(nil, "OVERLAY")
@@ -1155,7 +1177,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
             rowFrame._headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
         end
 
-        SetFontForText(rowFrame._headerText, row.label, math.max(9, GetFontSize() - 1), GetFontFlags())
+        SetFontForText(rowFrame._headerText, row.label, math.max(8, GetFontSize() - 1), GetFontFlags())
         rowFrame._headerText:ClearAllPoints()
         rowFrame._headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
         rowFrame._headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
@@ -1314,12 +1336,15 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     end
     rowFrame._label:SetPoint("RIGHT", rowFrame, "RIGHT", lblRightOff, 0)
     rowFrame._label:SetJustifyH("LEFT")
+    rowFrame._label:SetJustifyV("MIDDLE")
 
     local rowCustom = MR:GetRowColor(mod.key, row.key)
     local headerCustom = MR.db.profile.headerColors and MR.db.profile.headerColors[mod.key]
-    local effectiveColor = rowCustom or headerCustom
+    local inlineColor = ExtractInlineLabelColor(row.label)
+    local effectiveColor = rowCustom or headerCustom or inlineColor
+    local cleanLabel = CleanLabelText(row.label)
     if isComplete then
-        rowFrame._label:SetText(CleanLabelText(row.label))
+        rowFrame._label:SetText(cleanLabel)
         if effectiveColor then
             local cr, cg, cb = hex(effectiveColor)
             rowFrame._label:SetTextColor(cr * 0.45, cg * 0.45, cb * 0.45)
@@ -1327,10 +1352,10 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
             rowFrame._label:SetTextColor(0.38, 0.38, 0.38)
         end
     elseif effectiveColor then
-        rowFrame._label:SetText(CleanLabelText(row.label))
+        rowFrame._label:SetText(cleanLabel)
         rowFrame._label:SetTextColor(hex(effectiveColor))
     else
-        rowFrame._label:SetText(row.label)
+        rowFrame._label:SetText(cleanLabel)
         rowFrame._label:SetTextColor(1, 1, 1)
     end
     rowFrame._label:Show()
@@ -6119,8 +6144,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             headerBg:SetColorTexture(0.06, 0.08, 0.13, 0.92 * frameAlpha)
         end
 
-        local headerText = rowFrame:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-        SetFontForText(headerText, row.label, math.max(9, GetFontSize() - 1), GetFontFlags())
+        local headerText = rowFrame:CreateFontString(nil, "OVERLAY")
+        SetFontForText(headerText, row.label, math.max(8, GetFontSize() - 1), GetFontFlags())
         headerText:SetPoint("LEFT", rowFrame, "LEFT", 8, 0)
         headerText:SetPoint("RIGHT", rowFrame, "RIGHT", -84, 0)
         headerText:SetJustifyH("LEFT")
@@ -6427,7 +6452,16 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local hasCoordText  = hasWaypoint and not row.hideCoordText
     local lblRightOff   = isCurrencyRow and -96 or (hasCoordText and -128 or -52)
 
-    local lbl = rowFrame:CreateFontString(nil, "OVERLAY", "ChatFontNormal")
+    local lbl = rowFrame:CreateFontString(nil, "OVERLAY")
+    if lbl.SetWordWrap then
+        lbl:SetWordWrap(false)
+    end
+    if lbl.SetNonSpaceWrap then
+        lbl:SetNonSpaceWrap(false)
+    end
+    if lbl.SetShadowOffset then
+        lbl:SetShadowOffset(0, 0)
+    end
     SetFontForText(lbl, CleanLabelText(row.label), GetFontSize(), GetFontFlags())
     if hasRowIcon then
         lbl:SetPoint("LEFT", rowIcon, "RIGHT", 8, 0)
@@ -6436,13 +6470,15 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     end
     lbl:SetPoint("RIGHT", rowFrame, "RIGHT", lblRightOff, 0)
     lbl:SetJustifyH("LEFT")
+    lbl:SetJustifyV("MIDDLE")
 
     local rowCustom    = MR:GetRowColor(mod.key, row.key)
     local headerCustom = MR.db.profile.headerColors and MR.db.profile.headerColors[mod.key]
-    local effectiveColor = rowCustom or headerCustom
+    local inlineColor  = ExtractInlineLabelColor(row.label)
+    local effectiveColor = rowCustom or headerCustom or inlineColor
+    local cleanLabel = CleanLabelText(row.label)
 
     if isComplete then
-        local cleanLabel = CleanLabelText(row.label)
         lbl:SetText(cleanLabel)
         if effectiveColor then
             local cr, cg, cb = hex(effectiveColor)
@@ -6451,11 +6487,11 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             lbl:SetTextColor(0.38, 0.38, 0.38)
         end
     elseif effectiveColor then
-        local cleanLabel = CleanLabelText(row.label)
         lbl:SetText(cleanLabel)
         lbl:SetTextColor(hex(effectiveColor))
     else
-        lbl:SetText(row.label)
+        lbl:SetText(cleanLabel)
+        lbl:SetTextColor(1, 1, 1)
     end
 
     local countFS = rowFrame:CreateFontString(nil, "OVERLAY")
