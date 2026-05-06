@@ -6751,8 +6751,32 @@ function MR:PopulateConfigFrame(f)
         popup:SetBackdrop(MakeBackdrop())
         popup:SetBackdropColor(0.04, 0.09, 0.15, 0.98)
         popup:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+        popup:EnableMouseWheel(true)
         popup:Hide()
         popup.buttons = {}
+
+        local popupScroll = CreateFrame("ScrollFrame", nil, popup)
+        popupScroll:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3)
+        popupScroll:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -3, 3)
+        popupScroll:EnableMouseWheel(true)
+
+        local popupContent = CreateFrame("Frame", nil, popupScroll)
+        popupContent:SetSize(1, 1)
+        popupScroll:SetScrollChild(popupContent)
+
+        local scrollTrack = CreateFrame("Button", nil, popup, "BackdropTemplate")
+        scrollTrack:SetWidth(8)
+        scrollTrack:SetBackdrop(MakeBackdrop())
+        scrollTrack:SetBackdropColor(0.03, 0.07, 0.11, 0.95)
+        scrollTrack:SetBackdropBorderColor(0.12, 0.26, 0.32, 0.95)
+        scrollTrack:Hide()
+
+        local scrollThumb = CreateFrame("Button", nil, scrollTrack, "BackdropTemplate")
+        scrollThumb:SetWidth(8)
+        scrollThumb:SetBackdrop(MakeBackdrop())
+        scrollThumb:SetBackdropColor(0.20, 0.66, 0.63, 0.95)
+        scrollThumb:SetBackdropBorderColor(0.30, 0.88, 0.82, 1)
+        scrollThumb:Hide()
 
         local dismiss = CreateFrame("Frame", nil, UIParent)
         dismiss:SetAllPoints(UIParent)
@@ -6780,7 +6804,7 @@ function MR:PopulateConfigFrame(f)
                 return btn
             end
 
-            btn = CreateFrame("Button", nil, popup, "BackdropTemplate")
+            btn = CreateFrame("Button", nil, popupContent, "BackdropTemplate")
             btn:SetHeight(18)
             btn:SetBackdrop(MakeBackdrop())
             btn:SetBackdropColor(0.05, 0.12, 0.20, 0.94)
@@ -6810,18 +6834,88 @@ function MR:PopulateConfigFrame(f)
             return btn
         end
 
+        local function UpdatePopupScrollBar()
+            local viewH = popupScroll:GetHeight() or 0
+            local contentH = popupContent:GetHeight() or 0
+            local maxScroll = math.max(contentH - viewH, 0)
+            local current = math.max(0, math.min(popupScroll:GetVerticalScroll() or 0, maxScroll))
+
+            if current ~= (popupScroll:GetVerticalScroll() or 0) then
+                popupScroll:SetVerticalScroll(current)
+            end
+
+            if maxScroll <= 0 then
+                scrollTrack:Hide()
+                scrollThumb:Hide()
+                return
+            end
+
+            scrollTrack:Show()
+            local trackH = scrollTrack:GetHeight() or 0
+            local thumbH = math.max(18, math.floor(trackH * (viewH / math.max(contentH, 1))))
+            thumbH = math.min(thumbH, trackH)
+            scrollThumb:SetHeight(thumbH)
+
+            local travel = math.max(trackH - thumbH, 0)
+            local pct = current / math.max(maxScroll, 1)
+            scrollThumb:ClearAllPoints()
+            scrollThumb:SetPoint("TOP", scrollTrack, "TOP", 0, -travel * pct)
+            scrollThumb:Show()
+        end
+
+        local function SetPopupScrollFromCursor(cursorY, grabOffset)
+            local contentH = popupContent:GetHeight() or 0
+            local viewH = popupScroll:GetHeight() or 0
+            local maxScroll = math.max(contentH - viewH, 0)
+            if maxScroll <= 0 then
+                popupScroll:SetVerticalScroll(0)
+                UpdatePopupScrollBar()
+                return
+            end
+
+            local trackTop = select(2, scrollTrack:GetCenter())
+            local trackH = scrollTrack:GetHeight() or 0
+            local thumbH = scrollThumb:GetHeight() or 0
+            local cursorOffset = (trackTop + trackH * 0.5) - cursorY - (grabOffset or thumbH * 0.5)
+            local travel = math.max(trackH - thumbH, 1)
+            local pct = math.max(0, math.min(cursorOffset / travel, 1))
+            popupScroll:SetVerticalScroll(maxScroll * pct)
+            UpdatePopupScrollBar()
+        end
+
         local function RefreshPopup()
             local width = math.max(valueBtn:GetWidth(), math.ceil(widestLabel) + 52)
             local rowHeight = 18
             local spacing = 2
             local visibleCount = #choices
-            popup:SetSize(width, math.max(visibleCount * (rowHeight + spacing) + 6, 24))
+            local maxVisibleRows = 10
+            local needsScroll = visibleCount > maxVisibleRows
+            local shownRows = math.min(visibleCount, maxVisibleRows)
+            local scrollGutter = needsScroll and 12 or 0
+            popup:SetSize(width + scrollGutter, math.max(shownRows * (rowHeight + spacing) + 6, 24))
+            popupScroll:ClearAllPoints()
+            if needsScroll then
+                popupScroll:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3)
+                popupScroll:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -14, 3)
+                scrollTrack:ClearAllPoints()
+                scrollTrack:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -3, -3)
+                scrollTrack:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -3, 3)
+            else
+                popupScroll:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3)
+                popupScroll:SetPoint("BOTTOMRIGHT", popup, "BOTTOMRIGHT", -3, 3)
+                scrollTrack:Hide()
+                scrollThumb:Hide()
+            end
+
+            local contentWidth = math.max(width - 6, 1)
+            local contentHeight = math.max(visibleCount * (rowHeight + spacing) - spacing + 6, 1)
+            popupContent:SetSize(contentWidth, contentHeight)
 
             for index, choice in ipairs(choices) do
                 local btn = EnsurePopupButton(index)
                 btn:ClearAllPoints()
-                btn:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3 - (index - 1) * (rowHeight + spacing))
-                btn:SetPoint("TOPRIGHT", popup, "TOPRIGHT", -3, -3 - (index - 1) * (rowHeight + spacing))
+                btn:SetPoint("TOPLEFT", popupContent, "TOPLEFT", 0, -3 - (index - 1) * (rowHeight + spacing))
+                btn:SetPoint("TOPRIGHT", popupContent, "TOPRIGHT", 0, -3 - (index - 1) * (rowHeight + spacing))
                 btn:SetHeight(rowHeight)
                 btn._label:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
                 btn._check:SetFont(FONT_HEADERS, 10, GetFontFlags())
@@ -6841,6 +6935,11 @@ function MR:PopulateConfigFrame(f)
             for index = visibleCount + 1, #popup.buttons do
                 popup.buttons[index]:Hide()
             end
+
+            local selectedOffset = math.max(0, (currentIndex - 1) * (rowHeight + spacing))
+            local maxScroll = math.max(contentHeight - (popupScroll:GetHeight() or 0), 0)
+            popupScroll:SetVerticalScroll(math.max(0, math.min(selectedOffset, maxScroll)))
+            UpdatePopupScrollBar()
         end
 
         valueBtn:SetScript("OnEnter", function(selfBtn)
@@ -6873,6 +6972,60 @@ function MR:PopulateConfigFrame(f)
             popup:SetPoint("TOPLEFT", valueBtn, "BOTTOMLEFT", xOffset, -2)
             dismiss:Show()
             popup:Show()
+            UpdatePopupScrollBar()
+        end)
+
+        local function ScrollPopup(delta)
+            local current = popupScroll:GetVerticalScroll() or 0
+            local maxScroll = math.max((popupContent:GetHeight() or 0) - (popupScroll:GetHeight() or 0), 0)
+            if maxScroll <= 0 then
+                popupScroll:SetVerticalScroll(0)
+                UpdatePopupScrollBar()
+                return
+            end
+
+            popupScroll:SetVerticalScroll(math.max(0, math.min(current - delta * 24, maxScroll)))
+            UpdatePopupScrollBar()
+        end
+
+        popup:SetScript("OnMouseWheel", function(_, delta)
+            ScrollPopup(delta)
+        end)
+        popupScroll:SetScript("OnMouseWheel", function(_, delta)
+            ScrollPopup(delta)
+        end)
+        popupScroll:SetScript("OnScrollRangeChanged", UpdatePopupScrollBar)
+        popupScroll:SetScript("OnVerticalScroll", UpdatePopupScrollBar)
+
+        scrollTrack:SetScript("OnMouseDown", function(_, button)
+            if button ~= "LeftButton" then
+                return
+            end
+
+            local _, cursorY = GetCursorPosition()
+            local scale = UIParent and UIParent:GetEffectiveScale() or 1
+            SetPopupScrollFromCursor(cursorY / scale, scrollThumb:GetHeight() * 0.5)
+        end)
+
+        scrollThumb:RegisterForDrag("LeftButton")
+        scrollThumb:SetScript("OnDragStart", function(selfBtn)
+            local _, cursorY = GetCursorPosition()
+            local scale = UIParent and UIParent:GetEffectiveScale() or 1
+            local thumbCenterY = select(2, selfBtn:GetCenter()) or 0
+            local thumbTopY = thumbCenterY + (selfBtn:GetHeight() or 0) * 0.5
+            selfBtn._grabOffset = thumbTopY - (cursorY / scale)
+        end)
+        scrollThumb:SetScript("OnDragStop", function(selfBtn)
+            selfBtn._grabOffset = nil
+        end)
+        scrollThumb:SetScript("OnUpdate", function(selfBtn)
+            if not selfBtn._grabOffset then
+                return
+            end
+
+            local _, cursorY = GetCursorPosition()
+            local scale = UIParent and UIParent:GetEffectiveScale() or 1
+            SetPopupScrollFromCursor(cursorY / scale, selfBtn._grabOffset)
         end)
 
         local resetBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
