@@ -152,6 +152,21 @@ function MR:GetActiveWorldBossInfo()
     return boss, index, currentReset, nextReset
 end
 
+function MR:IsCurrentWorldBossCompleted()
+    local activeBoss = GetActiveWorldBossState()
+    if not activeBoss then
+        return false
+    end
+
+    local questID = activeBoss.questId or FindWorldBossQuestID(activeBoss.zone, activeBoss.match, activeBoss.key)
+    if questID and C_QuestLog.IsQuestFlaggedCompleted(questID) then
+        SyncWorldBossKillRecord(activeBoss.key)
+        return true
+    end
+
+    return GetWorldBossKillStatus(activeBoss.key) ~= nil
+end
+
 function MR:SyncCurrentWorldBossKillByName(name)
     if type(name) ~= "string" or name == "" then
         return false

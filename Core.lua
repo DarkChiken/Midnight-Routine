@@ -2764,14 +2764,14 @@ function MR:OnEncounterEnd(_, _, encounterName, _, _, success)
         if encounterName and self.SyncCurrentWorldBossKillByName then
             self:SyncCurrentWorldBossKillByName(encounterName)
         end
-        self:RefreshModuleScans({ "great_vault", "delves", "world_bosses" }, true)
+        self:RefreshModuleScans({ "great_vault", "delves", "world_bosses", "s1_weekly" }, true)
     end
 end
 
 function MR:OnBossKill(_, bossName)
     if bossName and self.SyncCurrentWorldBossKillByName then
         self:SyncCurrentWorldBossKillByName(bossName)
-        self:RefreshModuleScans({ "world_bosses", "great_vault" }, true)
+        self:RefreshModuleScans({ "world_bosses", "great_vault", "s1_weekly" }, true)
     end
 end
 

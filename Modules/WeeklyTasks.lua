@@ -694,6 +694,15 @@ MR:RegisterModule({
             end
         end
 
+        if db[mod.key]["unity_against_void"] < 1
+            and activeUATVBranch
+            and activeUATVBranch.quest == 93913
+            and MR.IsCurrentWorldBossCompleted
+            and MR:IsCurrentWorldBossCompleted() then
+            db[mod.key]["unity_against_void"] = 1
+            db[mod.key]["uatv_completed_branch_name"] = activeUATVBranch.name
+        end
+
         for _, row in ipairs(mod.rows) do
             if row.key == "unity_against_void" then
                 local completedBranch = db[mod.key]["uatv_completed_branch_name"]
@@ -934,7 +943,9 @@ MR:RegisterModule({
             key      = "lost_legends",
             label    = L["Weekly_Legends_Label"],
             max      = 1,
-            questIds = { 89268 }, 
+            turnInTracked = true,
+            allowQuestFlagBackfill = true,
+            questIds = { 89268, 93891 },
         },
         {
             key      = "saltherils_soiree",

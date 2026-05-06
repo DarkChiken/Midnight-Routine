@@ -12,7 +12,6 @@ local DELVERS_BOUNTY_ITEMS = {
 
 local QUEST_DELVERS_BOUNTY_LOOTED = 86371
 local QUEST_DELVERS_BOUNTY_USED = 92887
-local QUEST_NULLAEUS              = 93525
 local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
 
 local EXPANSIONS = {
@@ -379,13 +378,6 @@ MR:RegisterModule({
             noItemProgress = true,
             liveKey = "delve_bounty",
             completeFunc = IsBountyRowComplete,
-        },
-        {
-            key      = "delve_nullaeus",
-            label    = L["Delves_Nullaeus_Label"],
-            max      = 1,
-            note     = L["Delves_Nullaeus_Note"],
-            questIds = { QUEST_NULLAEUS },
         },
         {
             key     = "bountiful_count",
