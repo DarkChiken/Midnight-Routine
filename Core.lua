@@ -2656,6 +2656,10 @@ end
 function MR:OnCurrencyDisplayUpdate(_, currencyID)
     local dirty = self:RefreshCurrencyProgress(currencyID, false)
 
+    if self:RefreshModuleScans({ "s1_weekly" }, false) then
+        dirty = true
+    end
+
     if currencyID == 3290 and self.RefreshDelvesLiveProgress then
         if self._delvesLiveProgressTimer then
             self:CancelTimer(self._delvesLiveProgressTimer)
@@ -2728,7 +2732,15 @@ function MR:OnQuestRemoved(_, questID)
 end
 
 function MR:OnBagUpdateDelayed()
-    self:RefreshItemProgress()
+    local dirty = self:RefreshItemProgress()
+
+    if self:RefreshModuleScans({ "s1_weekly" }, false) then
+        dirty = true
+    end
+
+    if dirty then
+        self:RefreshUI()
+    end
 end
 
 function MR:OnProfessionChange()
