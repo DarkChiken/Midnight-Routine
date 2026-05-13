@@ -7303,6 +7303,14 @@ function MR:PopulateConfigFrame(f)
                     MR.gatheringLocationsFrame:UpdatePanelHeaderVisibility(MR.gatheringLocationsFrame:IsMouseOver())
                 end
             end)
+        Gap(4); Divider()
+        SectionLabel(L["GreatVault_Title"])
+        Checkbox(L["Config_CompactGreatVault"],
+            function() return MR.db and MR.db.profile and MR.db.profile.greatVaultCombined == true end,
+            function(v)
+                MR.db.profile.greatVaultCombined = v and true or false
+                MR:RefreshUI()
+            end, "#ff8000")
     elseif activePage == "layout" then
         SectionLabel(L["Config_LayoutMode"] or "Layout Mode")
 

@@ -20,6 +20,10 @@ local RAID_DIFF = {
 
 local DIFF_RANK = { [17]=1, [14]=2, [15]=3, [16]=4 }
 
+local function IsCombinedMode()
+    return MR.db and MR.db.profile and MR.db.profile.greatVaultCombined == true
+end
+
 local function UpdateMax(current, candidate)
     return math.max(current or 0, candidate or 0)
 end
@@ -128,9 +132,42 @@ MR:RegisterModule({
 
         local w = vd["vault_w_progress"]
         vd["vault_w_slots"] = (w >= 8 and 3) or (w >= 4 and 2) or (w >= 2 and 1) or 0
+
+        vd["vault_combined_slots"] = (vd["vault_r_slots"] or 0) + (vd["vault_d_slots"] or 0) + (vd["vault_w_slots"] or 0)
     end,
 
     rows = {
+        {
+            key           = "vault_combined",
+            label         = L["GreatVault_Title"],
+            max           = 9,
+            liveKey       = "vault_combined_slots",
+            isVisible     = function() return IsCombinedMode() end,
+            completeFunc  = function()
+                return IsRaidVaultMaxed() and IsDungeonVaultMaxed()
+            end,
+            tooltipFunc = function(tt)
+                local vd = MR.db.char.progress["great_vault"] or {}
+                local r  = vd["vault_r_progress"] or 0
+                local d  = vd["vault_d_progress"] or 0
+                local w  = vd["vault_w_progress"] or 0
+                tt:AddLine(" ")
+                tt:AddLine("Raid", 0.9, 0.7, 0.3)
+                SlotLine(tt, 1, r, 2)
+                SlotLine(tt, 2, r, 4)
+                SlotLine(tt, 3, r, 6)
+                tt:AddLine(" ")
+                tt:AddLine("Dungeon", 0.3, 0.8, 1)
+                SlotLine(tt, 1, d, 1)
+                SlotLine(tt, 2, d, 4)
+                SlotLine(tt, 3, d, 8)
+                tt:AddLine(" ")
+                tt:AddLine("World", 0.78, 0.59, 0.42)
+                SlotLine(tt, 1, w, 2)
+                SlotLine(tt, 2, w, 4)
+                SlotLine(tt, 3, w, 8)
+            end,
+        },
         {
             key              = "vault_raid",
             label            = L["Vault_Raid_Label"],
@@ -138,6 +175,7 @@ MR:RegisterModule({
             liveKey          = "vault_r_slots",
             liveTierLabelKey = "vault_r_diff_label",
             liveTierColorKey = "vault_r_diff_color",
+            isVisible        = function() return not IsCombinedMode() end,
             completeFunc     = function()
                 return IsRaidVaultMaxed()
             end,
@@ -158,6 +196,7 @@ MR:RegisterModule({
             liveKey          = "vault_d_slots",
             liveTierLabelKey = "vault_d_tier_label",
             liveTierColorKey = "vault_d_tier_color",
+            isVisible        = function() return not IsCombinedMode() end,
             completeFunc     = function()
                 return IsDungeonVaultMaxed()
             end,
@@ -176,6 +215,7 @@ MR:RegisterModule({
             label       = L["Vault_World_Label"],
             max         = 3,
             liveKey     = "vault_w_slots",
+            isVisible   = function() return not IsCombinedMode() end,
             tooltipFunc = function(tt)
                 local vd   = MR.db.char.progress["great_vault"] or {}
                 local prog = vd["vault_w_progress"] or 0
