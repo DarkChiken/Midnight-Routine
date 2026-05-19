@@ -46,31 +46,32 @@ crestRows = {
     {
         key = "crest_adventurer",
         currencyId = 3383,
-        max = CREST_CAP,
+        -- max = CREST_CAP, caps where removed
+		noMax = true,
         label = CurrencyLabel(3383, nil, "b7b7b7"),
     },
     {
         key = "crest_veteran",
         currencyId = 3341,
-        max = CREST_CAP,
+        noMax = true,
         label = CurrencyLabel(3341, nil, "1eff00"),
     },
     {
         key = "crest_champion",
         currencyId = 3343,
-        max = CREST_CAP,
+        noMax = true,
         label = CurrencyLabel(3343, nil, "f1c232"),
     },
     {
         key = "crest_hero",
         currencyId = 3345,
-        max = CREST_CAP,
+        noMax = true,
         label = CurrencyLabel(3345, nil, "0070dd"),
     },
     {
         key = "crest_myth",
         currencyId = 3347,
-        max = CREST_CAP,
+        noMax = true,
         label = CurrencyLabel(3347, nil, "ff8000"),
     },
 	{
