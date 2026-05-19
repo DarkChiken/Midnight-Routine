@@ -73,6 +73,12 @@ crestRows = {
         max = CREST_CAP,
         label = CurrencyLabel(3347, nil, "ff8000"),
     },
+	{
+		key = "field_accolade",
+		currencyId = 3405,
+		noMax = true,
+        label = CurrencyLabel(3405, nil),
+	},
     {
         key = "manaflux",
         currencyId = 3378,
