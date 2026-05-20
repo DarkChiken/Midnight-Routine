@@ -679,7 +679,7 @@ BuildRaresFrame = function()
         yOff = yOff + BAR_H
 
         local visibleRares = {}
-        local zoneIdxList  = {}  
+        local zoneIdxList  = {}
         for zIdx, rare in ipairs(zone.rares) do
             local questId = rare[2]
             local flagged = questId and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
@@ -717,7 +717,7 @@ BuildRaresFrame = function()
             local row      = math.floor((i - 1) / cols)
             local xPos     = ROW_PAD + col * colW
             local yPos     = -(row * ROW_H) - 5
-            local zoneIdx  = zoneIdxList[i] 
+            local zoneIdx  = zoneIdxList[i]
 
             local dot = body:CreateTexture(nil, "ARTWORK")
             dot:SetSize(DOT_SIZE, DOT_SIZE)

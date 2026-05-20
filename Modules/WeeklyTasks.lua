@@ -320,23 +320,6 @@ local function FindActivityZoneFromAreaPois(variants, matchTerms)
     return nil, nil, nil
 end
 
-function MR:DebugSpecialAssignments()
-    print("|cff2ae7c6[MidnightRoutine]|r Special Assignment debug:")
-
-    for _, assignment in ipairs(SA_ASSIGNMENTS) do
-        print(string.format(
-            "  %s | quest=%d completed=%s active=%s | unlock=%d active=%s | zone=%s",
-            assignment.name,
-            assignment.quest,
-            tostring(C_QuestLog.IsQuestFlaggedCompleted(assignment.quest)),
-            tostring(IsQuestCurrentlyActive(assignment.quest)),
-            assignment.unlock,
-            tostring(IsQuestCurrentlyActive(assignment.unlock)),
-            tostring(assignment.zoneLabel)
-        ))
-    end
-end
-
 MR:RegisterModule({
     key         = "s1_weekly",
     label       = L["Weekly_SeasonTitle"],
@@ -827,26 +810,26 @@ MR:RegisterModule({
                 end
             end,
         },
-        -- {
-        --     key      = "elementary_voidcore",
-        --     label    = L["Weekly_Voidforge_Label"] or "|cff2ae7c6An Elementary Voidcore:|r",
-        --     max      = 1,
-        --     note     = L["Weekly_Voidforge_Note"] or "Collect 3 Elementary Voidcore Shards for Decimus. This repeating construction quest advances the Voidforge unlock.",
-        --     questIds = { 94625 },
-        --     tooltipFunc = function(tip)
-        --         tip:AddLine(" ")
-        --         if C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(94625) then
-        --             tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
-        --             tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 0.4, 0.85, 0.4)
-        --         elseif IsQuestCurrentlyActive(94625) then
-        --             tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
-        --             tip:AddLine("  " .. (L["Weekly_Voidforge_Label"] or "An Elementary Voidcore"), 1, 0.9, 0.3)
-        --         else
-        --             tip:AddLine(L["Tooltip_No_Voidforge"] or "|cffaaaaaa? An Elementary Voidcore is not yet active.|r", 1, 1, 1)
-        --             tip:AddLine(L["Tooltip_Visit_Voidforge"] or "  Visit Decimus in Voidstorm when the Voidforge construction quest is available.", 0.7, 0.7, 0.7)
-        --         end
-        --     end,
-        -- },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
         {
             key      = "abyss_anglers",
             label    = L["Weekly_AbyssAnglers_Label"] or "|cff2ae7c6Abyss Anglers:|r",
@@ -953,7 +936,7 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_Soiree_Note"],
             turnInTracked = true,
-            questIds = { 89289, 91966 }, 
+            questIds = { 89289, 91966 },
             tooltipFunc = function(tip)
                 local variants = {
                     { quest = 91966, name = "Saltheril's Soiree" },

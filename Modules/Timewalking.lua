@@ -87,9 +87,9 @@ local TIMEWALKING_DUNGEON_WEEKLIES = CombineQuestIds(
 )
 
 local TIMEWALKING_RAID_WEEKLIES = {
-    47523, -- Disturbance Detected: Black Temple
-    50316, -- Disturbance Detected: Ulduar
-    57637, -- Disturbance Detected: Firelands
+    47523,
+    50316,
+    57637,
 }
 
 local TIMEWALKING_DUNGEON_PICKUP_LOCATION = {
@@ -138,7 +138,7 @@ local TIMEWALKING_EVENT_HINTS = {
     {
         key = "mists",
         holidayMatches = { "mist", "pandaria", "shrouded" },
-        auraSpellId = 335151, -- Sign of the Mists
+        auraSpellId = 335151,
         dungeonQuestIds = CombineQuestIds(TIMEWALKING_DUNGEON_QUESTS.mists.current, TIMEWALKING_DUNGEON_QUESTS.mists.compat),
         dungeonFallbackName = TIMEWALKING_DUNGEON_QUESTS.mists.fallbackName,
         hasRaid = false,

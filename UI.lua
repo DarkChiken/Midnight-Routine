@@ -120,147 +120,49 @@ local function ApplyDialogEditBoxFont(editBox, fontSize)
 end
 
 ApplyCustomTaskDialogTheme = function(frame)
-    if not frame then
-        return
-    end
+    if not frame then return end
 
     RefreshFonts()
-    local fontSize = GetFontSize()
-    local rowFont = math.max(8, fontSize - 1)
-    local hintFont = math.max(8, fontSize - 2)
-    local editFont = math.max(9, fontSize)
-    local boxHeight = math.max(32, fontSize + 20)
-    local hintGap = math.max(8, math.floor(fontSize * 0.7))
-    local sectionGap = math.max(14, fontSize + 3)
-    local frameWidth = math.max(380, 260 + (fontSize * 10))
-    local frameHeight = math.max(500, 390 + (fontSize * 13))
+    local fontSize  = GetFontSize()
+    local rowFont   = math.max(8,  fontSize - 1)
+    local hintFont  = math.max(7,  fontSize - 2)
+    local editFont  = math.max(9,  fontSize)
 
-    frame:SetSize(frameWidth, frameHeight)
 
-    if frame.title then
-        frame.title:SetFont(FONT_HEADERS, math.max(10, fontSize + 1), GetFontFlags())
-        frame.title:SetWidth(frameWidth - 24)
-    end
-    if frame.subtitle then
-        frame.subtitle:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-        frame.subtitle:SetWidth(frameWidth - 24)
-    end
-    if frame.nameLabel then
-        frame.nameLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-        frame.nameLabel:ClearAllPoints()
-        frame.nameLabel:SetPoint("TOPLEFT", frame.subtitle, "BOTTOMLEFT", 0, -sectionGap)
-    end
-    if frame.resetLabel then
-        frame.resetLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-    end
-    if frame.weeklyCheck and frame.weeklyCheck._text then
-        frame.weeklyCheck._text:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-    end
-    if frame.dailyCheck and frame.dailyCheck._text then
-        frame.dailyCheck._text:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-    end
+    frame:SetSize(400, 460)
 
-    if frame.inputBg then
-        frame.inputBg:SetHeight(boxHeight)
-        frame.inputBg:ClearAllPoints()
-        frame.inputBg:SetPoint("TOPLEFT", frame.nameLabel, "BOTTOMLEFT", 0, -6)
-        frame.inputBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -6)
-    end
-    if frame.input then
-        ApplyDialogEditBoxFont(frame.input, editFont)
-    end
-    if frame.hint then
-        frame.hint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
-        frame.hint:ClearAllPoints()
-        frame.hint:SetPoint("TOPLEFT", frame.inputBg, "BOTTOMLEFT", 0, -hintGap)
-        frame.hint:SetPoint("TOPRIGHT", frame.inputBg, "BOTTOMRIGHT", 0, -hintGap)
-    end
+    local function sf(fs, size) if fs then fs:SetFont(FONT_ROWS, size, GetFontFlags()) end end
+    sf(frame.title,           math.max(10, fontSize + 1))
+    sf(frame.nameLabel,       rowFont)
+    sf(frame.questLabel,      rowFont)
+    sf(frame.encounterLabel,  rowFont)
+    sf(frame.difficultyLabel, rowFont)
+    sf(frame.idHint,          hintFont)
+    sf(frame.diffHint,        hintFont)
+    sf(frame.targetLabel,     rowFont)
+    sf(frame.targetHint,      hintFont)
+    sf(frame.resetLabel,      rowFont)
 
-    if frame.questLabel then
-        frame.questLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-        frame.questLabel:ClearAllPoints()
-        frame.questLabel:SetPoint("TOPLEFT", frame.hint, "BOTTOMLEFT", 0, -sectionGap)
-    end
-    if frame.questBg then
-        frame.questBg:SetHeight(boxHeight)
-        frame.questBg:ClearAllPoints()
-        frame.questBg:SetPoint("TOPLEFT", frame.questLabel, "BOTTOMLEFT", 0, -6)
-        frame.questBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -6)
-    end
-    if frame.questInput then
-        ApplyDialogEditBoxFont(frame.questInput, editFont)
-    end
-    if frame.questHint then
-        frame.questHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
-        frame.questHint:ClearAllPoints()
-        frame.questHint:SetPoint("TOPLEFT", frame.questBg, "BOTTOMLEFT", 0, -hintGap)
-        frame.questHint:SetPoint("TOPRIGHT", frame.questBg, "BOTTOMRIGHT", 0, -hintGap)
-    end
+    if frame.title then frame.title:SetFont(FONT_HEADERS, math.max(10, fontSize + 1), GetFontFlags()) end
 
-    if frame.manualQuestCheck then
-        frame.manualQuestCheck:ClearAllPoints()
-        frame.manualQuestCheck:SetPoint("TOPLEFT", frame.questHint, "BOTTOMLEFT", 0, -sectionGap)
-        if frame.manualQuestCheck._text then
-            frame.manualQuestCheck._text:SetFont(FONT_ROWS, rowFont, GetFontFlags())
+    local checks = { frame.weeklyCheck, frame.dailyCheck, frame.manualQuestCheck, frame.autoUpdateCheck }
+    for _, cb in ipairs(checks) do
+        if cb and cb._text then cb._text:SetFont(FONT_ROWS, rowFont, GetFontFlags()) end
+    end
+    if frame.difficultyChecks then
+        for _, cb in ipairs(frame.difficultyChecks) do
+            if cb._text then cb._text:SetFont(FONT_ROWS, rowFont, GetFontFlags()) end
         end
     end
-    if frame.manualQuestHint then
-        frame.manualQuestHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
-        frame.manualQuestHint:ClearAllPoints()
-        frame.manualQuestHint:SetPoint("TOPLEFT", frame.manualQuestCheck, "BOTTOMLEFT", 0, -hintGap)
-        frame.manualQuestHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
-    end
 
-    if frame.targetLabel then
-        frame.targetLabel:SetFont(FONT_ROWS, rowFont, GetFontFlags())
-        frame.targetLabel:ClearAllPoints()
-        frame.targetLabel:SetPoint("TOPLEFT", frame.manualQuestHint, "BOTTOMLEFT", 0, -sectionGap)
-    end
-    if frame.targetBg then
-        frame.targetBg:SetSize(math.max(86, fontSize * 5), boxHeight)
-        frame.targetBg:ClearAllPoints()
-        frame.targetBg:SetPoint("TOPLEFT", frame.targetLabel, "BOTTOMLEFT", 0, -6)
-    end
-    if frame.targetInput then
-        ApplyDialogEditBoxFont(frame.targetInput, editFont)
-    end
-    if frame.targetHint then
-        frame.targetHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
-        frame.targetHint:ClearAllPoints()
-        frame.targetHint:SetPoint("TOPLEFT", frame.targetBg, "BOTTOMLEFT", 0, -hintGap)
-        frame.targetHint:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
-        frame.targetHint:SetJustifyH("LEFT")
-    end
+    if frame.input          then ApplyDialogEditBoxFont(frame.input,          editFont) end
+    if frame.questInput     then ApplyDialogEditBoxFont(frame.questInput,     editFont) end
+    if frame.encounterInput then ApplyDialogEditBoxFont(frame.encounterInput, editFont) end
+    if frame.targetInput    then ApplyDialogEditBoxFont(frame.targetInput,    editFont) end
 
-    if frame.resetLabel then
-        frame.resetLabel:ClearAllPoints()
-        frame.resetLabel:SetPoint("TOPLEFT", frame.targetHint, "BOTTOMLEFT", 0, -sectionGap)
-    end
-    if frame.weeklyCheck then
-        frame.weeklyCheck:ClearAllPoints()
-        frame.weeklyCheck:SetPoint("TOPLEFT", frame.resetLabel, "TOPLEFT", 0, -28)
-    end
-    if frame.dailyCheck then
-        frame.dailyCheck:ClearAllPoints()
-        frame.dailyCheck:SetPoint("TOPLEFT", frame.resetLabel, "TOPLEFT", 140, -28)
-    end
-    if frame.resetHint then
-        frame.resetHint:SetFont(FONT_ROWS, hintFont, GetFontFlags())
-        frame.resetHint:ClearAllPoints()
-        frame.resetHint:SetPoint("TOPLEFT", frame.weeklyCheck, "BOTTOMLEFT", 0, -hintGap)
-        frame.resetHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
-    end
-
-
-    if frame.saveBtn and frame.saveBtn._label then
-        frame.saveBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
-    end
-    if frame.cancelBtn and frame.cancelBtn._label then
-        frame.cancelBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
-    end
-    if frame.deleteBtn and frame.deleteBtn._label then
-        frame.deleteBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags())
-    end
+    if frame.saveBtn   and frame.saveBtn._label   then frame.saveBtn._label:SetFont(FONT_HEADERS,   10, GetFontFlags()) end
+    if frame.cancelBtn and frame.cancelBtn._label then frame.cancelBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags()) end
+    if frame.deleteBtn and frame.deleteBtn._label then frame.deleteBtn._label:SetFont(FONT_HEADERS, 10, GetFontFlags()) end
 end
 
 ApplyCustomTasksTitleDialogTheme = function(frame)
@@ -322,10 +224,10 @@ local function GetMainHeaderMetrics()
     }
 end
 
-local PEEK_ALPHA_IDLE   = 0.0    
-local PEEK_ALPHA_HOVER  = 1.0   
-local PEEK_FADE_IN      = 6.0    
-local PEEK_FADE_OUT     = 2.5   
+local PEEK_ALPHA_IDLE   = 0.0
+local PEEK_ALPHA_HOVER  = 1.0
+local PEEK_FADE_IN      = 6.0
+local PEEK_FADE_OUT     = 2.5
 
 local function PeekFrameList()
     local list = {}
@@ -700,9 +602,9 @@ local function MainRowOnMouseDown(selfRow, button)
         else
             print(L["Waypoint_Unavailable"])
         end
-    elseif not data.isAutoTracked and button == "LeftButton" then
+    elseif not data.isAutoTracked and not row.encounterIds and button == "LeftButton" then
         MR:BumpProgress(mod.key, row.key, 1, row.max)
-    elseif not data.isAutoTracked and button == "RightButton" then
+    elseif not data.isAutoTracked and not row.encounterIds and button == "RightButton" then
         MR:BumpProgress(mod.key, row.key, -1, row.max)
     end
 end
@@ -720,6 +622,9 @@ local function MainStatusButtonOnClick(selfBtn)
         MR:ToggleCustomTask(tonumber((row.key or ""):match("task_(%d+)")))
         return
     end
+
+
+    if row.encounterIds then return end
 
     local cur = MR:GetManualOverride(mod.key, row.key)
     MR:SetManualOverride(mod.key, row.key, cur >= row.max and 0 or row.max, row.max)
@@ -1115,6 +1020,34 @@ EnsureMainRowWidget = function(section, rowKey)
     rowFrame._vault = rowFrame:CreateFontString(nil, "OVERLAY")
     rowFrame._vault:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
 
+
+    local DIFF_BADGE_DEFS = {
+        { id = 17, label = "L" },
+        { id = 14, label = "N" },
+        { id = 15, label = "H" },
+        { id = 16, label = "M" },
+    }
+    rowFrame._diffBadges = {}
+    for i, def in ipairs(DIFF_BADGE_DEFS) do
+        local btn = CreateFrame("Frame", nil, rowFrame, "BackdropTemplate")
+        btn:SetSize(14, 14)
+        btn:SetBackdrop({
+            bgFile = "Interface\\Buttons\\WHITE8X8",
+            edgeFile = "Interface\\Buttons\\WHITE8X8",
+            edgeSize = 1,
+        })
+        local lbl = btn:CreateFontString(nil, "OVERLAY")
+        lbl:SetFont(FONT_ROWS, math.max(6, GetFontSize() - 3), "OUTLINE")
+        lbl:SetPoint("CENTER", btn, "CENTER", 0, 0)
+        lbl:SetText(def.label)
+        btn._lbl = lbl
+        btn._diffId = def.id
+        btn:Hide()
+        rowFrame._diffBadges[i] = btn
+    end
+    rowFrame._diffCount = rowFrame:CreateFontString(nil, "OVERLAY")
+    rowFrame._diffCount:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+
     section._rows[rowKey] = rowFrame
     return rowFrame
 end
@@ -1127,6 +1060,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     local frameAlpha = MR.db.profile.frameAlpha or 1.0
     local isAutoTracked = row.autoTracked
         or ((row.questIds ~= nil) and not row.allowManualQuestClicks)
+        or (row.encounterIds ~= nil)
         or (row.liveKey ~= nil)
         or (row.spellId ~= nil)
         or (row.currencyId ~= nil)
@@ -1167,6 +1101,10 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     rowFrame._wallet:Hide()
     rowFrame._coords:Hide()
     rowFrame._vault:Hide()
+    if rowFrame._diffBadges then
+        for _, badge in ipairs(rowFrame._diffBadges) do badge:Hide() end
+    end
+    if rowFrame._diffCount then rowFrame._diffCount:Hide() end
 
     if row.sectionHeader then
         rowFrame._mrData.mode = "sectionHeader"
@@ -1440,6 +1378,101 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
         rowFrame._vault:SetText(row.vaultLabel)
         rowFrame._vault:SetTextColor(hex(row.vaultColor or "#ffffff"))
         rowFrame._vault:Show()
+    end
+
+
+
+    local DIFF_BADGE_ORDER = { 17, 14, 15, 16 }
+    local DIFF_BADGE_COLORS = {
+        [17] = { done = { 0.30, 0.60, 1.00 }, todo = { 0.08, 0.14, 0.24 }, border_done = { 0.22, 0.50, 0.90 }, border_todo = { 0.08, 0.12, 0.20 }, text_done = { 1, 1, 1 }, text_todo = { 0.22, 0.35, 0.50 } },
+        [14] = { done = { 0.22, 0.72, 0.32 }, todo = { 0.06, 0.16, 0.09 }, border_done = { 0.16, 0.58, 0.26 }, border_todo = { 0.06, 0.14, 0.08 }, text_done = { 1, 1, 1 }, text_todo = { 0.18, 0.38, 0.22 } },
+        [15] = { done = { 1.00, 0.52, 0.08 }, todo = { 0.26, 0.14, 0.04 }, border_done = { 0.88, 0.42, 0.06 }, border_todo = { 0.18, 0.10, 0.03 }, text_done = { 1, 1, 1 }, text_todo = { 0.48, 0.26, 0.10 } },
+        [16] = { done = { 0.85, 0.18, 0.20 }, todo = { 0.24, 0.06, 0.07 }, border_done = { 0.70, 0.12, 0.14 }, border_todo = { 0.18, 0.05, 0.05 }, text_done = { 1, 1, 1 }, text_todo = { 0.46, 0.16, 0.16 } },
+    }
+
+    local hasEncounterDiffTracking = row.encounterIds and rowFrame._diffBadges and row.taskId
+    if hasEncounterDiffTracking then
+        local diffState = {}
+        if MR.db and MR.db.char and MR.db.char.customTaskDiffProgress then
+            diffState = MR.db.char.customTaskDiffProgress[tostring(row.taskId)] or {}
+        end
+
+
+        local effectiveDiffs = row.encounterDifficulties
+        local allDiffs = (effectiveDiffs == nil)
+
+
+        local visibleBadges = {}
+        for _, diffId in ipairs(DIFF_BADGE_ORDER) do
+            if allDiffs or (effectiveDiffs and effectiveDiffs[diffId]) then
+                for _, badge in ipairs(rowFrame._diffBadges) do
+                    if badge._diffId == diffId then
+                        visibleBadges[#visibleBadges + 1] = badge
+                        break
+                    end
+                end
+            end
+        end
+
+        for _, badge in ipairs(rowFrame._diffBadges) do badge:Hide() end
+
+        local numTracked = #visibleBadges
+        local numDone = 0
+        for _, badge in ipairs(visibleBadges) do
+            if diffState[badge._diffId] then numDone = numDone + 1 end
+        end
+
+
+
+        local BADGE_W, BADGE_GAP = 14, 2
+        local rowH = ROW_HEIGHT
+        local badgeY = math.floor((rowH - BADGE_W) / 2)
+        for i, badge in ipairs(visibleBadges) do
+            badge:SetSize(BADGE_W, BADGE_W)
+            badge:ClearAllPoints()
+
+
+            local xOff = -4 - (numTracked - i) * (BADGE_W + BADGE_GAP)
+            badge:SetPoint("TOPRIGHT", rowFrame, "TOPRIGHT", xOff, -badgeY)
+            badge:Show()
+
+            local isDone = diffState[badge._diffId] == true
+            local col = DIFF_BADGE_COLORS[badge._diffId] or DIFF_BADGE_COLORS[14]
+            local bgC = isDone and col.done or col.todo
+            local bdC = isDone and col.border_done or col.border_todo
+            local txtC = isDone and col.text_done or col.text_todo
+            badge:SetBackdropColor(bgC[1], bgC[2], bgC[3], transparent and 0 or (isDone and 0.88 or 0.65) * frameAlpha)
+            badge:SetBackdropBorderColor(bdC[1], bdC[2], bdC[3], transparent and 0 or frameAlpha)
+            badge._lbl:SetTextColor(txtC[1], txtC[2], txtC[3], transparent and (isDone and 0.70 or 0.25) or (isDone and 1 or 0.40))
+        end
+
+
+        local badgeZoneWidth = numTracked * (BADGE_W + BADGE_GAP)
+        if rowFrame._diffCount then
+            rowFrame._diffCount:ClearAllPoints()
+            rowFrame._diffCount:SetPoint("RIGHT", rowFrame, "RIGHT", -4 - badgeZoneWidth - 4, 0)
+            rowFrame._diffCount:SetJustifyH("RIGHT")
+            rowFrame._diffCount:SetText(string.format("%d/%d", numDone, numTracked))
+            if numDone >= numTracked and numTracked > 0 then
+                rowFrame._diffCount:SetTextColor(0.22, 0.72, 0.32)
+            elseif numDone > 0 then
+                rowFrame._diffCount:SetTextColor(0.88, 0.72, 0.28)
+            else
+                rowFrame._diffCount:SetTextColor(0.38, 0.42, 0.48)
+            end
+            rowFrame._diffCount:Show()
+        end
+
+
+        rowFrame._count:Hide()
+        local reservedRight = badgeZoneWidth + 32
+        rowFrame._label:ClearAllPoints()
+        if hasRowIcon then
+            rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
+        else
+            rowFrame._label:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
+        end
+        rowFrame._label:SetPoint("RIGHT", rowFrame, "RIGHT", -(reservedRight + 8), 0)
     end
 
     if row.timerEpoch and not isComplete and not collapsed then
@@ -3774,8 +3807,15 @@ local function EnsureCustomTaskDialog()
         return MR.customTaskDialog
     end
 
+
+    local PAD  = 14
+    local GAP  = 10
+    local IGAP = 6
+    local IH   = 28
+    local LH   = 14
+
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(360, 390)
+    frame:SetSize(400, 460)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(80)
     frame:SetClampedToScreen(true)
@@ -3787,311 +3827,342 @@ local function EnsureCustomTaskDialog()
     frame:Hide()
 
     local dragRegion = CreateFrame("Frame", nil, frame)
-    dragRegion:SetPoint("TOPLEFT", frame, "TOPLEFT", 8, -8)
+    dragRegion:SetPoint("TOPLEFT",  frame, "TOPLEFT",  8, -8)
     dragRegion:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -8, -8)
     dragRegion:SetHeight(26)
     dragRegion:EnableMouse(true)
     dragRegion:RegisterForDrag("LeftButton")
-    dragRegion:SetScript("OnDragStart", function()
-        frame:StartMoving()
-    end)
-    dragRegion:SetScript("OnDragStop", function()
-        frame:StopMovingOrSizing()
-    end)
+    dragRegion:SetScript("OnDragStart", function() frame:StartMoving() end)
+    dragRegion:SetScript("OnDragStop",  function() frame:StopMovingOrSizing() end)
+
 
     local title = frame:CreateFontString(nil, "OVERLAY")
     title:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
-    title:SetPoint("TOPLEFT", frame, "TOPLEFT", 12, -12)
-    title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -12)
+    title:SetPoint("TOPLEFT",  frame, "TOPLEFT",  PAD, -PAD)
+    title:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, -PAD)
     title:SetJustifyH("LEFT")
     title:SetText(L["CustomTasks_Title"] or "Custom Tasks")
     title:SetTextColor(0.92, 0.97, 1)
     frame.title = title
 
-    local subtitle = frame:CreateFontString(nil, "OVERLAY")
-    subtitle:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    subtitle:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -6)
-    subtitle:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -6)
-    subtitle:SetJustifyH("LEFT")
-    subtitle:SetText(L["CustomTasks_DialogSubtitle"] or "Create a character-specific task that behaves like the rest of your Midnight modules.")
-    subtitle:SetTextColor(0.68, 0.78, 0.86)
-    frame.subtitle = subtitle
 
-    local nameLabel = frame:CreateFontString(nil, "OVERLAY")
-    nameLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    nameLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
-    nameLabel:SetJustifyH("LEFT")
-    nameLabel:SetText(L["CustomTasks_NameLabel"] or "Task name")
+    local sep = frame:CreateTexture(nil, "ARTWORK")
+    sep:SetHeight(1)
+    sep:SetPoint("TOPLEFT",  title, "BOTTOMLEFT",  0, -8)
+    sep:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -8)
+    sep:SetColorTexture(0.20, 0.44, 0.48, 0.5)
+
+
+    local function MakeLabel(anchorFrame, anchorPoint, xOff, yOff, text)
+        local lbl = frame:CreateFontString(nil, "OVERLAY")
+        lbl:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+        lbl:SetPoint("TOPLEFT", anchorFrame, anchorPoint, xOff, yOff)
+        lbl:SetJustifyH("LEFT")
+        lbl:SetText(text)
+        lbl:SetTextColor(0.55, 0.70, 0.82)
+        return lbl
+    end
+
+
+    local function MakeInputBg(anchorFrame, anchorPoint, xOff, yOff, w, h)
+        local bg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+        if w then
+            bg:SetSize(w, h or IH)
+            bg:SetPoint("TOPLEFT", anchorFrame, anchorPoint, xOff, yOff)
+        else
+            bg:SetHeight(h or IH)
+            bg:SetPoint("TOPLEFT",  anchorFrame, anchorPoint, xOff, yOff)
+            bg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, 0)
+        end
+        bg:SetBackdrop(MakeBackdrop())
+        bg:SetBackdropColor(0.04, 0.09, 0.16, 0.98)
+        bg:SetBackdropBorderColor(0.16, 0.36, 0.42, 1)
+        return bg
+    end
+
+    local function MakeEditBox(bg, maxLen, isNumeric)
+        local eb = CreateFrame("EditBox", nil, bg, "InputBoxTemplate")
+        eb:SetAutoFocus(false)
+        eb:SetPoint("TOPLEFT",     bg, "TOPLEFT",     6, -6)
+        eb:SetPoint("BOTTOMRIGHT", bg, "BOTTOMRIGHT", -6,  6)
+        eb:SetFontObject(ChatFontNormal)
+        eb:SetTextInsets(0, 0, 0, 0)
+        eb:SetMaxLetters(maxLen or 120)
+        eb:SetTextColor(0.95, 0.97, 1)
+        if isNumeric then eb:SetNumeric(true) end
+        eb:SetScript("OnEscapePressed", function() frame:Hide() end)
+        eb:SetScript("OnTextChanged", function(selfEdit)
+            ApplyDialogEditBoxFont(selfEdit, GetFontSize())
+            if frame.RefreshSmartState then frame:RefreshSmartState() end
+        end)
+        return eb
+    end
+
+
+    local nameLabel = MakeLabel(sep, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_NameLabel"] or "Task name")
     nameLabel:SetTextColor(0.74, 0.84, 0.92)
+    local nameBg    = MakeInputBg(nameLabel, "BOTTOMLEFT", 0, -IGAP)
+    local input     = MakeEditBox(nameBg, 120)
+    input:SetScript("OnEscapePressed", function() frame:Hide() end)
     frame.nameLabel = nameLabel
+    frame.inputBg   = nameBg
+    frame.input     = input
 
-    local resetLabel = frame:CreateFontString(nil, "OVERLAY")
-    resetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    resetLabel:SetPoint("TOPLEFT", subtitle, "BOTTOMLEFT", 0, -16)
-    resetLabel:SetJustifyH("LEFT")
-    resetLabel:SetText(L["CustomTasks_ResetType"] or "Reset")
+
+    local COL2W = 170
+
+    local questLabel = MakeLabel(nameBg, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_QuestIdsLabel"] or "Quest ID(s)")
+    local questBg    = MakeInputBg(questLabel, "BOTTOMLEFT", 0, -IGAP, COL2W, IH)
+    local questInput = MakeEditBox(questBg, 120)
+    frame.questLabel = questLabel
+    frame.questBg    = questBg
+    frame.questInput = questInput
+
+    local encounterLabel = MakeLabel(nameBg, "BOTTOMLEFT", COL2W + GAP, -GAP, L["CustomTasks_EncounterIdsLabel"] or "Encounter ID(s)")
+    local encounterBg    = MakeInputBg(encounterLabel, "BOTTOMLEFT", 0, -IGAP, COL2W, IH)
+    local encounterInput = MakeEditBox(encounterBg, 120)
+    frame.encounterLabel  = encounterLabel
+    frame.encounterBg     = encounterBg
+    frame.encounterInput  = encounterInput
+
+
+    local idHint = frame:CreateFontString(nil, "OVERLAY")
+    idHint:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+    idHint:SetPoint("TOPLEFT",  questBg, "BOTTOMLEFT",  0, -4)
+    idHint:SetPoint("TOPRIGHT", frame,   "TOPRIGHT",   -PAD, 0)
+    idHint:SetJustifyH("LEFT")
+    idHint:SetText("Enter quest IDs for quest tracking, or encounter IDs for boss-kill tracking. Cannot combine both.")
+    idHint:SetTextColor(0.46, 0.58, 0.70)
+    frame.idHint = idHint
+
+
+    local DIFF_OPTIONS = {
+        { id = 17, label = "LFR" },
+        { id = 14, label = "Normal" },
+        { id = 15, label = "Heroic" },
+        { id = 16, label = "Mythic" },
+    }
+    local difficultyLabel = MakeLabel(idHint, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_DifficultyLabel"] or "Difficulties")
+    difficultyLabel:SetTextColor(0.74, 0.84, 0.92)
+    frame.difficultyLabel = difficultyLabel
+
+    frame.difficultyChecks = {}
+    local prevDiffCheck = nil
+    for i, opt in ipairs(DIFF_OPTIONS) do
+        local cb = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+        cb:SetSize(20, 20)
+        if i == 1 then
+            cb:SetPoint("TOPLEFT", difficultyLabel, "BOTTOMLEFT", 0, -4)
+        else
+            cb:SetPoint("LEFT", prevDiffCheck._text, "RIGHT", 14, 0)
+        end
+        cb:SetChecked(true)
+        local cbText = frame:CreateFontString(nil, "OVERLAY")
+        cbText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+        cbText:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+        cbText:SetText(opt.label)
+        cbText:SetTextColor(0.84, 0.90, 0.96)
+        cb._text  = cbText
+        cb._diffId = opt.id
+        frame.difficultyChecks[i] = cb
+        prevDiffCheck = cb
+    end
+
+    local diffHint = frame:CreateFontString(nil, "OVERLAY")
+    diffHint:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+    diffHint:SetPoint("LEFT", prevDiffCheck._text, "RIGHT", 18, 0)
+    diffHint:SetText("(all = any)")
+    diffHint:SetTextColor(0.40, 0.52, 0.62)
+    frame.diffHint = diffHint
+
+
+
+
+
+
+    local targetLabel = MakeLabel(difficultyLabel, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_TargetLabel"] or "Target")
+    targetLabel:SetTextColor(0.74, 0.84, 0.92)
+    local targetBg    = MakeInputBg(targetLabel, "BOTTOMLEFT", 0, -IGAP, 60, IH)
+    local targetInput = MakeEditBox(targetBg, 3, true)
+    targetInput:SetScript("OnTextChanged", function(selfEdit)
+        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
+    end)
+    local targetHint = frame:CreateFontString(nil, "OVERLAY")
+    targetHint:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
+    targetHint:SetPoint("LEFT",  targetBg, "RIGHT", 8, 0)
+    targetHint:SetPoint("RIGHT", frame,    "RIGHT", -PAD, 0)
+    targetHint:SetJustifyH("LEFT")
+    targetHint:SetText("1 = checkbox   2+ = counter (e.g. 0/3)")
+    targetHint:SetTextColor(0.46, 0.58, 0.70)
+    frame.targetLabel = targetLabel
+    frame.targetBg    = targetBg
+    frame.targetInput = targetInput
+    frame.targetHint  = targetHint
+
+
+    local resetLabel = MakeLabel(targetBg, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_ResetType"] or "Resets")
     resetLabel:SetTextColor(0.74, 0.84, 0.92)
     frame.resetLabel = resetLabel
 
-    local function CreateResetCheckbox(anchorTo, xOffset, labelText, value)
+    local function CreateResetCheckbox(anchorTo, anchorPt, xOff, yOff, labelText, value)
         local cb = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
         cb:SetSize(20, 20)
-        cb:SetPoint("TOPLEFT", anchorTo, "TOPLEFT", xOffset, -28)
-
+        cb:SetPoint("TOPLEFT", anchorTo, anchorPt, xOff, yOff)
         local text = frame:CreateFontString(nil, "OVERLAY")
         text:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
         text:SetText(labelText)
         text:SetTextColor(0.84, 0.90, 0.96)
-        cb._text = text
+        cb._text  = text
         cb._value = value
-
         cb:SetScript("OnClick", function(selfBtn)
-            if not selfBtn:GetChecked() then
-                selfBtn:SetChecked(true)
-            end
+            if not selfBtn:GetChecked() then selfBtn:SetChecked(true) end
             frame.resetType = selfBtn._value
-            if frame.RefreshResetChecks then
-                frame:RefreshResetChecks()
-            end
+            if frame.RefreshResetChecks then frame:RefreshResetChecks() end
         end)
-
         return cb
     end
 
-    local weeklyCheck = CreateResetCheckbox(resetLabel, 0, L["CustomTasks_ResetWeekly"] or "Weekly reset", "weekly")
-    local dailyCheck = CreateResetCheckbox(resetLabel, 132, L["CustomTasks_ResetDaily"] or "Daily reset", "daily")
+
+    local weeklyCheck = CreateResetCheckbox(resetLabel, "BOTTOMLEFT", 0, -4, L["CustomTasks_ResetWeekly"] or "Weekly", "weekly")
+    local dailyCheck  = CreateResetCheckbox(weeklyCheck, "TOPLEFT", 0, 0, L["CustomTasks_ResetDaily"] or "Daily", "daily")
+    dailyCheck:ClearAllPoints()
+    dailyCheck:SetPoint("LEFT", weeklyCheck._text, "RIGHT", 14, 0)
     frame.weeklyCheck = weeklyCheck
-    frame.dailyCheck = dailyCheck
+    frame.dailyCheck  = dailyCheck
 
-    local inputBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    inputBg:SetPoint("TOPLEFT", nameLabel, "BOTTOMLEFT", 0, -6)
-    inputBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -102)
-    inputBg:SetHeight(34)
-    inputBg:SetBackdrop(MakeBackdrop())
-    inputBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
-    inputBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
-    frame.inputBg = inputBg
-
-    local input = CreateFrame("EditBox", nil, inputBg, "InputBoxTemplate")
-    input:SetAutoFocus(false)
-    input:SetPoint("TOPLEFT", inputBg, "TOPLEFT", 8, -8)
-    input:SetPoint("BOTTOMRIGHT", inputBg, "BOTTOMRIGHT", -8, 8)
-    input:SetFontObject(ChatFontNormal)
-    input:SetTextInsets(0, 0, 0, 0)
-    input:SetMaxLetters(120)
-    input:SetTextColor(0.95, 0.97, 1)
-    input:SetScript("OnEscapePressed", function()
-        frame:Hide()
-    end)
-    input:SetScript("OnTextChanged", function(selfEdit)
-        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
-    end)
-    frame.input = input
-
-    local hint = frame:CreateFontString(nil, "OVERLAY")
-    hint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-    hint:SetPoint("TOPLEFT", inputBg, "BOTTOMLEFT", 0, -8)
-    hint:SetPoint("TOPRIGHT", inputBg, "BOTTOMRIGHT", 0, -8)
-    hint:SetJustifyH("LEFT")
-    hint:SetText(L["CustomTasks_DialogHint"] or "Name it anything you like. Leave quest IDs blank for a manual task, or add quest IDs to make it auto-track.")
-    hint:SetTextColor(0.60, 0.72, 0.82)
-    frame.hint = hint
-
-    local questLabel = frame:CreateFontString(nil, "OVERLAY")
-    questLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    questLabel:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -14)
-    questLabel:SetJustifyH("LEFT")
-    questLabel:SetText(L["CustomTasks_QuestIdsLabel"] or "Quest ID(s)")
-    questLabel:SetTextColor(0.74, 0.84, 0.92)
-    frame.questLabel = questLabel
-
-    local questBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    questBg:SetPoint("TOPLEFT", questLabel, "BOTTOMLEFT", 0, -6)
-    questBg:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, -190)
-    questBg:SetHeight(32)
-    questBg:SetBackdrop(MakeBackdrop())
-    questBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
-    questBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
-    frame.questBg = questBg
-
-    local questInput = CreateFrame("EditBox", nil, questBg, "InputBoxTemplate")
-    questInput:SetAutoFocus(false)
-    questInput:SetPoint("TOPLEFT", questBg, "TOPLEFT", 8, -8)
-    questInput:SetPoint("BOTTOMRIGHT", questBg, "BOTTOMRIGHT", -8, 8)
-    questInput:SetFontObject(ChatFontNormal)
-    questInput:SetTextInsets(0, 0, 0, 0)
-    questInput:SetMaxLetters(120)
-    questInput:SetTextColor(0.95, 0.97, 1)
-    questInput:SetScript("OnEscapePressed", function()
-        frame:Hide()
-    end)
-    questInput:SetScript("OnTextChanged", function(selfEdit)
-        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
-        if frame.RefreshSmartState then
-            frame:RefreshSmartState()
-        end
-    end)
-    frame.questInput = questInput
-
-    local questHint = frame:CreateFontString(nil, "OVERLAY")
-    questHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-    questHint:SetPoint("TOPLEFT", questBg, "BOTTOMLEFT", 0, -8)
-    questHint:SetPoint("TOPRIGHT", questBg, "BOTTOMRIGHT", 0, -8)
-    questHint:SetJustifyH("LEFT")
-    questHint:SetText(L["CustomTasks_QuestIdsHint"] or "Optional. Enter one or more quest IDs separated by commas to auto-track quest completion.")
-    questHint:SetTextColor(0.60, 0.72, 0.82)
-    frame.questHint = questHint
-
-    local targetLabel = frame:CreateFontString(nil, "OVERLAY")
-    targetLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-    targetLabel:SetPoint("TOPLEFT", questHint, "BOTTOMLEFT", 0, -14)
-    targetLabel:SetJustifyH("LEFT")
-    targetLabel:SetText(L["CustomTasks_TargetLabel"] or "Target")
-    targetLabel:SetTextColor(0.74, 0.84, 0.92)
-    frame.targetLabel = targetLabel
-
-    local targetBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
-    targetBg:SetPoint("TOPLEFT", targetLabel, "BOTTOMLEFT", 0, -6)
-    targetBg:SetSize(86, 32)
-    targetBg:SetBackdrop(MakeBackdrop())
-    targetBg:SetBackdropColor(0.05, 0.10, 0.18, 0.98)
-    targetBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
-    frame.targetBg = targetBg
-
-    local targetInput = CreateFrame("EditBox", nil, targetBg, "InputBoxTemplate")
-    targetInput:SetAutoFocus(false)
-    targetInput:SetPoint("TOPLEFT", targetBg, "TOPLEFT", 8, -8)
-    targetInput:SetPoint("BOTTOMRIGHT", targetBg, "BOTTOMRIGHT", -8, 8)
-    targetInput:SetFontObject(ChatFontNormal)
-    targetInput:SetTextInsets(0, 0, 0, 0)
-    targetInput:SetMaxLetters(3)
-    targetInput:SetNumeric(true)
-    targetInput:SetTextColor(0.95, 0.97, 1)
-    targetInput:SetScript("OnEscapePressed", function()
-        frame:Hide()
-    end)
-    targetInput:SetScript("OnTextChanged", function(selfEdit)
-        ApplyDialogEditBoxFont(selfEdit, GetFontSize())
-    end)
-    frame.targetInput = targetInput
-
-    local targetHint = frame:CreateFontString(nil, "OVERLAY")
-    targetHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-    targetHint:SetPoint("LEFT", targetBg, "RIGHT", 12, 0)
-    targetHint:SetPoint("RIGHT", frame, "RIGHT", -12, 0)
-    targetHint:SetJustifyH("LEFT")
-    targetHint:SetText(L["CustomTasks_TargetHint"] or "Set to 1 for a checkbox, or higher for a counter task like 0/2.")
-    targetHint:SetTextColor(0.60, 0.72, 0.82)
-    frame.targetHint = targetHint
-
-    local resetHint = frame:CreateFontString(nil, "OVERLAY")
-    resetHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-    resetHint:SetPoint("TOPLEFT", weeklyCheck, "BOTTOMLEFT", 0, -8)
-    resetHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
-    resetHint:SetJustifyH("LEFT")
-    resetHint:SetTextColor(0.60, 0.72, 0.82)
-    frame.resetHint = resetHint
 
     local manualQuestCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
     manualQuestCheck:SetSize(20, 20)
-    manualQuestCheck:SetPoint("TOPLEFT", resetHint, "BOTTOMLEFT", 0, -14)
+    manualQuestCheck:SetPoint("TOPLEFT", weeklyCheck, "BOTTOMLEFT", 0, -GAP)
     local manualQuestText = frame:CreateFontString(nil, "OVERLAY")
     manualQuestText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
     manualQuestText:SetPoint("LEFT", manualQuestCheck, "RIGHT", 2, 0)
-    manualQuestText:SetText(L["CustomTasks_ManualQuestClicks"] or "Allow manual clicks for quest task")
+    manualQuestText:SetText(L["CustomTasks_ManualQuestClicks"] or "Allow manual clicks")
     manualQuestText:SetTextColor(0.84, 0.90, 0.96)
     manualQuestCheck._text = manualQuestText
     manualQuestCheck:SetScript("OnClick", function(selfBtn)
         frame.allowManualQuestClicks = selfBtn:GetChecked() and true or false
-        if frame.RefreshSmartState then
-            frame:RefreshSmartState()
-        end
+        if frame.RefreshSmartState then frame:RefreshSmartState() end
     end)
     frame.manualQuestCheck = manualQuestCheck
+    frame.manualQuestHint  = frame:CreateFontString(nil, "OVERLAY")
 
-    local manualQuestHint = frame:CreateFontString(nil, "OVERLAY")
-    manualQuestHint:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
-    manualQuestHint:SetPoint("TOPLEFT", manualQuestCheck, "BOTTOMLEFT", 0, -8)
-    manualQuestHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -12, 0)
-    manualQuestHint:SetJustifyH("LEFT")
-    manualQuestHint:SetTextColor(0.60, 0.72, 0.82)
-    frame.manualQuestHint = manualQuestHint
+    local autoUpdateCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    autoUpdateCheck:SetSize(20, 20)
+    autoUpdateCheck:SetPoint("TOPLEFT", manualQuestCheck, "BOTTOMLEFT", 0, -4)
+    local autoUpdateText = frame:CreateFontString(nil, "OVERLAY")
+    autoUpdateText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    autoUpdateText:SetPoint("LEFT", autoUpdateCheck, "RIGHT", 2, 0)
+    autoUpdateText:SetText(L["CustomTasks_AutoUpdateInstances"] or "Auto-update in instances")
+    autoUpdateText:SetTextColor(0.84, 0.90, 0.96)
+    autoUpdateCheck._text = autoUpdateText
+    autoUpdateCheck:SetScript("OnClick", function(selfBtn)
+        frame.autoUpdateInstances = selfBtn:GetChecked() and true or false
+    end)
+    frame.autoUpdateCheck = autoUpdateCheck
+    frame.autoUpdateHint  = frame:CreateFontString(nil, "OVERLAY")
 
-    function frame:RefreshSmartState()
-        local hasQuestIds = self.questInput and (self.questInput:GetText() or ""):match("%d") ~= nil
-        if self.manualQuestCheck then
-            self.manualQuestCheck:SetShown(true)
-            self.manualQuestCheck:EnableMouse(hasQuestIds)
-        end
-        if self.manualQuestCheck then
-            self.manualQuestCheck:SetChecked(hasQuestIds and self.allowManualQuestClicks == true or false)
-            if self.manualQuestCheck._text then
-                self.manualQuestCheck._text:SetAlpha(hasQuestIds and 1 or 0.65)
-            end
-        end
-        if self.manualQuestHint then
-            self.manualQuestHint:SetShown(true)
-            self.manualQuestHint:SetText(L["CustomTasks_ManualQuestClicksHint"] or "Optional. Keeps automatic quest tracking, but also lets you left/right click this quest task manually. Add a quest ID above to enable this option.")
-        end
-    end
-
-    function frame:RefreshResetChecks()
-        local isDaily = self.resetType == "daily"
-        if self.weeklyCheck then
-            self.weeklyCheck:SetChecked(not isDaily)
-        end
-        if self.dailyCheck then
-            self.dailyCheck:SetChecked(isDaily)
-        end
-    end
 
     local function CreateDialogButton(width, label, color, borderColor)
         local btn = CreateFrame("Button", nil, frame, "BackdropTemplate")
-        btn:SetSize(width, 24)
+        btn:SetSize(width, 26)
         btn:SetBackdrop(MakeBackdrop())
         btn:SetBackdropColor(color[1], color[2], color[3], 0.95)
         btn:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
-
         local text = btn:CreateFontString(nil, "OVERLAY")
         text:SetFont(FONT_HEADERS, 10, GetFontFlags())
         text:SetPoint("CENTER", btn, "CENTER", 0, 1)
         text:SetText(label)
         text:SetTextColor(0.92, 0.96, 1)
         btn._label = text
-
         btn:SetScript("OnEnter", function(selfBtn)
-            selfBtn:SetBackdropColor(color[1] + 0.04, color[2] + 0.04, color[3] + 0.04, 1)
+            selfBtn:SetBackdropColor(color[1]+0.04, color[2]+0.04, color[3]+0.04, 1)
             selfBtn:SetBackdropBorderColor(1, 1, 1, 1)
         end)
         btn:SetScript("OnLeave", function(selfBtn)
             selfBtn:SetBackdropColor(color[1], color[2], color[3], 0.95)
             selfBtn:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], 1)
         end)
-
         return btn
     end
 
-    local saveBtn = CreateDialogButton(92, L["CustomTasks_Save"] or "Save", { 0.10, 0.26, 0.20 }, { 0.28, 0.78, 0.50 })
-    saveBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -12, 12)
-    frame.saveBtn = saveBtn
+    local saveBtn   = CreateDialogButton(88, L["CustomTasks_Save"]   or "Save",   {0.10,0.26,0.20},{0.28,0.78,0.50})
+    local cancelBtn = CreateDialogButton(88, L["CustomTasks_Cancel"] or "Cancel", {0.10,0.12,0.16},{0.28,0.34,0.42})
+    local deleteBtn = CreateDialogButton(88, L["CustomTasks_Delete"] or "Delete", {0.22,0.08,0.08},{0.72,0.20,0.20})
 
-    local cancelBtn = CreateDialogButton(92, L["CustomTasks_Cancel"] or "Cancel", { 0.10, 0.12, 0.16 }, { 0.28, 0.34, 0.42 })
+    saveBtn:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -PAD, PAD)
     cancelBtn:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
-    cancelBtn:SetScript("OnClick", function()
-        frame:Hide()
-    end)
-    frame.cancelBtn = cancelBtn
+    deleteBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", PAD, PAD)
 
-    local deleteBtn = CreateDialogButton(92, L["CustomTasks_Delete"] or "Delete", { 0.22, 0.08, 0.08 }, { 0.72, 0.20, 0.20 })
-    deleteBtn:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 12, 12)
+    cancelBtn:SetScript("OnClick", function() frame:Hide() end)
     deleteBtn:SetScript("OnClick", function()
-        if frame.taskId then
-            MR:DeleteCustomTask(frame.taskId)
-        end
+        if frame.taskId then MR:DeleteCustomTask(frame.taskId) end
         frame:Hide()
     end)
+    frame.saveBtn   = saveBtn
+    frame.cancelBtn = cancelBtn
     frame.deleteBtn = deleteBtn
+
+
+    function frame:RefreshSmartState()
+        local hasQuestIds    = self.questInput    and (self.questInput:GetText()    or ""):match("%d") ~= nil
+        local hasEncounterIds = self.encounterInput and (self.encounterInput:GetText() or ""):match("%d") ~= nil
+
+
+        if self.manualQuestCheck then
+            self.manualQuestCheck:EnableMouse(hasQuestIds)
+            self.manualQuestCheck:SetChecked(hasQuestIds and self.allowManualQuestClicks == true or false)
+            if self.manualQuestCheck._text then
+                self.manualQuestCheck._text:SetAlpha(hasQuestIds and 1 or 0.50)
+            end
+        end
+
+
+        if self.encounterInput then
+            local disableEncounter = hasQuestIds
+            self.encounterInput:EnableMouse(not disableEncounter)
+            self.encounterInput:SetAlpha(disableEncounter and 0.40 or 1)
+            if disableEncounter then self.encounterInput:SetText("") end
+        end
+        if self.encounterLabel then self.encounterLabel:SetAlpha(hasQuestIds and 0.40 or 1) end
+
+
+        if self.questInput then
+            local disableQuest = hasEncounterIds and not hasQuestIds
+            self.questInput:EnableMouse(not disableQuest)
+            self.questInput:SetAlpha(disableQuest and 0.40 or 1)
+        end
+        if self.questLabel then self.questLabel:SetAlpha(hasEncounterIds and not hasQuestIds and 0.40 or 1) end
+
+
+        local enableTarget = hasQuestIds
+        if self.targetInput then
+            self.targetInput:EnableMouse(enableTarget)
+            self.targetInput:SetAlpha(enableTarget and 1 or 0.40)
+        end
+        if self.targetBg    then self.targetBg:SetAlpha(enableTarget and 1 or 0.40) end
+        if self.targetLabel then self.targetLabel:SetAlpha(enableTarget and 1 or 0.40) end
+        if self.targetHint  then self.targetHint:SetAlpha(enableTarget and 1 or 0.40) end
+
+
+        local showDiff = hasEncounterIds and not hasQuestIds
+        if self.difficultyLabel then self.difficultyLabel:SetShown(showDiff) end
+        if self.diffHint        then self.diffHint:SetShown(showDiff) end
+        if self.difficultyChecks then
+            for _, cb in ipairs(self.difficultyChecks) do
+                cb:SetShown(showDiff)
+                if cb._text then cb._text:SetShown(showDiff) end
+            end
+        end
+    end
+
+    function frame:RefreshResetChecks()
+        local isDaily = self.resetType == "daily"
+        if self.weeklyCheck then self.weeklyCheck:SetChecked(not isDaily) end
+        if self.dailyCheck  then self.dailyCheck:SetChecked(isDaily) end
+    end
+
 
     function frame:Commit()
         local text = self.input:GetText() or ""
@@ -4104,42 +4175,43 @@ local function EnsureCustomTaskDialog()
             return
         end
 
-        local maxValue = tonumber(self.targetInput:GetText() or "") or 1
-        maxValue = math.floor(maxValue)
-        if maxValue < 1 then
-            maxValue = 1
-        elseif maxValue > 999 then
-            maxValue = 999
+        local maxValue = math.floor(tonumber(self.targetInput:GetText() or "") or 1)
+        if maxValue < 1 then maxValue = 1 elseif maxValue > 999 then maxValue = 999 end
+
+        local encounterDifficulties = nil
+        if self.difficultyChecks then
+            local allChecked = true
+            for _, cb in ipairs(self.difficultyChecks) do
+                if not cb:GetChecked() then allChecked = false break end
+            end
+            if not allChecked then
+                encounterDifficulties = {}
+                for _, cb in ipairs(self.difficultyChecks) do
+                    if cb:GetChecked() then encounterDifficulties[cb._diffId] = true end
+                end
+            end
         end
 
         if self.taskId then
-            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks)
+            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties)
         else
-            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks)
+            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties)
         end
         self:Hide()
     end
 
-    saveBtn:SetScript("OnClick", function()
-        frame:Commit()
-    end)
-    input:SetScript("OnEnterPressed", function()
-        frame:Commit()
-    end)
-    questInput:SetScript("OnEnterPressed", function()
-        frame:Commit()
-    end)
-    targetInput:SetScript("OnEnterPressed", function()
-        frame:Commit()
-    end)
+    saveBtn:SetScript("OnClick",  function() frame:Commit() end)
+    input:SetScript("OnEnterPressed",         function() frame:Commit() end)
+    questInput:SetScript("OnEnterPressed",    function() frame:Commit() end)
+    encounterInput:SetScript("OnEnterPressed",function() frame:Commit() end)
+    targetInput:SetScript("OnEnterPressed",   function() frame:Commit() end)
 
-    if frame.RefreshSmartState then
-        frame:RefreshSmartState()
-    end
+    if frame.RefreshSmartState then frame:RefreshSmartState() end
     MR.customTaskDialog = frame
     ApplyCustomTaskDialogTheme(frame)
     return frame
 end
+
 
 function MR:ShowCustomTaskDialog(taskId, presetResetType)
     local dialog = EnsureCustomTaskDialog()
@@ -4150,8 +4222,20 @@ function MR:ShowCustomTaskDialog(taskId, presetResetType)
     dialog.title:SetText(task and (L["CustomTasks_EditTitle"] or "Edit Custom Task") or (L["CustomTasks_AddTitle"] or "Add Custom Task"))
     dialog.input:SetText(task and task.label or "")
     dialog.questInput:SetText((task and task.questIds and table.concat(task.questIds, ", ")) or "")
+    dialog.encounterInput:SetText((task and task.encounterIds and table.concat(task.encounterIds, ", ")) or "")
     dialog.targetInput:SetText(tostring((task and task.max) or 1))
     dialog.allowManualQuestClicks = task and task.allowManualQuestClicks or false
+    dialog.autoUpdateInstances = task and task.autoUpdateInstances or false
+    if dialog.autoUpdateCheck then
+        dialog.autoUpdateCheck:SetChecked(dialog.autoUpdateInstances)
+    end
+
+    local storedDiffs = task and task.encounterDifficulties or nil
+    if dialog.difficultyChecks then
+        for _, cb in ipairs(dialog.difficultyChecks) do
+            cb:SetChecked(storedDiffs == nil or storedDiffs[cb._diffId] == true)
+        end
+    end
     dialog.deleteBtn:SetShown(task ~= nil)
     if dialog.RefreshResetChecks then
         dialog:RefreshResetChecks()
@@ -6121,6 +6205,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     local frameAlpha = MR.db.profile.frameAlpha or 1.0
     local isAutoTracked = row.autoTracked
         or ((row.questIds ~= nil) and not row.allowManualQuestClicks)
+        or (row.encounterIds ~= nil)
         or (row.liveKey ~= nil)
         or (row.spellId ~= nil)
         or (row.currencyId ~= nil)
@@ -6588,7 +6673,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
                 countFS:SetTextColor(0.55, 0.55, 0.55, 1)
             end
         end
-        UpdateTimer()  
+        UpdateTimer()
         rowFrame._timerUpdate = UpdateTimer
         table.insert(MR._timerRows, rowFrame)
     end
@@ -8279,4 +8364,118 @@ function MR:RepopulateConfigFrame()
     if cfgFrame and cfgFrame:IsShown() then
         self:PopulateConfigFrame(cfgFrame)
     end
+end
+
+
+
+
+
+
+
+
+do
+    local OVERLAY_KEY = "MR_DungeonIDLabel"
+
+    local function ApplyOverlayToButton(btn)
+        if not btn then return end
+        if not btn.encounterID or btn.encounterID <= 0 then return end
+
+        local journalEncounterID = btn.encounterID
+        local _, _, _, _, _, _, dungeonEncounterID = EJ_GetEncounterInfo(journalEncounterID)
+        local displayID = (dungeonEncounterID and dungeonEncounterID > 0) and dungeonEncounterID or journalEncounterID
+        local prefix    = (dungeonEncounterID and dungeonEncounterID > 0) and "" or "J:"
+
+        local label = btn[OVERLAY_KEY]
+        if not label then
+            label = btn:CreateFontString(nil, "OVERLAY")
+            label:SetFont(FONT_ROWS or "Fonts\\FRIZQT__.TTF", 9, "OUTLINE")
+            label:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -8, 5)
+            label:SetTextColor(0.40, 0.85, 1.00, 1)
+            btn[OVERLAY_KEY] = label
+        end
+        label:SetText("|cff55d6ff" .. prefix .. tostring(displayID) .. "|r")
+        label:Show()
+    end
+
+    local function TryExtractEncounterID(frame)
+        if not frame then return end
+
+
+
+
+
+        ApplyOverlayToButton(frame)
+    end
+
+    local function ScanFrameTree(root, depth)
+        if not root or depth > 8 then return end
+        TryExtractEncounterID(root)
+        local ok, children = pcall(function() return {root:GetChildren()} end)
+        if not ok then return end
+        for _, child in ipairs(children) do
+            ScanFrameTree(child, depth + 1)
+        end
+        if type(root.ForEachFrame) == "function" then
+            pcall(function()
+                root:ForEachFrame(function(frame)
+                    TryExtractEncounterID(frame)
+                    local ok2, children2 = pcall(function() return {frame:GetChildren()} end)
+                    if ok2 then
+                        for _, c in ipairs(children2) do
+                            TryExtractEncounterID(c)
+                        end
+                    end
+                end)
+            end)
+        end
+    end
+
+    local function RefreshEJOverlays()
+        if not EncounterJournal or not EncounterJournal:IsShown() then return end
+        ScanFrameTree(EncounterJournal, 0)
+    end
+
+    local function HookScrollBoxIfFound(root, depth)
+        if not root or depth > 8 then return false end
+        if type(root.ForEachFrame) == "function" and type(root.RegisterCallback) == "function" then
+            pcall(function()
+                root:RegisterCallback("OnUpdate", function()
+                    root:ForEachFrame(TryExtractEncounterID)
+                end)
+            end)
+            return true
+        end
+        local ok, children = pcall(function() return {root:GetChildren()} end)
+        if not ok then return false end
+        for _, child in ipairs(children) do
+            if HookScrollBoxIfFound(child, depth + 1) then
+                return true
+            end
+        end
+        return false
+    end
+
+    local ejHookFrame = CreateFrame("Frame")
+    ejHookFrame:RegisterEvent("ADDON_LOADED")
+    ejHookFrame:SetScript("OnEvent", function(_, event, arg1)
+        if event ~= "ADDON_LOADED" or arg1 ~= "Blizzard_EncounterJournal" then return end
+
+        C_Timer.After(0.5, function()
+            HookScrollBoxIfFound(EncounterJournal, 0)
+            RefreshEJOverlays()
+        end)
+
+        for _, fname in ipairs({
+            "EncounterJournal_DisplayEncounters",
+            "EncounterJournal_DisplayInstance",
+            "EncounterJournal_OpenJournal",
+        }) do
+            if type(_G[fname]) == "function" then
+                hooksecurefunc(fname, function()
+                    C_Timer.After(0.1, RefreshEJOverlays)
+                end)
+            end
+        end
+    end)
+
 end

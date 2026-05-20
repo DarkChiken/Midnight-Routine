@@ -46,7 +46,7 @@ crestRows = {
     {
         key = "crest_adventurer",
         currencyId = 3383,
-        -- max = CREST_CAP, caps where removed
+
 		noMax = true,
         label = CurrencyLabel(3383, nil, "b7b7b7"),
     },

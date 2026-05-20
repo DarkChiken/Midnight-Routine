@@ -44,6 +44,116 @@ local function NormalizeTaskMax(maxValue)
     return value
 end
 
+local function NormalizeEncounterIds(value)
+    if value == nil or value == "" then
+        return nil
+    end
+
+    local ids = {}
+    local seen = {}
+
+    local function addEncounterId(raw)
+        local encounterId = tonumber(raw)
+        if not encounterId then
+            return
+        end
+
+        encounterId = math.floor(encounterId)
+        if encounterId <= 0 or seen[encounterId] then
+            return
+        end
+
+        seen[encounterId] = true
+        ids[#ids + 1] = encounterId
+    end
+
+    if type(value) == "table" then
+        for _, entry in ipairs(value) do
+            addEncounterId(entry)
+        end
+    elseif type(value) == "number" then
+        addEncounterId(value)
+    elseif type(value) == "string" then
+        for token in value:gmatch("%d+") do
+            addEncounterId(token)
+        end
+    end
+
+    if #ids == 0 then
+        return nil
+    end
+
+    table.sort(ids)
+    return ids
+end
+
+local function BuildEncounterIdsText(encounterIds)
+    if type(encounterIds) ~= "table" or #encounterIds == 0 then
+        return nil
+    end
+
+    local values = {}
+    for _, encounterId in ipairs(encounterIds) do
+        values[#values + 1] = tostring(encounterId)
+    end
+    return table.concat(values, ", ")
+end
+
+local VALID_ENCOUNTER_DIFFICULTIES = { [14]=true, [15]=true, [16]=true, [17]=true }
+
+
+
+MR.CANONICAL_DIFFICULTY = {
+
+    [14] = 14,
+    [15] = 15,
+    [16] = 16,
+    [17] = 17,
+
+    [3]  = 14,
+    [4]  = 14,
+    [5]  = 15,
+    [6]  = 15,
+    [7]  = 17,
+
+    [24] = 14,
+    [33] = 14,
+}
+local CANONICAL_DIFFICULTY = MR.CANONICAL_DIFFICULTY
+
+local function CountTrackedDifficulties(task)
+    if not task.encounterIds then return 0 end
+
+    if not task.encounterDifficulties then return 4 end
+    local n = 0
+    for _ in pairs(task.encounterDifficulties) do n = n + 1 end
+    return n
+end
+
+local function GetDiffProgress(self, taskId)
+    if not self.db or not self.db.char then return {} end
+    self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
+    local key = tostring(taskId)
+    self.db.char.customTaskDiffProgress[key] = self.db.char.customTaskDiffProgress[key] or {}
+    return self.db.char.customTaskDiffProgress[key]
+end
+
+
+
+local function NormalizeEncounterDifficulties(value)
+    if value == nil then return nil end
+    if type(value) ~= "table" then return nil end
+    local result, count = {}, 0
+    for k, v in pairs(value) do
+        local id = tonumber(k) or (v ~= true and tonumber(v) or nil)
+        if id and VALID_ENCOUNTER_DIFFICULTIES[id] then
+            result[id] = true
+            count = count + 1
+        end
+    end
+    return count > 0 and result or nil
+end
+
 local function NormalizeQuestIds(value)
     if value == nil or value == "" then
         return nil
@@ -177,8 +287,11 @@ function MR:GetCustomTasks()
         task.max = NormalizeTaskMax(task.max)
         task.order = tonumber(task.order) or index
         task.questIds = NormalizeQuestIds(task.questIds or task.questId)
+        task.encounterIds = NormalizeEncounterIds(task.encounterIds)
         task.resetType = ResolveQuestResetType(task.questIds, task.resetType)
         task.allowManualQuestClicks = NormalizeBoolean(task.allowManualQuestClicks)
+        task.autoUpdateInstances = NormalizeBoolean(task.autoUpdateInstances)
+        task.encounterDifficulties = NormalizeEncounterDifficulties(task.encounterDifficulties)
         task.questId = nil
     end
     SortTasks(tasks)
@@ -282,8 +395,20 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     or (L["CustomTasks_ResetWeekly"] or "Weekly reset")
                 local questIds = NormalizeQuestIds(task.questIds)
                 local questIdText = BuildQuestIdsText(questIds)
+                local encounterIds = NormalizeEncounterIds(task.encounterIds)
+                local encounterIdText = BuildEncounterIdsText(encounterIds)
                 local noteText
-                if questIds then
+                if encounterIds then
+                    noteText = string.format(
+                        "%s\n%s",
+                        resetLabel,
+                        string.format(
+                            L["CustomTasks_EncounterNote"] or "Auto-completes on boss kill for encounter ID%s %s. Shift-left-click to edit. Shift-right-click to delete.",
+                            (#encounterIds == 1) and "" or "s",
+                            encounterIdText or ""
+                        )
+                    )
+                elseif questIds then
                     noteText = string.format(
                         "%s\n%s",
                         resetLabel,
@@ -302,19 +427,35 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                             or (L["CustomTasks_TaskNote"] or "Left-click the checkbox to toggle. Shift-left-click to rename. Shift-right-click to delete.")
                     )
                 end
+                local effectiveMax = task.max
+                local diffCount = CountTrackedDifficulties(task)
+                if diffCount >= 2 then effectiveMax = diffCount end
                 rows[#rows + 1] = {
                     key = rowKey,
                     label = task.label,
-                    max = task.max,
+                    max = effectiveMax,
                     note = noteText,
-                    toggleStatus = (task.max <= 1) and ((not questIds) or task.allowManualQuestClicks),
+                    toggleStatus = (task.max <= 1) and ((not questIds) or task.allowManualQuestClicks) and (not encounterIds),
                     questIds = questIds,
+                    encounterIds = encounterIds,
                     allowManualQuestClicks = task.allowManualQuestClicks,
+                    autoUpdateInstances = task.autoUpdateInstances,
+                    encounterDifficulties = task.encounterDifficulties,
+                    taskId = task.id,
                     noDefaultTooltipHint = true,
                     tooltipFunc = function(tip)
                         tip:AddLine(" ")
                         tip:AddLine(resetLabel, 0.80, 0.90, 1.00, true)
-                        if questIds then
+                        if encounterIds then
+                            tip:AddLine(
+                                string.format(
+                                    L["CustomTasks_EncounterHint"] or "Auto-completes on boss kill for encounter ID%s %s.",
+                                    (#encounterIds == 1) and "" or "s",
+                                    encounterIdText or ""
+                                ),
+                                0.70, 0.90, 0.70, true
+                            )
+                        elseif questIds then
                             tip:AddLine(
                                 string.format(
                                     L["CustomTasks_QuestHint"] or "Tracks quest completion automatically for quest ID%s %s.",
@@ -378,7 +519,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
     }
 end
 
-function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks)
+function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties)
     local tasks = GetTaskStorage()
     local cleanLabel = TrimText(label)
     if not tasks or cleanLabel == "" then
@@ -386,8 +527,11 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
     end
 
     questIds = NormalizeQuestIds(questIds)
+    encounterIds = NormalizeEncounterIds(encounterIds)
     resetType = ResolveQuestResetType(questIds, resetType)
     allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
+    autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
+    encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
 
     local taskId = tonumber(self.db.char.customTaskNextId) or 1
     self.db.char.customTaskNextId = taskId + 1
@@ -399,7 +543,10 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
         order = #tasks + 1,
         resetType = resetType,
         questIds = questIds,
+        encounterIds = encounterIds,
         allowManualQuestClicks = allowManualQuestClicks,
+        autoUpdateInstances = autoUpdateInstances,
+        encounterDifficulties = encounterDifficulties,
     }
 
     RefreshCustomTaskViews(self)
@@ -409,7 +556,7 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
     return taskId
 end
 
-function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks)
+function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties)
     local task = self:GetCustomTaskById(taskId)
     local cleanLabel = TrimText(label)
     if not task or cleanLabel == "" then
@@ -417,13 +564,18 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     end
 
     questIds = NormalizeQuestIds(questIds)
+    encounterIds = NormalizeEncounterIds(encounterIds)
     resetType = ResolveQuestResetType(questIds, resetType)
     allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
+    autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
     task.label = cleanLabel
     task.resetType = resetType
     task.max = NormalizeTaskMax(maxValue)
     task.questIds = questIds
+    task.encounterIds = encounterIds
     task.allowManualQuestClicks = allowManualQuestClicks
+    task.autoUpdateInstances = autoUpdateInstances
+    task.encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
     RefreshCustomTaskViews(self)
     if self.RefreshQuestProgress then
         self:RefreshQuestProgress(nil, true)
@@ -439,7 +591,7 @@ function MR:ToggleCustomTask(taskId)
 
     local rowKey = GetTaskRowKey(task.id)
     local cur = tonumber(self:GetProgress(CUSTOM_MODULE_KEY, rowKey)) or 0
-    self:SetProgress(CUSTOM_MODULE_KEY, rowKey, cur >= 1 and 0 or 1, 1)
+    self:SetProgress(CUSTOM_MODULE_KEY, rowKey, cur >= 1 and 0 or 1, 1, task.autoUpdateInstances == true)
     return true
 end
 
@@ -452,15 +604,13 @@ function MR:ResetCustomTasksByType(resetType)
         return
     end
 
+    local diffProg = self.db and self.db.char and self.db.char.customTaskDiffProgress
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
             local rowKey = GetTaskRowKey(task.id)
-            if progress then
-                progress[rowKey] = nil
-            end
-            if overrides then
-                overrides[rowKey] = nil
-            end
+            if progress then progress[rowKey] = nil end
+            if overrides then overrides[rowKey] = nil end
+            if diffProg then diffProg[tostring(task.id)] = nil end
         end
     end
 end
@@ -483,6 +633,10 @@ function MR:DeleteCustomTask(taskId)
 
     if not removed then
         return false
+    end
+
+    if self.db and self.db.char and self.db.char.customTaskDiffProgress then
+        self.db.char.customTaskDiffProgress[tostring(taskId)] = nil
     end
 
     SortTasks(tasks)
@@ -553,6 +707,77 @@ function MR:RefreshCustomTasksModule()
     mod.label = self:GetCustomTasksTitle()
     self._moduleStatsCache = nil
     self._orderedModulesCache = nil
+end
+
+function MR:RefreshEncounterProgress(encounterId, refreshUI, difficultyId)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+
+    if difficultyId then
+        difficultyId = CANONICAL_DIFFICULTY[difficultyId] or difficultyId
+    end
+
+    local progress = self.db.char.progress
+    local dirty = false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.encounterIds then
+                local shouldMark = false
+                if encounterId == nil then
+                    shouldMark = true
+                else
+                    for _, eid in ipairs(row.encounterIds) do
+                        if eid == encounterId then
+                            shouldMark = true
+                            break
+                        end
+                    end
+                end
+
+                if shouldMark and difficultyId and row.encounterDifficulties then
+                    shouldMark = row.encounterDifficulties[difficultyId] == true
+                end
+
+                if shouldMark then
+                    if not progress[mod.key] then
+                        progress[mod.key] = {}
+                    end
+                    local cur = progress[mod.key][row.key] or 0
+                    local maxVal = row.max or 1
+                    if difficultyId and row.taskId then
+                        local diffState = GetDiffProgress(self, row.taskId)
+                        if not diffState[difficultyId] then
+                            diffState[difficultyId] = true
+                            if cur < maxVal then
+                                progress[mod.key][row.key] = cur + 1
+                                self._moduleStatsCache = nil
+                                dirty = true
+                            end
+                        end
+                    elseif not row.taskId then
+                        if cur < maxVal then
+                            progress[mod.key][row.key] = maxVal
+                            self._moduleStatsCache = nil
+                            dirty = true
+                        end
+                    end
+
+                end
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
 end
 
 MR:RegisterModule({

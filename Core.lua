@@ -111,6 +111,7 @@ local DEFAULTS = {
         professionConcentration = {},
         customTasks = {},
         customTaskNextId = 1,
+        customTaskDiffProgress = {},
         lastWeek = 0,
         lastSyncAt = 0,
         manualOverrides = {},
@@ -828,8 +829,8 @@ function MR:SetAltBoardCharacterHidden(charKey, hidden)
     end
 end
 
-function MR:SetProgress(moduleKey, rowKey, value, maxVal)
-    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() and not bypassInstanceSuspend then
         if not self.db.char.progress[moduleKey] then
             self.db.char.progress[moduleKey] = {}
         end
@@ -887,8 +888,8 @@ function MR:ApplyFontSizeToAll(v)
     if self.RepopulateConfigFrame     then self:RepopulateConfigFrame() end
 end
 
-function MR:BumpProgress(moduleKey, rowKey, delta, maxVal)
-    self:SetProgress(moduleKey, rowKey, self:GetProgress(moduleKey, rowKey) + delta, maxVal)
+function MR:BumpProgress(moduleKey, rowKey, delta, maxVal, bypassInstanceSuspend)
+    self:SetProgress(moduleKey, rowKey, self:GetProgress(moduleKey, rowKey) + delta, maxVal, bypassInstanceSuspend)
 end
 
 local function CleanDisplayLabel(text)
@@ -1729,6 +1730,80 @@ function MR:RequestScan(delay)
     self:Scan()
 end
 
+
+
+
+
+function MR:ScanAutoUpdateInstanceRows(changedQuestId, changedEncounterId, difficultyId)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return
+    end
+
+    if difficultyId and MR.CANONICAL_DIFFICULTY then
+        difficultyId = MR.CANONICAL_DIFFICULTY[difficultyId] or difficultyId
+    end
+    local progress = self.db.char.progress
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+
+            if row.autoUpdateInstances and row.questIds and (changedQuestId == nil or (function()
+                for _, qid in ipairs(row.questIds) do
+                    if qid == changedQuestId then return true end
+                end
+            end)()) then
+                if not row.turnInTracked then
+                    UpdateQuestProgressForRow(self, progress, mod, row)
+                elseif row.allowQuestFlagBackfill then
+                    local cur = progress[mod.key] and progress[mod.key][row.key] or 0
+                    if cur <= 0 then
+                        UpdateQuestProgressForRow(self, progress, mod, row)
+                    end
+                end
+            end
+
+
+            if row.encounterIds and (changedEncounterId == nil or (function()
+                for _, eid in ipairs(row.encounterIds) do
+                    if eid == changedEncounterId then return true end
+                end
+            end)()) then
+
+                local diffOk = (not difficultyId) or (not row.encounterDifficulties) or (row.encounterDifficulties[difficultyId] == true)
+                if diffOk then
+                    if not progress[mod.key] then progress[mod.key] = {} end
+                    local cur = progress[mod.key][row.key] or 0
+                    local maxVal = row.max or 1
+
+
+                    if difficultyId and row.taskId then
+                        if self.db and self.db.char then
+                            self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
+                            local key = tostring(row.taskId)
+                            self.db.char.customTaskDiffProgress[key] = self.db.char.customTaskDiffProgress[key] or {}
+                            local diffState = self.db.char.customTaskDiffProgress[key]
+                            if not diffState[difficultyId] then
+                                diffState[difficultyId] = true
+                                if cur < maxVal then
+                                    progress[mod.key][row.key] = cur + 1
+                                    self._moduleStatsCache = nil
+                                end
+                            end
+                        end
+                    elseif not row.taskId then
+
+                        if cur < maxVal then
+                            progress[mod.key][row.key] = maxVal
+                            self._moduleStatsCache = nil
+                        end
+                    end
+
+
+                end
+            end
+        end
+    end
+end
+
 function MR:RefreshCurrencyProgress(currencyId, refreshUI)
     if not (self and self.db and self.db.char and self.db.char.progress) then
         return false
@@ -1904,6 +1979,11 @@ function MR:Scan()
         return
     end
 
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(nil, nil)
+        return
+    end
+
     local now = GetTime and GetTime() or 0
     local minScanInterval = 0.25
 
@@ -2049,11 +2129,11 @@ function MR:RebuildTurnInCompletions()
 end
 
 local WEEKLY_RESET_SCHEDULE = {
-    [1] = { weekday = 3, hour = 3 }, 
-    [2] = { weekday = 4, hour = 3 }, 
-    [3] = { weekday = 3, hour = 3 }, 
-    [4] = { weekday = 4, hour = 3 }, 
-    [5] = { weekday = 4, hour = 3 }, 
+    [1] = { weekday = 3, hour = 3 },
+    [2] = { weekday = 4, hour = 3 },
+    [3] = { weekday = 3, hour = 3 },
+    [4] = { weekday = 4, hour = 3 },
+    [5] = { weekday = 4, hour = 3 },
 }
 
 local function GetResetTimestampFromCountdown(secondsUntilReset, cycleSeconds)
@@ -2676,6 +2756,10 @@ function MR:OnCurrencyDisplayUpdate(_, currencyID)
 end
 
 function MR:OnQuestDataChanged()
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(nil, nil)
+        return
+    end
     local dirty = false
     if self:RefreshQuestProgress(nil, false) then
         dirty = true
@@ -2693,6 +2777,10 @@ function MR:OnAreaPoisUpdated()
 end
 
 function MR:OnQuestTurnedIn(_, questID)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(questID, nil)
+        return
+    end
     local dirty = false
     if self:RefreshQuestProgress(questID, false) then
         dirty = true
@@ -2706,6 +2794,10 @@ function MR:OnQuestTurnedIn(_, questID)
 end
 
 function MR:OnQuestAccepted(_, questID)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(questID, nil)
+        return
+    end
     local dirty = false
     if self:RefreshQuestProgress(questID, false) then
         dirty = true
@@ -2719,6 +2811,10 @@ function MR:OnQuestAccepted(_, questID)
 end
 
 function MR:OnQuestRemoved(_, questID)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(questID, nil)
+        return
+    end
     local dirty = false
     if self:RefreshQuestProgress(questID, false) then
         dirty = true
@@ -2771,20 +2867,37 @@ function MR:OnZoneChanged()
     end
 end
 
-function MR:OnEncounterEnd(_, _, encounterName, _, _, success)
+function MR:OnEncounterEnd(_, encounterId, encounterName, difficultyID, _, success)
     if success == 1 then
+        if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+            self:ScanAutoUpdateInstanceRows(nil, tonumber(encounterId), tonumber(difficultyID))
+            return
+        end
         if encounterName and self.SyncCurrentWorldBossKillByName then
             self:SyncCurrentWorldBossKillByName(encounterName)
+        end
+        if self.RefreshEncounterProgress then
+            self:RefreshEncounterProgress(tonumber(encounterId), true, tonumber(difficultyID))
         end
         self:RefreshModuleScans({ "great_vault", "delves", "world_bosses", "s1_weekly" }, true)
     end
 end
 
-function MR:OnBossKill(_, bossName)
-    if bossName and self.SyncCurrentWorldBossKillByName then
-        self:SyncCurrentWorldBossKillByName(bossName)
-        self:RefreshModuleScans({ "world_bosses", "great_vault", "s1_weekly" }, true)
+function MR:OnBossKill(_, bossId, bossName)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(nil, tonumber(bossId))
+        return
     end
+    if self.SyncCurrentWorldBossKillByName then
+        local nameForSync = (type(bossName) == "string" and bossName ~= "") and bossName or tostring(bossId or "")
+        if nameForSync ~= "" then
+            self:SyncCurrentWorldBossKillByName(nameForSync)
+        end
+    end
+    if self.RefreshEncounterProgress then
+        self:RefreshEncounterProgress(tonumber(bossId), true)
+    end
+    self:RefreshModuleScans({ "world_bosses", "great_vault", "s1_weekly" }, true)
 end
 
 SLASH_MIDROUTE1 = "/mr"
@@ -2800,23 +2913,24 @@ SlashCmdList["MIDROUTE"] = function(msg)
         end
     end
 
-      if     msg == "reset"   then MR:DoWeeklyReset()
-      elseif msg == "lock"    then
+    if msg == "reset" then
+        MR:DoWeeklyReset()
+    elseif msg == "lock" then
         MR.db.profile.locked = true
         if MR.frame then MR.frame:SetMovable(false) end
         print(L["Frame_Locked"])
-    elseif msg == "unlock"  then
+    elseif msg == "unlock" then
         MR.db.profile.locked = false
         if MR.frame then MR.frame:SetMovable(true) end
         print(L["Frame_Unlocked"])
-    elseif msg == "hide"    then
+    elseif msg == "hide" then
         if MR.frame then MR.frame:Hide() end
         MR.db.char.panelOpen = false
-    elseif msg == "show"    then
+    elseif msg == "show" then
         if MR.frame then MR.frame:Show() end
         MR.db.char.panelOpen = true
         MR:ClearManagedWindowsBundleHidden()
-    elseif msg == "toggle"  then
+    elseif msg == "toggle" then
         MR:ToggleManagedWindows()
     elseif msg == "main" or msg == "main toggle" then
         if not MR.frame and MR.BuildUI then
@@ -2859,26 +2973,14 @@ SlashCmdList["MIDROUTE"] = function(msg)
         if s and s >= 0.5 and s <= 2 then
             ApplyMainScale(s)
         end
-    elseif msg == "big"   then if MR.ApplyWidth then MR.ApplyWidth(500) end
-    elseif msg == "small"   then if MR.ApplyWidth then MR.ApplyWidth(200) end
+    elseif msg == "big" then if MR.ApplyWidth then MR.ApplyWidth(500) end
+    elseif msg == "small" then if MR.ApplyWidth then MR.ApplyWidth(200) end
     elseif msg == "welcome" then MR:ShowWelcomeScreen()
-    elseif msg == "renown"  then MR:ToggleRenown()
+    elseif msg == "renown" then MR:ToggleRenown()
     elseif msg == "renown config" then MR:ToggleRenownConfig()
-    elseif msg == "rares"   then MR:ToggleRares()
+    elseif msg == "rares" then MR:ToggleRares()
     elseif msg == "rares config" then MR:ToggleRaresConfig()
     elseif msg == "gathering" then MR:ToggleGatheringLocations()
-    elseif msg == "sa debug" or msg == "sa_debug" then
-        if MR.DebugSpecialAssignments then
-            MR:DebugSpecialAssignments()
-        end
-    elseif msg == "dmf" then
-        MR.debugDMF = not MR.debugDMF
-        if MR.debugDMF then
-            print("|cffcc99ff[MidnightRoutine]|r Darkmoon Faire test mode ON — module forced visible")
-        else
-            print("|cffcc99ff[MidnightRoutine]|r Darkmoon Faire test mode OFF")
-        end
-        MR:RefreshUI()
     else
         print(L["Chat_Commands"])
     end

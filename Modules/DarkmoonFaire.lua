@@ -29,7 +29,7 @@ local function IsOnDarkmoonIsland()
 end
 
 function MR.IsDarkmoonVisible()
-    return MR.debugDMF or IsHolidayActive(HOLIDAY_DARKMOON_FAIRE) or IsOnDarkmoonIsland()
+    return IsHolidayActive(HOLIDAY_DARKMOON_FAIRE) or IsOnDarkmoonIsland()
 end
 
 MR:RegisterModule({
@@ -48,7 +48,7 @@ MR:RegisterModule({
         { key = "dmf_cannon",   label = L["DMF_Cannon_Label"],   max = 1, note = L["DMF_Cannon_Note"],   questIds = { 29527 } },
         { key = "dmf_sword",    label = L["DMF_Target_Label"],   max = 1, note = L["DMF_Target_Note"],   questIds = { 29529 } },
 
-        { key = "dmf_fish",  label = L["DMF_Fish_Label"],  max = 1, note = L["DMF_Fish_Note"],  questIds = { 29513 } }, 
-        { key = "dmf_cook",  label = L["DMF_Cook_Label"],  max = 1, note = L["DMF_Cook_Note"],  questIds = { 29509 } },  
+        { key = "dmf_fish",  label = L["DMF_Fish_Label"],  max = 1, note = L["DMF_Fish_Note"],  questIds = { 29513 } },
+        { key = "dmf_cook",  label = L["DMF_Cook_Label"],  max = 1, note = L["DMF_Cook_Note"],  questIds = { 29509 } },
     },
 })
