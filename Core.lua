@@ -706,12 +706,20 @@ function MR:GetWarbandWeeklyData()
                             if rowVisible and rowEnabled then
                                 local value = stale and 0 or tonumber(modProgress[row.key]) or 0
                                 local maxValue = tonumber(row.max) or 0
-                                local complete = (not row.noMax) and maxValue > 0 and value >= maxValue
+                                if row.trackWeeklyEarned then
+                                    value = stale and 0 or tonumber(modProgress[row.key .. "_collected"]) or value
+                                    maxValue = tonumber(row.weeklyCap or row.max) or maxValue
+                                end
+                                local complete = (row.trackWeeklyEarned or not row.noMax) and maxValue > 0 and value >= maxValue
                                 local rowLabel = CleanAccountLabel(row.label)
                                 local displayValue
+                                local accentLabel = (not stale) and (modProgress[row.liveTierLabelKey or ""] or row.vaultLabel) or nil
+                                local accentColor = (not stale) and (modProgress[row.liveTierColorKey or ""] or row.vaultColor) or nil
 
                                 if row.countText and not stale then
                                     displayValue = row.countText
+                                elseif row.trackWeeklyEarned then
+                                    displayValue = string.format("%d / %d", value, maxValue)
                                 elseif row.noMax then
                                     displayValue = tostring(value)
                                 else
@@ -723,11 +731,15 @@ function MR:GetWarbandWeeklyData()
                                     label = rowLabel,
                                     value = value,
                                     max = maxValue,
-                                    noMax = row.noMax and true or false,
+                                    noMax = row.trackWeeklyEarned and false or (row.noMax and true or false),
+                                    currencyId = row.currencyId,
+                                    noBlizzardTooltip = row.noBlizzardTooltip and true or false,
+                                    trackWeeklyEarned = row.trackWeeklyEarned and true or false,
+                                    wallet = tonumber(modProgress[row.key .. "_wallet"]) or 0,
                                     complete = complete,
                                     displayValue = displayValue,
-                                    accentLabel = (not stale and (modProgress[row.liveTierLabelKey or ""] or row.vaultLabel)) or nil,
-                                    accentColor = (not stale and (modProgress[row.liveTierColorKey or ""] or row.vaultColor)) or nil,
+                                    accentLabel = accentLabel,
+                                    accentColor = accentColor,
                                 })
 
                                 moduleEntry.totalRows = moduleEntry.totalRows + 1
@@ -1662,7 +1674,7 @@ local function UpdateCurrencyProgressForRow(self, progress, mod, row)
         else
             raw = wallet
         end
-    elseif weeklyCap then
+    elseif weeklyCap and not row.noMax then
         dynamicCap = weeklyCap
         raw = weekly
     end
@@ -1674,9 +1686,31 @@ local function UpdateCurrencyProgressForRow(self, progress, mod, row)
 
     if not progress[mod.key] then progress[mod.key] = {} end
     local walletKey = row.key .. "_wallet"
+    local previousWallet = progress[mod.key][walletKey]
+
     if progress[mod.key][walletKey] ~= wallet then
         progress[mod.key][walletKey] = wallet
         dirty = true
+    end
+
+    if row.trackWeeklyEarned then
+        local collectedKey = row.key .. "_collected"
+        local trackingCap = row.weeklyCap or weeklyCap or row.max
+        local collected = tonumber(progress[mod.key][collectedKey]) or 0
+
+        if previousWallet ~= nil and wallet > previousWallet then
+            collected = collected + (wallet - previousWallet)
+        end
+
+        collected = math.max(collected, weekly, wallet)
+        if trackingCap and trackingCap > 0 then
+            collected = math.min(collected, trackingCap)
+        end
+
+        if progress[mod.key][collectedKey] ~= collected then
+            progress[mod.key][collectedKey] = collected
+            dirty = true
+        end
     end
 
     local val = row.noMax and raw or math.min(raw, row.max or raw)

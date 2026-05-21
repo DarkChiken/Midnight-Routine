@@ -3454,6 +3454,27 @@ function MR:RefreshWarbandBoard()
                     accent:SetTextColor(WBHexColor(rowEntry.accentColor, 0.78, 0.82, 0.95))
                 end
 
+                row:EnableMouse(true)
+                row:SetScript("OnEnter", function(selfRow)
+                    GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
+                    if rowEntry.currencyId and not rowEntry.noBlizzardTooltip then
+                        GameTooltip:SetCurrencyByID(rowEntry.currencyId)
+                        if rowEntry.trackWeeklyEarned then
+                            GameTooltip:AddLine(" ")
+                            GameTooltip:AddLine(string.format("Collected this week: %s", rowEntry.displayValue), 0.72, 0.86, 1, true)
+                            GameTooltip:AddLine(string.format("Currently held: %d", rowEntry.wallet or 0), 0.72, 0.86, 1, true)
+                        else
+                            GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
+                        end
+                    else
+                        GameTooltip:SetText(rowEntry.label, 1, 1, 1, 1, true)
+                    end
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave", function(selfRow)
+                    HideTooltipIfOwned(selfRow)
+                end)
+
                 table.insert(frame.detailWidgets, row)
                 moduleY = moduleY + 23
             end

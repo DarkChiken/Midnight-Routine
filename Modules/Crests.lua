@@ -127,6 +127,8 @@ crestRows = {
         key = "shard_dundun",
         currencyId = 3376,
         noMax = true,
+        weeklyCap = 8,
+        trackWeeklyEarned = true,
         label = CurrencyLabel(3376, nil),
     },
     {
