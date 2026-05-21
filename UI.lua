@@ -8397,9 +8397,40 @@ end
 do
     local OVERLAY_KEY = "MR_DungeonIDLabel"
 
+    local function HideOverlay(btn)
+        local label = btn and btn[OVERLAY_KEY]
+        if label then
+            label:Hide()
+        end
+    end
+
+    local function IsLootFrame(frame)
+        if not frame then return false end
+
+        local current = frame
+        while current do
+            local name = current.GetName and current:GetName() or nil
+            if type(name) == "string" and name:find("Loot", 1, true) then
+                return true
+            end
+            current = current.GetParent and current:GetParent() or nil
+        end
+
+        return frame.itemID ~= nil
+            or frame.itemLink ~= nil
+            or frame.lootID ~= nil
+    end
+
     local function ApplyOverlayToButton(btn)
         if not btn then return end
-        if not btn.encounterID or btn.encounterID <= 0 then return end
+        if not btn.encounterID or btn.encounterID <= 0 then
+            HideOverlay(btn)
+            return
+        end
+        if IsLootFrame(btn) then
+            HideOverlay(btn)
+            return
+        end
 
         local journalEncounterID = btn.encounterID
         local _, _, _, _, _, _, dungeonEncounterID = EJ_GetEncounterInfo(journalEncounterID)
