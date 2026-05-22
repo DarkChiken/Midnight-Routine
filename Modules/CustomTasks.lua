@@ -255,6 +255,101 @@ local function BuildQuestIdsText(questIds)
     return table.concat(values, ", ")
 end
 
+local function FormatQuestMoneyReward(copper)
+    copper = tonumber(copper) or 0
+    if GetMoneyString then
+        return GetMoneyString(copper, true)
+    end
+
+    return string.format("%dg", math.floor(copper / 10000))
+end
+
+local function HasLoadedQuestRewardData(questId)
+    if HaveQuestRewardData then
+        local ok, loaded = pcall(HaveQuestRewardData, questId)
+        if ok then
+            return loaded == true
+        end
+    end
+
+    if C_QuestLog and C_QuestLog.HasQuestRewardData then
+        local ok, loaded = pcall(C_QuestLog.HasQuestRewardData, questId)
+        if ok then
+            return loaded == true
+        end
+    end
+
+    return true
+end
+
+local function RequestQuestRewardData(questId)
+    if C_TaskQuest and C_TaskQuest.RequestPreloadRewardData then
+        pcall(C_TaskQuest.RequestPreloadRewardData, questId)
+    end
+
+    if C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+        pcall(C_QuestLog.RequestLoadQuestByID, questId)
+    end
+end
+
+local function QueueRewardRefresh()
+    if not (MR and MR.ScheduleTimer) or MR._customTaskRewardRefreshTimer then
+        return
+    end
+
+    MR._customTaskRewardRefreshTimer = MR:ScheduleTimer(function()
+        MR._customTaskRewardRefreshTimer = nil
+        if MR.RefreshCustomTasksModule then
+            MR:RefreshCustomTasksModule()
+        end
+        if MR.RefreshUI then
+            MR:RefreshUI()
+        end
+    end, 1.5)
+end
+
+local function GetQuestMoneyReward(questId)
+    if GetQuestLogRewardMoney then
+        local ok, money = pcall(GetQuestLogRewardMoney, questId)
+        if ok and type(money) == "number" and money > 0 then
+            return money
+        end
+    end
+
+    if C_QuestLog and C_QuestLog.GetQuestRewardMoney then
+        local ok, money = pcall(C_QuestLog.GetQuestRewardMoney, questId)
+        if ok and type(money) == "number" and money > 0 then
+            return money
+        end
+    end
+
+    return 0
+end
+
+local function GetQuestRewardSummary(questIds)
+    if type(questIds) ~= "table" or #questIds == 0 then
+        return 0, false
+    end
+
+    local totalMoney = 0
+    local pending = false
+
+    for _, questId in ipairs(questIds) do
+        if not HasLoadedQuestRewardData(questId) then
+            pending = true
+            RequestQuestRewardData(questId)
+        else
+            totalMoney = totalMoney + GetQuestMoneyReward(questId)
+        end
+    end
+
+    if pending then
+        QueueRewardRefresh()
+    end
+
+    return totalMoney, pending
+end
+
 local function NormalizeBoolean(value)
     return value == true
 end
@@ -395,6 +490,8 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     or (L["CustomTasks_ResetWeekly"] or "Weekly reset")
                 local questIds = NormalizeQuestIds(task.questIds)
                 local questIdText = BuildQuestIdsText(questIds)
+                local rewardCopper = GetQuestRewardSummary(questIds)
+                local rewardText = rewardCopper and rewardCopper > 0 and FormatQuestMoneyReward(rewardCopper) or nil
                 local encounterIds = NormalizeEncounterIds(task.encounterIds)
                 local encounterIdText = BuildEncounterIdsText(encounterIds)
                 local noteText
@@ -409,14 +506,18 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                         )
                     )
                 elseif questIds then
+                    local questNote = string.format(
+                        L["CustomTasks_QuestNote"] or "Auto-tracks quest completion for quest ID%s %s. Shift-left-click to edit. Shift-right-click to delete.",
+                        (#questIds == 1) and "" or "s",
+                        questIdText or ""
+                    )
+                    if rewardText then
+                        questNote = string.format("%s\nGold reward: %s", questNote, rewardText)
+                    end
                     noteText = string.format(
                         "%s\n%s",
                         resetLabel,
-                        string.format(
-                            L["CustomTasks_QuestNote"] or "Auto-tracks quest completion for quest ID%s %s. Shift-left-click to edit. Shift-right-click to delete.",
-                            (#questIds == 1) and "" or "s",
-                            questIdText or ""
-                        )
+                        questNote
                     )
                 else
                     noteText = string.format(
@@ -432,9 +533,11 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                 if diffCount >= 2 then effectiveMax = diffCount end
                 rows[#rows + 1] = {
                     key = rowKey,
-                    label = task.label,
+                    label = rewardText and ("|cffffd36a" .. task.label .. "|r") or task.label,
                     max = effectiveMax,
                     note = noteText,
+                    countText = rewardText,
+                    countColor = rewardText and { 1.00, 0.82, 0.30 } or nil,
                     toggleStatus = (task.max <= 1) and ((not questIds) or task.allowManualQuestClicks) and (not encounterIds),
                     questIds = questIds,
                     encounterIds = encounterIds,
@@ -464,6 +567,9 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                                 ),
                                 0.70, 0.90, 0.70, true
                             )
+                            if rewardText then
+                                tip:AddLine("Gold reward: " .. rewardText, 1.00, 0.82, 0.30, true)
+                            end
                             if task.allowManualQuestClicks then
                                 tip:AddLine(L["CustomTasks_QuestManualHint"] or "Manual clicking is enabled for this quest task.", 0.95, 0.82, 0.50, true)
                             end

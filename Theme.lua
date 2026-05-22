@@ -76,13 +76,13 @@ local SCRIPT_FONTS = {
 }
 
 local SCRIPT_RANGES = {
-    { 0x0400, 0x04FF, "ruRU" },   
-    { 0x1100, 0x11FF, "koKR" },   
-    { 0x3130, 0x318F, "koKR" },  
-    { 0x3400, 0x4DBF, nil      }, 
-    { 0x4E00, 0x9FFF, nil      }, 
-    { 0xAC00, 0xD7AF, "koKR" },   
-    { 0xF900, 0xFAFF, nil      }, 
+    { 0x0400, 0x04FF, "ruRU" },
+    { 0x1100, 0x11FF, "koKR" },
+    { 0x3130, 0x318F, "koKR" },
+    { 0x3400, 0x4DBF, nil      },
+    { 0x4E00, 0x9FFF, nil      },
+    { 0xAC00, 0xD7AF, "koKR" },
+    { 0xF900, 0xFAFF, nil      },
 }
 
 local function DetectScriptFont(text)

@@ -4585,6 +4585,10 @@ local function ApplyMainFrameAnchor(frame, anchorMode, preserveScreenPosition)
         return
     end
 
+    if MR and MR._mainFrameDragging then
+        return
+    end
+
     local pos = preserveScreenPosition and CaptureMainFrameAnchor(frame, anchorMode) or GetStoredMainFrameActiveAnchor()
     if not pos or not pos.point then
         frame:ClearAllPoints()
@@ -4786,7 +4790,10 @@ function MR:BuildUI()
     titleBar:EnableMouse(true)
     titleBar:RegisterForDrag("LeftButton")
     titleBar:SetScript("OnDragStart", function()
-        if not MR.db.profile.locked then f:StartMoving() end
+        if not MR.db.profile.locked then
+            MR._mainFrameDragging = true
+            f:StartMoving()
+        end
     end)
     titleBar:SetScript("OnDragStop", function()
         f:StopMovingOrSizing()
@@ -4797,6 +4804,7 @@ function MR:BuildUI()
                 MR._mainFrameMovedSinceExpand = true
             end
         end
+        MR._mainFrameDragging = false
     end)
     if MR.ApplyPanelHeaderAutoHide then MR:ApplyPanelHeaderAutoHide(f, titleBar) end
 
