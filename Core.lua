@@ -48,6 +48,8 @@ local DEFAULTS = {
         raresLocked         = false,
         raresWidth          = 300,
         raresHeight         = 360,
+        currencyBrowserWidth = 360,
+        currencyBrowserHeight = 460,
         raresFontSize       = 9,
         raresShimmer        = true,
         raresHiddenZones    = {},
@@ -112,6 +114,10 @@ local DEFAULTS = {
         customTasks = {},
         customTaskNextId = 1,
         customTaskDiffProgress = {},
+        currencyBrowserHiddenDefaults = {},
+        currencyBrowserCustom = {},
+        currencyBrowserCustomOrder = {},
+        currencyBrowserCollapsedHeaders = {},
         lastWeek = 0,
         lastSyncAt = 0,
         manualOverrides = {},
@@ -2322,6 +2328,9 @@ function MR:OnInitialize()
     if self.RefreshCustomTasksModule then
         self:RefreshCustomTasksModule()
     end
+    if self.RefreshCurrenciesModule then
+        self:RefreshCurrenciesModule(false)
+    end
     if ns.ApplySharedMedia then
         ns.ApplySharedMedia(self.GetActiveMediaSettings and self:GetActiveMediaSettings() or self.db.profile)
     end
@@ -2347,6 +2356,9 @@ function MR:ResetAllSettings()
     self._moduleStatsCache = nil
     if self.RefreshCustomTasksModule then
         self:RefreshCustomTasksModule()
+    end
+    if self.RefreshCurrenciesModule then
+        self:RefreshCurrenciesModule(false)
     end
 
     if ns.ApplySharedMedia then
@@ -2485,6 +2497,7 @@ function MR:HideManagedWindows(persistState)
     end
 
     if self.frame then self.frame:Hide() end
+    if self.HideCurrencyBrowserFrame then self:HideCurrencyBrowserFrame() end
     if self.HideDetachedModules then self:HideDetachedModules() end
     if self.HideConfig then self:HideConfig() end
     if self.HideRenown then self:HideRenown(false) end

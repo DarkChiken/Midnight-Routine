@@ -477,6 +477,23 @@ local function MainSectionHeaderOnLeave(selfFrame)
     HideTooltipIfOwned(selfFrame)
 end
 
+local function CurrencyBrowserButtonOnClick()
+    if MR.ToggleCurrencyBrowserFrame then
+        MR:ToggleCurrencyBrowserFrame()
+    end
+end
+
+local function CurrencyBrowserButtonOnEnter(selfBtn)
+    GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+    GameTooltip:SetText("Show all Blizzard currencies", 1, 1, 1)
+    GameTooltip:AddLine("Opens a side window populated from the currency API.", 0.55, 0.82, 1, true)
+    GameTooltip:Show()
+end
+
+local function CurrencyBrowserButtonOnLeave(selfBtn)
+    HideTooltipIfOwned(selfBtn)
+end
+
 local function MainHeaderActionOnClick(selfBtn)
     local owner = selfBtn._mrOwner
     local data = owner and owner._mrData
@@ -532,6 +549,9 @@ local function MainRowOnEnter(selfRow)
     if row.currencyId and not row.noBlizzardTooltip then
         GameTooltip:SetCurrencyByID(row.currencyId)
         GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
+        if row.tooltipFunc then
+            row.tooltipFunc(GameTooltip)
+        end
     elseif row.itemId and not row.noBlizzardTooltip then
         if GameTooltip.SetItemByID then
             GameTooltip:SetItemByID(row.itemId)
@@ -754,6 +774,16 @@ local function EnsureMainSectionWidget(self, modKey)
     card._hdrFrame._icon = card._hdrFrame:CreateTexture(nil, "ARTWORK")
     card._hdrFrame._label = card._hdrFrame:CreateFontString(nil, "OVERLAY")
     card._hdrFrame._count = card._hdrFrame:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._currencyBrowserButton = CreateFrame("Button", nil, card._hdrFrame, "BackdropTemplate")
+    card._hdrFrame._currencyBrowserButton:SetSize(18, 18)
+    card._hdrFrame._currencyBrowserButton:SetBackdrop(MakeBackdrop())
+    card._hdrFrame._currencyBrowserButton:SetScript("OnClick", CurrencyBrowserButtonOnClick)
+    card._hdrFrame._currencyBrowserButton:SetScript("OnEnter", CurrencyBrowserButtonOnEnter)
+    card._hdrFrame._currencyBrowserButton:SetScript("OnLeave", CurrencyBrowserButtonOnLeave)
+    card._hdrFrame._currencyBrowserText = card._hdrFrame._currencyBrowserButton:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._currencyBrowserText:SetFont(FONT_ROWS, 12, GetFontFlags())
+    card._hdrFrame._currencyBrowserText:SetPoint("CENTER", card._hdrFrame._currencyBrowserButton, "CENTER", 0, 0)
+    card._hdrFrame._currencyBrowserText:SetText("+")
     card._hdrFrame._arrow = card._hdrFrame:CreateTexture(nil, "OVERLAY")
     card._hdrFrame:SetScript("OnMouseDown", MainSectionHeaderOnMouseDown)
     card._hdrFrame:SetScript("OnMouseUp", MainSectionHeaderOnMouseUp)
@@ -798,6 +828,16 @@ local function EnsureDetachedSectionWidget(frame, modKey)
     card._hdrFrame._icon = card._hdrFrame:CreateTexture(nil, "ARTWORK")
     card._hdrFrame._label = card._hdrFrame:CreateFontString(nil, "OVERLAY")
     card._hdrFrame._count = card._hdrFrame:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._currencyBrowserButton = CreateFrame("Button", nil, card._hdrFrame, "BackdropTemplate")
+    card._hdrFrame._currencyBrowserButton:SetSize(18, 18)
+    card._hdrFrame._currencyBrowserButton:SetBackdrop(MakeBackdrop())
+    card._hdrFrame._currencyBrowserButton:SetScript("OnClick", CurrencyBrowserButtonOnClick)
+    card._hdrFrame._currencyBrowserButton:SetScript("OnEnter", CurrencyBrowserButtonOnEnter)
+    card._hdrFrame._currencyBrowserButton:SetScript("OnLeave", CurrencyBrowserButtonOnLeave)
+    card._hdrFrame._currencyBrowserText = card._hdrFrame._currencyBrowserButton:CreateFontString(nil, "OVERLAY")
+    card._hdrFrame._currencyBrowserText:SetFont(FONT_ROWS, 12, GetFontFlags())
+    card._hdrFrame._currencyBrowserText:SetPoint("CENTER", card._hdrFrame._currencyBrowserButton, "CENTER", 0, 0)
+    card._hdrFrame._currencyBrowserText:SetText("+")
     card._hdrFrame._arrow = card._hdrFrame:CreateTexture(nil, "OVERLAY")
     card._hdrFrame:SetScript("OnMouseDown", MainSectionHeaderOnMouseDown)
     card._hdrFrame:SetScript("OnMouseUp", MainSectionHeaderOnMouseUp)
@@ -902,7 +942,20 @@ local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
 
     card._hdrFrame._count:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
     card._hdrFrame._count:ClearAllPoints()
-    card._hdrFrame._count:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -18, 0)
+    local currencyBrowserButton = card._hdrFrame._currencyBrowserButton
+    local showCurrencyBrowserButton = mod.key == "currencies" and MR.ToggleCurrencyBrowserFrame
+    if showCurrencyBrowserButton then
+        currencyBrowserButton:ClearAllPoints()
+        currencyBrowserButton:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -20, 0)
+        currencyBrowserButton:SetBackdropColor(0.04, 0.10, 0.13, transparent and 0 or (0.96 * frameAlpha))
+        currencyBrowserButton:SetBackdropBorderColor(0.18, 0.58, 0.48, transparent and 0 or frameAlpha)
+        card._hdrFrame._currencyBrowserText:SetTextColor(0.35, 0.95, 0.78, transparent and 0.75 or 1)
+        currencyBrowserButton:Show()
+        card._hdrFrame._count:SetPoint("RIGHT", currencyBrowserButton, "LEFT", -6, 0)
+    else
+        currencyBrowserButton:Hide()
+        card._hdrFrame._count:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -18, 0)
+    end
     card._hdrFrame._count:SetText(string.format(L["%d / %d complete"], secDone, secTotal))
     card._hdrFrame._count:SetTextColor(countColor(secDone, secTotal))
     card._hdrFrame._count:SetJustifyH("RIGHT")
@@ -1586,7 +1639,20 @@ local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordR
 
     card._hdrFrame._count:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
     card._hdrFrame._count:ClearAllPoints()
-    card._hdrFrame._count:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -18, 0)
+    local currencyBrowserButton = card._hdrFrame._currencyBrowserButton
+    local showCurrencyBrowserButton = mod.key == "currencies" and MR.ToggleCurrencyBrowserFrame
+    if showCurrencyBrowserButton then
+        currencyBrowserButton:ClearAllPoints()
+        currencyBrowserButton:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -20, 0)
+        currencyBrowserButton:SetBackdropColor(0.04, 0.10, 0.13, transparent and 0 or (0.96 * frameAlpha))
+        currencyBrowserButton:SetBackdropBorderColor(0.18, 0.58, 0.48, transparent and 0 or frameAlpha)
+        card._hdrFrame._currencyBrowserText:SetTextColor(0.35, 0.95, 0.78, transparent and 0.75 or 1)
+        currencyBrowserButton:Show()
+        card._hdrFrame._count:SetPoint("RIGHT", currencyBrowserButton, "LEFT", -6, 0)
+    else
+        currencyBrowserButton:Hide()
+        card._hdrFrame._count:SetPoint("RIGHT", card._hdrFrame, "RIGHT", -18, 0)
+    end
     card._hdrFrame._count:SetText(string.format(L["%d / %d complete"], secDone, secTotal))
     card._hdrFrame._count:SetTextColor(countColor(secDone, secTotal))
     card._hdrFrame._count:SetJustifyH("RIGHT")
@@ -4906,6 +4972,9 @@ function MR:BuildUI()
     )
     closeBtn:SetPoint("RIGHT", titleBar, "RIGHT", -BTN_MARGIN, 0)
     closeBtn:SetScript("OnClick", function()
+        if MR.HideCurrencyBrowserFrame then
+            MR:HideCurrencyBrowserFrame()
+        end
         f:Hide()
         MR.db.char.panelOpen = false
     end)
@@ -4960,6 +5029,9 @@ function MR:BuildUI()
 
     minBtn:SetScript("OnClick", function()
         MR.db.profile.minimized = not MR.db.profile.minimized
+        if MR.db.profile.minimized and MR.HideCurrencyBrowserFrame then
+            MR:HideCurrencyBrowserFrame()
+        end
         ApplyMinimizeState()
     end)
 
@@ -5870,6 +5942,9 @@ function MR:ApplySharedMediaSettings()
     if self._titleBar and ns.RefreshFrameBackground then
         ns.RefreshFrameBackground(self._titleBar)
     end
+    if self.ApplyCurrencyBrowserTheme then
+        self:ApplyCurrencyBrowserTheme()
+    end
     if self.RefreshMainHeaderChrome then
         self:RefreshMainHeaderChrome()
     end
@@ -6403,6 +6478,9 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT")
             GameTooltip:SetCurrencyByID(row.currencyId)
             GameTooltip:AddLine(L["Tooltip_AutoBlizzard"], 0.4, 0.8, 1)
+            if row.tooltipFunc then
+                row.tooltipFunc(GameTooltip)
+            end
             GameTooltip:Show()
         elseif row.itemId and not row.noBlizzardTooltip then
             GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT")

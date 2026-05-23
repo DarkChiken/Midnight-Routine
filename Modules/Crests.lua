@@ -4,6 +4,12 @@ local MR = ns.MR
 local CREST_CAP = 100
 local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
 local crestRows
+local defaultCrestRows
+
+local function CleanLabel(text)
+    text = tostring(text or "")
+    return text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub(":$", "")
+end
 
 local function PlainLabel(text, default)
     local value = text or default or ""
@@ -42,7 +48,231 @@ local function RefreshCrestItemLabels()
     end
 end
 
-crestRows = {
+local function GetCurrencyStorage()
+    if not (MR and MR.db and MR.db.char) then
+        return nil, nil, nil
+    end
+
+    MR.db.char.currencyBrowserHiddenDefaults = MR.db.char.currencyBrowserHiddenDefaults or {}
+    MR.db.char.currencyBrowserCustom = MR.db.char.currencyBrowserCustom or {}
+    MR.db.char.currencyBrowserCustomOrder = MR.db.char.currencyBrowserCustomOrder or {}
+    return MR.db.char.currencyBrowserHiddenDefaults, MR.db.char.currencyBrowserCustom, MR.db.char.currencyBrowserCustomOrder
+end
+
+local function RemoveCurrencyProgress(currencyID, rowKey)
+    if not (MR and MR.db and MR.db.char) then
+        return
+    end
+
+    local progress = MR.db.char.progress and MR.db.char.progress.currencies
+    if progress and rowKey then
+        progress[rowKey] = nil
+        progress[rowKey .. "_wallet"] = nil
+        progress[rowKey .. "_collected"] = nil
+    end
+
+    local overrides = MR.db.char.manualOverrides and MR.db.char.manualOverrides.currencies
+    if overrides and rowKey then
+        overrides[rowKey] = nil
+    end
+end
+
+local function BuildCustomCurrencyRow(currencyID, saved)
+    local fallbackName = type(saved) == "table" and saved.name or nil
+    return {
+        key = "custom_currency_" .. tostring(currencyID),
+        currencyId = currencyID,
+        noMax = true,
+        removableCurrency = true,
+        customCurrency = true,
+        label = CurrencyLabel(currencyID, fallbackName),
+        note = L["CurrencyBrowser_CustomNote"] or "Added from the Blizzard currency browser.",
+        tooltipFunc = function(tip)
+            tip:AddLine(" ")
+            tip:AddLine(L["CurrencyBrowser_RemoveHint"] or "Shift-right-click to remove from Currencies and return it to the browser.", 1, 0.72, 0.45, true)
+        end,
+        onRightClick = function()
+            if IsShiftKeyDown() and MR.RemoveCurrencyFromCurrencies then
+                MR:RemoveCurrencyFromCurrencies(currencyID)
+                return true
+            end
+            return false
+        end,
+    }
+end
+
+local function CopyDefaultCurrencyRow(row)
+    local copy = {}
+    for key, value in pairs(row) do
+        copy[key] = value
+    end
+    if row.currencyId then
+        copy.removableCurrency = true
+        copy.tooltipFunc = function(tip)
+            tip:AddLine(" ")
+            tip:AddLine(L["CurrencyBrowser_RemoveHint"] or "Shift-right-click to remove from Currencies and return it to the browser.", 1, 0.72, 0.45, true)
+        end
+        copy.onRightClick = function()
+            if IsShiftKeyDown() and MR.RemoveCurrencyFromCurrencies then
+                MR:RemoveCurrencyFromCurrencies(row.currencyId)
+                return true
+            end
+            return false
+        end
+    end
+    return copy
+end
+
+function MR:IsCurrencyInCurrenciesModule(currencyID)
+    currencyID = tonumber(currencyID)
+    if not currencyID then
+        return false
+    end
+
+    local hiddenDefaults, custom = GetCurrencyStorage()
+    custom = custom or {}
+    if custom[currencyID] then
+        return true
+    end
+
+    for _, row in ipairs(defaultCrestRows or {}) do
+        if tonumber(row.currencyId) == currencyID then
+            return not (hiddenDefaults and hiddenDefaults[currencyID])
+        end
+    end
+
+    return false
+end
+
+function MR:RefreshCurrenciesModule(refreshUI)
+    if not crestRows then
+        return false
+    end
+
+    local hiddenDefaults, custom, customOrder = GetCurrencyStorage()
+    local previousCount = #crestRows
+    wipe(crestRows)
+
+    for _, row in ipairs(defaultCrestRows or {}) do
+        if not (row.currencyId and hiddenDefaults and hiddenDefaults[row.currencyId]) then
+            crestRows[#crestRows + 1] = CopyDefaultCurrencyRow(row)
+        end
+    end
+
+    if custom and customOrder then
+        local seen = {}
+        for index = #customOrder, 1, -1 do
+            local currencyID = tonumber(customOrder[index])
+            if not currencyID or not custom[currencyID] or seen[currencyID] then
+                table.remove(customOrder, index)
+            else
+                seen[currencyID] = true
+            end
+        end
+
+        for _, currencyID in ipairs(customOrder) do
+            if custom[currencyID] then
+                crestRows[#crestRows + 1] = BuildCustomCurrencyRow(currencyID, custom[currencyID])
+            end
+        end
+    end
+
+    RefreshCrestItemLabels()
+    MR._moduleStatsCache = nil
+    if refreshUI ~= false and MR.RefreshUI then
+        MR:RefreshUI()
+    end
+    return previousCount ~= #crestRows
+end
+
+function MR:AddCurrencyToCurrencies(currencyID)
+    currencyID = tonumber(currencyID)
+    if not currencyID then
+        return false
+    end
+
+    local hiddenDefaults, custom, customOrder = GetCurrencyStorage()
+    if not hiddenDefaults or not custom or not customOrder then
+        return false
+    end
+
+    for _, row in ipairs(defaultCrestRows or {}) do
+        if tonumber(row.currencyId) == currencyID then
+            hiddenDefaults[currencyID] = nil
+            self:RefreshCurrenciesModule(false)
+            self:RefreshCurrencyProgress(currencyID, false)
+            if self.RefreshCurrencyBrowserFrame then self:RefreshCurrencyBrowserFrame() end
+            if self.RefreshUI then self:RefreshUI() end
+            print(string.format(L["CurrencyBrowser_AddedMessage"] or "|cff2ae7c6MidnightRoutine:|r Added %s to Currencies.", CleanLabel(CurrencyLabel(currencyID))))
+            return true
+        end
+    end
+
+    if custom[currencyID] then
+        return false
+    end
+
+    local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo and C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    custom[currencyID] = {
+        name = CleanLabel((info and info.name) or ("Currency " .. tostring(currencyID))),
+    }
+    customOrder[#customOrder + 1] = currencyID
+
+    self:RefreshCurrenciesModule(false)
+    self:RefreshCurrencyProgress(currencyID, false)
+    if self.RefreshCurrencyBrowserFrame then self:RefreshCurrencyBrowserFrame() end
+    if self.RefreshUI then self:RefreshUI() end
+    print(string.format(L["CurrencyBrowser_AddedMessage"] or "|cff2ae7c6MidnightRoutine:|r Added %s to Currencies.", custom[currencyID].name))
+    return true
+end
+
+function MR:RemoveCurrencyFromCurrencies(currencyID)
+    currencyID = tonumber(currencyID)
+    if not currencyID then
+        return false
+    end
+
+    local hiddenDefaults, custom, customOrder = GetCurrencyStorage()
+    if not hiddenDefaults or not custom or not customOrder then
+        return false
+    end
+
+    local removed = false
+    local removedName
+    if custom[currencyID] then
+        removedName = custom[currencyID].name
+        custom[currencyID] = nil
+        for index = #customOrder, 1, -1 do
+            if tonumber(customOrder[index]) == currencyID then
+                table.remove(customOrder, index)
+            end
+        end
+        RemoveCurrencyProgress(currencyID, "custom_currency_" .. tostring(currencyID))
+        removed = true
+    else
+        for _, row in ipairs(defaultCrestRows or {}) do
+            if tonumber(row.currencyId) == currencyID then
+                hiddenDefaults[currencyID] = true
+                removedName = CleanLabel(CurrencyLabel(currencyID))
+                RemoveCurrencyProgress(currencyID, row.key)
+                removed = true
+                break
+            end
+        end
+    end
+
+    if not removed then
+        return false
+    end
+
+    self:RefreshCurrenciesModule(false)
+    if self.RefreshCurrencyBrowserFrame then self:RefreshCurrencyBrowserFrame() end
+    if self.RefreshUI then self:RefreshUI() end
+    print(string.format(L["CurrencyBrowser_RemovedMessage"] or "|cff2ae7c6MidnightRoutine:|r Removed %s from Currencies.", removedName or ("Currency " .. tostring(currencyID))))
+    return true
+end
+
+defaultCrestRows = {
     {
         key = "crest_adventurer",
         currencyId = 3383,
@@ -137,6 +367,8 @@ crestRows = {
         label = CurrencyLabel(3418, "Nebulous Voidcore"),
     },
 }
+crestRows = {}
+MR:RefreshCurrenciesModule(false)
 
 RefreshCrestItemLabels()
 
