@@ -723,6 +723,11 @@ L["CurrencyBrowser_CustomNote"] = "Added from the Blizzard currency browser."
 L["CurrencyBrowser_RemoveHint"] = "Shift-right-click to remove from Currencies and return it to the browser."
 L["CurrencyBrowser_AddedMessage"] = "|cff2ae7c6MidnightRoutine:|r Added %s to Currencies."
 L["CurrencyBrowser_RemovedMessage"] = "|cff2ae7c6MidnightRoutine:|r Removed %s from Currencies."
+L["CurrencyBrowser_NotWarbandTransferable"] = "Not Warband transferable"
+L["CurrencyBrowser_WarbandFilterTitle"] = "Show Warband currencies only"
+L["CurrencyBrowser_WarbandFilterText"] = "Filters to Warband transferable and Warband-wide currencies."
+L["CurrencyBrowser_WarbandFilterActive"] = "Showing Warband currencies"
+L["CurrencyBrowser_WarbandFilterDisable"] = "Click to show all currencies."
 
 -- Custom Tasks
 L["CustomTasks_Title"] = "사용자 정의 작업"

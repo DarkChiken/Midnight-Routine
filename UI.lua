@@ -1054,6 +1054,7 @@ EnsureMainRowWidget = function(section, rowKey)
     rowFrame._statusCheck:SetText("x")
 
     rowFrame._rowIcon = rowFrame:CreateTexture(nil, "ARTWORK")
+    rowFrame._countIcon = rowFrame:CreateTexture(nil, "ARTWORK")
     rowFrame._label = rowFrame:CreateFontString(nil, "OVERLAY")
     if rowFrame._label.SetWordWrap then
         rowFrame._label:SetWordWrap(false)
@@ -1149,6 +1150,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     rowFrame._separator:Hide()
     rowFrame._statusBtn:Hide()
     rowFrame._rowIcon:Hide()
+    rowFrame._countIcon:Hide()
     rowFrame._label:Hide()
     rowFrame._count:Hide()
     rowFrame._wallet:Hide()
@@ -1300,7 +1302,8 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     rowFrame._statusBtn:EnableMouse((((isAutoTracked and not row.noMax) or row.toggleStatus) and not row.hideStatus) and true or false)
 
     local isCurrencyModule = mod and (mod.key == "currencies" or mod.key == "pvp_currencies")
-    local rowIconInfo = (showIcons and isCurrencyModule) and GetRowIconInfo(mod, row) or nil
+    local countIconInfo = (showIcons and isCurrencyModule and row.currencyId) and GetRowIconInfo(mod, row) or nil
+    local rowIconInfo = nil
     local iconSize = math.max(ROW_HEIGHT - 8, 12)
     rowFrame._rowIcon:ClearAllPoints()
     rowFrame._rowIcon:SetSize(iconSize, iconSize)
@@ -1312,6 +1315,17 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
         rowFrame._rowIcon:SetVertexColor(1, 1, 1, 1)
     end
     rowFrame._rowIcon:SetShown(hasRowIcon)
+
+    rowFrame._countIcon:ClearAllPoints()
+    rowFrame._countIcon:SetSize(iconSize, iconSize)
+    rowFrame._countIcon:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    local hasCountIcon = ApplyIconToTexture(rowFrame._countIcon, countIconInfo)
+    if isComplete and hasCountIcon then
+        rowFrame._countIcon:SetVertexColor(0.55, 0.55, 0.55, 0.7)
+    else
+        rowFrame._countIcon:SetVertexColor(1, 1, 1, 1)
+    end
+    rowFrame._countIcon:SetShown(hasCountIcon)
 
     local hasNumericMax = type(row.max) == "number" and row.max > 0
     local isCurrencyRow = row.currencyId and hasNumericMax and not row.noMax
@@ -1353,7 +1367,11 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
 
     rowFrame._count:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
     rowFrame._count:ClearAllPoints()
-    rowFrame._count:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    if hasCountIcon then
+        rowFrame._count:SetPoint("RIGHT", rowFrame._countIcon, "LEFT", -4, 0)
+    else
+        rowFrame._count:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    end
     rowFrame._count:SetJustifyH("RIGHT")
     if rowFrame._count.SetWordWrap then
         rowFrame._count:SetWordWrap(false)
@@ -1400,12 +1418,24 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
         rowFrame._wallet:SetJustifyH("RIGHT")
         rowFrame._wallet:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
         rowFrame._wallet:Show()
+        rowFrame._label:ClearAllPoints()
+        if hasRowIcon then
+            rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
+        else
+            rowFrame._label:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
+        end
+        rowFrame._label:SetPoint("RIGHT", rowFrame._wallet, "LEFT", -8, 0)
     else
         rowFrame._count:SetText((row.noMax or not hasNumericMax) and tostring(done) or string.format("%d / %d", done, row.max))
         if row.noMax or not hasNumericMax then
             rowFrame._count:SetTextColor(0.8, 0.8, 0.8)
         else
             rowFrame._count:SetTextColor(countColor(done, row.max))
+        end
+        if hasCountIcon and row.currencyId then
+            rowFrame._label:ClearAllPoints()
+            rowFrame._label:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
+            rowFrame._label:SetPoint("RIGHT", rowFrame._count, "LEFT", -8, 0)
         end
     end
     rowFrame._count:Show()
@@ -2257,6 +2287,110 @@ ApplyIconToTexture = function(texture, info, fallbackTexCoord)
         texture:SetVertexColor(1, 1, 1, 1)
     end
 
+    return true
+end
+
+local function CurrencyInfoHasAnyFlag(info, ...)
+    if type(info) ~= "table" then
+        return false
+    end
+
+    for i = 1, select("#", ...) do
+        local key = select(i, ...)
+        if info[key] then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function IsCurrencyWarbandTransferable(currencyID, info)
+    if CurrencyInfoHasAnyFlag(
+        info,
+        "isAccountTransferable",
+        "isWarbandTransferable",
+        "isTransferable",
+        "transferable"
+    ) then
+        return true
+    end
+
+    if C_CurrencyInfo then
+        local candidates = {
+            "IsCurrencyAccountTransferable",
+            "IsCurrencyTransferable",
+            "IsAccountTransferableCurrency",
+        }
+        for _, methodName in ipairs(candidates) do
+            local method = C_CurrencyInfo[methodName]
+            if type(method) == "function" then
+                local ok, result = pcall(method, currencyID)
+                if ok and result then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function GetCurrencyWarbandKind(currencyID)
+    if not (currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then
+        return nil
+    end
+
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if not info then
+        return nil
+    end
+
+    if info.isAccountWide then
+        return "account", info
+    end
+
+    if IsCurrencyWarbandTransferable(currencyID, info) then
+        return "transfer", info
+    end
+
+    return nil, info
+end
+
+function MR:GetCurrencyWarbandMarkerInfo(currencyID)
+    local kind = GetCurrencyWarbandKind(currencyID)
+    if kind == "account" then
+        return {
+            atlas = "warbands-icon",
+            text = ACCOUNT_LEVEL_CURRENCY or "Warband Currency",
+        }
+    elseif kind == "transfer" then
+        return {
+            atlas = "warbands-transferable-icon",
+            text = ACCOUNT_TRANSFERRABLE_CURRENCY or "Warband Transferable",
+        }
+    end
+
+    return nil
+end
+
+function MR:AddCurrencyTransferTooltipLines(tooltip, currencyID)
+    if not (tooltip and currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then
+        return false
+    end
+
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if not IsCurrencyWarbandTransferable(currencyID, info) then
+        return false
+    end
+
+    local percentage = tonumber(info and (info.transferPercentage or info.accountTransferPercentage or info.currencyTransferPercentage))
+    tooltip:AddLine(" ")
+    if percentage and percentage > 0 then
+        tooltip:AddLine(string.format("Warband Transfer: %d%%", percentage), 0.45, 0.85, 1, true)
+    else
+        tooltip:AddLine("Warband Transferable", 0.45, 0.85, 1, true)
+    end
     return true
 end
 
@@ -6628,8 +6762,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     end
 
     local isCurrencyModule = mod and (mod.key == "currencies" or mod.key == "pvp_currencies")
-    local showRowIcon = showIcons and isCurrencyModule
-    local rowIconInfo = showRowIcon and GetRowIconInfo(mod, row) or nil
+    local rowIconInfo = nil
+    local countIconInfo = (showIcons and isCurrencyModule and row.currencyId) and GetRowIconInfo(mod, row) or nil
     local iconSize = math.max(ROW_HEIGHT - 8, 12)
     local rowIcon = rowFrame:CreateTexture(nil, "ARTWORK")
     rowIcon:SetSize(iconSize, iconSize)
@@ -6638,7 +6772,13 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     if isComplete and hasRowIcon then
         rowIcon:SetVertexColor(0.55, 0.55, 0.55, 0.7)
     end
-
+    local countIcon = rowFrame:CreateTexture(nil, "ARTWORK")
+    countIcon:SetSize(iconSize, iconSize)
+    countIcon:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    local hasCountIcon = ApplyIconToTexture(countIcon, countIconInfo)
+    if isComplete and hasCountIcon then
+        countIcon:SetVertexColor(0.55, 0.55, 0.55, 0.7)
+    end
     local hasNumericMax = type(row.max) == "number" and row.max > 0
     local isCurrencyRow = row.currencyId and hasNumericMax and not row.noMax
     local hasCoordText  = hasWaypoint and not row.hideCoordText
@@ -6688,7 +6828,11 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
 
     local countFS = rowFrame:CreateFontString(nil, "OVERLAY")
     countFS:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
-    countFS:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    if hasCountIcon then
+        countFS:SetPoint("RIGHT", countIcon, "LEFT", -4, 0)
+    else
+        countFS:SetPoint("RIGHT", rowFrame, "RIGHT", -4, 0)
+    end
     countFS:SetJustifyH("RIGHT")
     if countFS.SetWordWrap then
         countFS:SetWordWrap(false)
@@ -6733,12 +6877,20 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         walletFS:SetPoint("RIGHT", countFS, "LEFT", -5, 0)
         walletFS:SetJustifyH("RIGHT")
         walletFS:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
+        lbl:ClearAllPoints()
+        lbl:SetPoint("LEFT", statusBtn, "RIGHT", 8, 0)
+        lbl:SetPoint("RIGHT", walletFS, "LEFT", -8, 0)
     else
         countFS:SetText((row.noMax or not hasNumericMax) and tostring(done) or string.format("%d / %d", done, row.max))
         if row.noMax or not hasNumericMax then
             countFS:SetTextColor(0.8, 0.8, 0.8)
         else
             countFS:SetTextColor(countColor(done, row.max))
+        end
+        if hasCountIcon and row.currencyId then
+            lbl:ClearAllPoints()
+            lbl:SetPoint("LEFT", statusBtn, "RIGHT", 8, 0)
+            lbl:SetPoint("RIGHT", countFS, "LEFT", -8, 0)
         end
     end
 

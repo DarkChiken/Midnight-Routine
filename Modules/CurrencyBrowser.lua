@@ -85,6 +85,127 @@ local function FormatQuantity(value)
     return tostring(value)
 end
 
+local function CurrencyInfoHasAnyFlag(info, ...)
+    if type(info) ~= "table" then
+        return false
+    end
+
+    for i = 1, select("#", ...) do
+        local key = select(i, ...)
+        if info[key] then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function IsCurrencyWarbandTransferable(currencyID, info)
+    if CurrencyInfoHasAnyFlag(
+        info,
+        "isAccountTransferable",
+        "isWarbandTransferable",
+        "isTransferable",
+        "transferable"
+    ) then
+        return true
+    end
+
+    if C_CurrencyInfo then
+        local candidates = {
+            "IsCurrencyAccountTransferable",
+            "IsCurrencyTransferable",
+            "IsAccountTransferableCurrency",
+        }
+        for _, methodName in ipairs(candidates) do
+            local method = C_CurrencyInfo[methodName]
+            if type(method) == "function" then
+                local ok, result = pcall(method, currencyID)
+                if ok and result then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function GetCurrencyWarbandMarkerInfo(currencyID)
+    if MR.GetCurrencyWarbandMarkerInfo then
+        return MR:GetCurrencyWarbandMarkerInfo(currencyID)
+    end
+
+    if not (currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then
+        return nil
+    end
+
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if not info then
+        return nil
+    end
+
+    if info.isAccountWide then
+        return {
+            atlas = "warbands-icon",
+            text = ACCOUNT_LEVEL_CURRENCY or "Warband Currency",
+        }
+    elseif IsCurrencyWarbandTransferable(currencyID, info) then
+        return {
+            atlas = "warbands-transferable-icon",
+            text = ACCOUNT_TRANSFERRABLE_CURRENCY or "Warband Transferable",
+        }
+    end
+
+    return nil
+end
+
+local function AddCurrencyTransferTooltipLines(tooltip, currencyID)
+    if MR.AddCurrencyTransferTooltipLines and MR:AddCurrencyTransferTooltipLines(tooltip, currencyID) then
+        return true
+    end
+
+    if not (tooltip and currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then
+        return false
+    end
+
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    if not IsCurrencyWarbandTransferable(currencyID, info) then
+        return false
+    end
+
+    local percentage = tonumber(info and (info.transferPercentage or info.accountTransferPercentage or info.currencyTransferPercentage))
+    tooltip:AddLine(" ")
+    if percentage and percentage > 0 then
+        tooltip:AddLine(string.format("Warband Transfer: %d%%", percentage), 0.45, 0.85, 1, true)
+    else
+        tooltip:AddLine("Warband Transferable", 0.45, 0.85, 1, true)
+    end
+    return true
+end
+
+local function GetCurrencyWarbandStatusText(marker)
+    if marker and marker.text then
+        return marker.text
+    end
+
+    return L["CurrencyBrowser_NotWarbandTransferable"] or "Not Warband transferable"
+end
+
+local function SetWarbandFilterButtonState(frame)
+    local button = frame and frame.warbandFilterButton
+    if not button then
+        return
+    end
+
+    local active = frame.showWarbandOnly and true or false
+    button:SetBackdropColor(active and 0.08 or 0.03, active and 0.18 or 0.06, active and 0.18 or 0.08, 1)
+    button:SetBackdropBorderColor(active and 0.30 or 0.16, active and 0.75 or 0.28, active and 0.65 or 0.32, 1)
+    if button.icon then
+        button.icon:SetVertexColor(active and 1 or 0.58, active and 1 or 0.68, active and 1 or 0.72, active and 1 or 0.9)
+    end
+end
+
 local function NormalizeSearch(text)
     text = tostring(text or "")
     text = text:gsub("^%s+", ""):gsub("%s+$", "")
@@ -151,7 +272,7 @@ local function AddCurrencyListEntry(entries, info, headerKey, forceOpen)
     }
 end
 
-local function BuildCurrencyEntries(searchText)
+local function BuildCurrencyEntries(searchText, warbandOnly)
     local entries = {}
     local pendingHeader
     local pendingHeaderKey
@@ -186,7 +307,8 @@ local function BuildCurrencyEntries(searchText)
                     currencyID = currencyID,
                     name = (currencyInfo and currencyInfo.name) or info.name or ("Currency " .. tostring(currencyID)),
                 }
-                if EntryMatchesSearch(candidate, search) then
+                local includeCurrency = (not warbandOnly) or (GetCurrencyWarbandMarkerInfo(currencyID) ~= nil)
+                if includeCurrency and EntryMatchesSearch(candidate, search) then
                     if pendingHeader then
                         AddCurrencyListEntry(entries, pendingHeader, pendingHeaderKey, isSearching)
                         if collapsedHeaders[pendingHeaderKey] and not isSearching then
@@ -257,11 +379,30 @@ local function EnsureRow(frame, index)
     HookBackdrop(row)
     row.icon = row:CreateTexture(nil, "ARTWORK")
     row.icon:SetSize(16, 16)
-    row.icon:SetPoint("LEFT", row, "LEFT", 8, 0)
+    row.warbandIcon = row:CreateTexture(nil, "ARTWORK")
+    row.warbandIcon:SetSize(20, 28)
+    row.warbandHitBox = CreateFrame("Frame", nil, row)
+    row.warbandHitBox:SetSize(20, ROW_HEIGHT)
+    row.warbandHitBox:EnableMouse(true)
+    row.warbandHitBox:SetScript("OnEnter", function(self)
+        local owner = self:GetParent()
+        if owner and owner.warbandIcon and self._mrHasMarker then
+            owner.warbandIcon:Show()
+        end
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetText(self._mrTooltipText or L["CurrencyBrowser_NotWarbandTransferable"] or "Not Warband transferable", 1, 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    row.warbandHitBox:SetScript("OnLeave", function(self)
+        local owner = self:GetParent()
+        if owner and owner.warbandIcon then
+            owner.warbandIcon:Hide()
+        end
+        GameTooltip:Hide()
+    end)
 
     row.name = row:CreateFontString(nil, "OVERLAY")
     row.name:SetFont(GetRowFont(), math.max(9, GetFontSize() - 1), GetFontFlags())
-    row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
     row.name:SetJustifyH("LEFT")
 
     row.count = row:CreateFontString(nil, "OVERLAY")
@@ -295,17 +436,21 @@ local function EnsureRow(frame, index)
         GameTooltip:Hide()
     end)
 
-    row.count:SetPoint("RIGHT", row.add, "LEFT", -8, 0)
-    row.name:SetPoint("RIGHT", row.count, "LEFT", -8, 0)
-
     row:SetScript("OnEnter", function(self)
+        if self.warbandIcon and self.warbandIcon._mrHasMarker then
+            self.warbandIcon:Show()
+        end
         if self.currencyID then
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetCurrencyByID(self.currencyID)
+            AddCurrencyTransferTooltipLines(GameTooltip, self.currencyID)
             GameTooltip:Show()
         end
     end)
     row:SetScript("OnLeave", function()
+        if row.warbandIcon then
+            row.warbandIcon:Hide()
+        end
         GameTooltip:Hide()
     end)
     row:SetScript("OnMouseWheel", function(self, delta)
@@ -359,10 +504,12 @@ local function ApplyRow(row, entry, y)
         row:SetBackdropColor(0.06, 0.08, 0.13, 0.95)
         row:SetBackdropBorderColor(0.18, 0.22, 0.32, 1)
         row.icon:Hide()
+        row.warbandIcon:Hide()
+        row.warbandHitBox:Hide()
         row.add:Hide()
         row.name:ClearAllPoints()
         row.count:ClearAllPoints()
-        row.name:SetPoint("LEFT", row, "LEFT", 8, 0)
+        row.name:SetPoint("LEFT", row, "LEFT", 4, 0)
         row.count:SetPoint("RIGHT", row, "RIGHT", -8, 0)
         row.name:SetPoint("RIGHT", row.count, "LEFT", -8, 0)
         row.name:SetText(CleanText(entry.name))
@@ -376,14 +523,31 @@ local function ApplyRow(row, entry, y)
     row:SetBackdropColor(0.02, 0.03, 0.05, 0.88)
     row:SetBackdropBorderColor(0.10, 0.13, 0.18, 1)
     row.icon:Show()
+    row.warbandIcon:Hide()
     row.add:Show()
     row.add:SetBackdropColor(0.05, 0.11, 0.13, 1)
     row.add:SetBackdropBorderColor(0.16, 0.55, 0.45, 1)
     row.icon:SetTexture(entry.icon or 134400)
     row.name:ClearAllPoints()
     row.count:ClearAllPoints()
-    row.name:SetPoint("LEFT", row.icon, "RIGHT", 8, 0)
-    row.count:SetPoint("RIGHT", row.add, "LEFT", -8, 0)
+    row.icon:ClearAllPoints()
+    row.warbandIcon:ClearAllPoints()
+    local warbandMarker = entry.currencyID and GetCurrencyWarbandMarkerInfo(entry.currencyID) or nil
+    row.warbandIcon:SetPoint("LEFT", row, "LEFT", -1, 0)
+    row.warbandIcon._mrHasMarker = warbandMarker and true or false
+    row.warbandIcon._mrTooltipText = GetCurrencyWarbandStatusText(warbandMarker)
+    if warbandMarker and row.warbandIcon.SetAtlas then
+        row.warbandIcon:SetAtlas(warbandMarker.atlas)
+        row.warbandIcon:SetTexCoord(0, 1, 0, 1)
+    end
+    row.warbandHitBox:ClearAllPoints()
+    row.warbandHitBox:SetPoint("CENTER", row.warbandIcon, "CENTER", 0, 0)
+    row.warbandHitBox._mrHasMarker = warbandMarker and true or false
+    row.warbandHitBox._mrTooltipText = GetCurrencyWarbandStatusText(warbandMarker)
+    row.warbandHitBox:Show()
+    row.icon:SetPoint("RIGHT", row.add, "LEFT", -8, 0)
+    row.count:SetPoint("RIGHT", row.icon, "LEFT", -4, 0)
+    row.name:SetPoint("LEFT", row, "LEFT", 20, 0)
     row.name:SetPoint("RIGHT", row.count, "LEFT", -8, 0)
     row.name:SetText(CleanText(entry.name))
     row.name:SetTextColor(0.92, 0.94, 0.98)
@@ -431,7 +595,8 @@ function MR:RefreshCurrencyBrowserFrame(keepScroll)
         frame.content:SetWidth(math.max(frame.scroll:GetWidth(), 1))
     end
 
-    local entries = BuildCurrencyEntries(frame.searchInput and frame.searchInput:GetText() or "")
+    SetWarbandFilterButtonState(frame)
+    local entries = BuildCurrencyEntries(frame.searchInput and frame.searchInput:GetText() or "", frame.showWarbandOnly)
     local currencyCount = 0
     local y = 0
     for index, entry in ipairs(entries) do
@@ -510,6 +675,11 @@ function MR:ApplyCurrencyBrowserTheme()
         HookBackdrop(frame.refreshButton)
         frame.refreshButton:SetBackdropColor(0.05, 0.10, 0.13, 1)
         frame.refreshButton:SetBackdropBorderColor(0.18, 0.48, 0.42, 1)
+    end
+    if frame.warbandFilterButton then
+        frame.warbandFilterButton:SetBackdrop(MakeBackdrop())
+        HookBackdrop(frame.warbandFilterButton)
+        SetWarbandFilterButtonState(frame)
     end
     if frame.searchBg then
         frame.searchBg:SetBackdrop(MakeBackdrop())
@@ -625,6 +795,41 @@ function MR:ShowCurrencyBrowserFrame()
         refresh.text:SetText(L["CurrencyBrowser_Refresh"] or "Refresh")
         refresh.text:SetTextColor(0.50, 0.95, 0.80)
         refresh:SetScript("OnClick", function() MR:RefreshCurrencyBrowserFrame() end)
+
+        local warbandFilter = CreateFrame("Button", nil, frame, "BackdropTemplate")
+        frame.warbandFilterButton = warbandFilter
+        warbandFilter:SetSize(24, SEARCH_BAR_HEIGHT)
+        warbandFilter:SetBackdrop(MakeBackdrop())
+        HookBackdrop(warbandFilter)
+        warbandFilter.icon = warbandFilter:CreateTexture(nil, "ARTWORK")
+        warbandFilter.icon:SetSize(20, 28)
+        warbandFilter.icon:SetPoint("CENTER", warbandFilter, "CENTER", 0, 0)
+        if warbandFilter.icon.SetAtlas then
+            warbandFilter.icon:SetAtlas("warbands-transferable-icon")
+        end
+        warbandFilter:SetScript("OnClick", function(selfButton)
+            local owner = selfButton:GetParent()
+            owner.showWarbandOnly = not owner.showWarbandOnly
+            SetWarbandFilterButtonState(owner)
+            if MR.RefreshCurrencyBrowserFrame then
+                MR:RefreshCurrencyBrowserFrame(false)
+            end
+        end)
+        warbandFilter:SetScript("OnEnter", function(selfButton)
+        GameTooltip:SetOwner(selfButton, "ANCHOR_RIGHT")
+        if selfButton:GetParent().showWarbandOnly then
+            GameTooltip:SetText(L["CurrencyBrowser_WarbandFilterActive"] or "Showing Warband currencies", 1, 1, 1, 1, true)
+            GameTooltip:AddLine(L["CurrencyBrowser_WarbandFilterDisable"] or "Click to show all currencies.", 0.55, 0.82, 1, true)
+        else
+            GameTooltip:SetText(L["CurrencyBrowser_WarbandFilterTitle"] or "Show Warband currencies only", 1, 1, 1, 1, true)
+            GameTooltip:AddLine(L["CurrencyBrowser_WarbandFilterText"] or "Filters to Warband transferable and Warband-wide currencies.", 0.55, 0.82, 1, true)
+        end
+            GameTooltip:Show()
+        end)
+        warbandFilter:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
+        SetWarbandFilterButtonState(frame)
 
         local searchBg = CreateFrame("Frame", nil, frame, "BackdropTemplate")
         frame.searchBg = searchBg
@@ -822,13 +1027,27 @@ function MR:ShowCurrencyBrowserFrame()
             self.title:SetPoint("LEFT", titleBar, "LEFT", 12, 0)
             self.title:SetPoint("RIGHT", refresh, "LEFT", -10, 0)
 
+            if self.warbandFilterButton then
+                self.warbandFilterButton:ClearAllPoints()
+                self.warbandFilterButton:SetSize(24, SEARCH_BAR_HEIGHT)
+                self.warbandFilterButton:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 8, -CHROME_GAP)
+            end
+
             searchBg:ClearAllPoints()
-            searchBg:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 8, -CHROME_GAP)
+            if self.warbandFilterButton then
+                searchBg:SetPoint("TOPLEFT", self.warbandFilterButton, "TOPRIGHT", 6, 0)
+            else
+                searchBg:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 8, -CHROME_GAP)
+            end
             searchBg:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", -8, -CHROME_GAP)
             searchBg:SetHeight(SEARCH_BAR_HEIGHT)
 
             self.scroll:ClearAllPoints()
-            self.scroll:SetPoint("TOPLEFT", searchBg, "BOTTOMLEFT", 0, -CHROME_GAP)
+            if self.warbandFilterButton then
+                self.scroll:SetPoint("TOPLEFT", self.warbandFilterButton, "BOTTOMLEFT", 0, -CHROME_GAP)
+            else
+                self.scroll:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 8, -(CHROME_GAP + SEARCH_BAR_HEIGHT + CHROME_GAP))
+            end
             self.scroll:SetPoint("BOTTOMRIGHT", self, "BOTTOMRIGHT", -18, 12)
             if self.content then
                 self.content:SetWidth(math.max(self.scroll:GetWidth(), 1))
