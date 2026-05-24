@@ -44,6 +44,7 @@ local DEFAULTS = {
         collapsedPosition = nil,
         renownOpen          = false,
         raresOpen           = false,
+        concentrationTrackerOpen = false,
         raresPos            = nil,
         raresLocked         = false,
         raresWidth          = 300,
@@ -104,6 +105,9 @@ local DEFAULTS = {
         altBoardShowHidden = false,
         altBoardView = "character",
         altBoardCollapsedModules = {},
+        concentrationTrackerAlpha = 1.0,
+        concentrationTrackerCompact = false,
+        concentrationTrackerHiddenCharacters = {},
         expansionModuleStates = {},
         expansionModuleOrder = {},
     },
@@ -2440,6 +2444,7 @@ function MR:CaptureManagedWindowState()
         renown = self.renownFrame and self.renownFrame:IsShown() or false,
         rares = self.raresFrame and self.raresFrame:IsShown() or false,
         gathering = self.gatheringLocationsFrame and self.gatheringLocationsFrame:IsShown() or false,
+        concentration = self.concentrationTrackerFrame and self.concentrationTrackerFrame:IsShown() or false,
         detached = detached,
     }
 end
@@ -2450,6 +2455,7 @@ function MR:ManagedWindowStateHasVisibleFrames(state)
         or state.renown
         or state.rares
         or state.gathering
+        or state.concentration
         or (state.detached and next(state.detached) ~= nil)
 end
 
@@ -2460,6 +2466,7 @@ function MR:PersistManagedWindowState(state)
     self:SetManagedWindowOpen("renownOpen", state.renown)
     self:SetManagedWindowOpen("raresOpen", state.rares)
     self:SetManagedWindowOpen("gatheringLocOpen", state.gathering)
+    self:SetManagedWindowOpen("concentrationTrackerOpen", state.concentration)
 end
 
 function MR:SetManagedWindowRestoreState(state)
@@ -2490,6 +2497,7 @@ function MR:HideManagedWindows(persistState)
             renown = false,
             rares = false,
             gathering = false,
+            concentration = false,
         })
         if self.db.profile.rememberManagedWindowsVisibility then
             self.db.profile.managedWindowsBundleHidden = true
@@ -2503,6 +2511,7 @@ function MR:HideManagedWindows(persistState)
     if self.HideRenown then self:HideRenown(false) end
     if self.HideRares then self:HideRares(false) end
     if self.HideGatheringLocations then self:HideGatheringLocations(false) end
+    if self.HideConcentrationTracker then self:HideConcentrationTracker(false) end
 end
 
 function MR:RestoreManagedWindows(state, persistState)
@@ -2528,6 +2537,9 @@ function MR:RestoreManagedWindows(state, persistState)
     end
     if state.gathering and self.EnsureGatheringLocationsShown then
         self:EnsureGatheringLocationsShown()
+    end
+    if state.concentration and self.EnsureConcentrationTrackerShown then
+        self:EnsureConcentrationTrackerShown()
     end
 
     if state.detached and self.detachedFrames then
@@ -2745,6 +2757,9 @@ function MR:OnEnteringWorld()
         end
         if self:GetManagedWindowOpen("gatheringLocOpen") and self.EnsureGatheringLocationsShown then
             self:EnsureGatheringLocationsShown()
+        end
+        if self:GetManagedWindowOpen("concentrationTrackerOpen") and self.EnsureConcentrationTrackerShown then
+            self:EnsureConcentrationTrackerShown()
         end
     end
     if self.db.profile.peekOnHover and self.ApplyPeekOnHover then
