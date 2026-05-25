@@ -158,6 +158,13 @@ local ZONE_BY_KEY = {}
 for _, z in ipairs(ZONES) do ZONE_BY_KEY[z.key] = z end
 
 local function GetCurrentDayKey()
+    if MR.GetLastDailyTimestamp then
+        local resetAt = MR:GetLastDailyTimestamp()
+        if resetAt and resetAt > 0 then
+            return resetAt
+        end
+    end
+
     return math.floor(GetServerTime() / 86400)
 end
 
