@@ -53,6 +53,7 @@ local MAP_TO_ZONE_KEY = {
     [2413] = "harandar",
     [2576] = "harandar",
     [2405] = "voidstorm",
+    [2444] = "voidstorm",
 }
 
 local function GetCurrentZoneKey()
@@ -67,21 +68,21 @@ local ZONES = {
         achievId = 61507,
         color    = { 0.85, 0.72, 0.18 },
         rares = {
-            { L["Rare_WardenOfWeeds"],           91280 },
-            { L["Rare_OverfesterHydra"],           92392 },
-            { L["Rare_Crevan"],                   92391 },
-            { L["Rare_LadyLiminus"],              92393 },
-            { L["Rare_BadZed"],                   92404 },
-            { L["Rare_Banuran"],                   92403 },
-            { L["Rare_Duskburn"],                  93550 },
-            { L["Rare_DameBloodshed"],            93561 },
-            { L["Rare_HarriedHawkstrider"],       91315 },
-            { L["Rare_BloatedSnapdragon"],        92366 },
-            { L["Rare_Coralfang"],                 92389 },
-            { L["Rare_Terrinor"],                  92409 },
-            { L["Rare_Waverly"],                   92395 },
-            { L["Rare_LostGuardian"],             92399 },
-            { L["Rare_MalfunctioningConstruct"],  93555 },
+            { L["Rare_WardenOfWeeds"],           91280, 2395, 51.60, 74.63 },
+            { L["Rare_OverfesterHydra"],         92392, 2395, 54.80, 60.23 },
+            { L["Rare_Crevan"],                  92391, 2395, 62.58, 49.48 },
+            { L["Rare_LadyLiminus"],             92393, 2395, 36.66, 77.16 },
+            { L["Rare_BadZed"],                  92404, 2395, 48.94, 87.93 },
+            { L["Rare_Banuran"],                 92403, 2395, 56.77, 77.07 },
+            { L["Rare_Duskburn"],                93550, 2395, 42.55, 69.09 },
+            { L["Rare_DameBloodshed"],           93561, 2395, 44.99, 38.55 },
+            { L["Rare_HarriedHawkstrider"],      91315, 2395, 45.05, 78.25 },
+            { L["Rare_BloatedSnapdragon"],       92366, 2395, 37.69, 64.25 },
+            { L["Rare_Coralfang"],               92389, 2395, 36.38, 36.37 },
+            { L["Rare_Terrinor"],                92409, 2395, 40.35, 85.20 },
+            { L["Rare_Waverly"],                 92395, 2395, 34.81, 20.98 },
+            { L["Rare_LostGuardian"],            92399, 2395, 59.36, 79.25 },
+            { L["Rare_MalfunctioningConstruct"], 93555, 2395, 51.54, 45.85 },
         },
     },
     {
@@ -90,21 +91,21 @@ local ZONES = {
         achievId = 62122,
         color    = { 0.82, 0.36, 0.14 },
         rares = {
-            { L["Rare_NecrohexxerRazka"],        89569 },
-            { L["Rare_SkullcrusherHarak"],        89571 },
-            { L["Rare_Mrrlokk"],                   91174 },
-            { L["Rare_Spinefrill"],                89578 },
-            { L["Rare_TinyVermin"],               89580 },
-            { L["Rare_DevouringInvader"],     89583 },
-            { L["Rare_DepthbornEelamental"],      89573 },
-            { L["Rare_AshanEmpowered"],      91073 },
-            { L["Rare_SnappingScourge"],      89570 },
-            { L["Rare_LightwoodBorer"],           89575 },
-            { L["Rare_PoacherRavik"],            91634 },
-            { L["Rare_Oophaga"],                   89579 },
-            { L["Rare_VoidtouchedCrustacean"],    89581 },
-            { L["Rare_ElderOaktalon"],            89572 },
-            { L["Rare_DecayingDiamondback"],  91072 },
+            { L["Rare_NecrohexxerRazka"],       89569, 2437, 34.27, 32.91 },
+            { L["Rare_SkullcrusherHarak"],       89571, 2437, 51.75, 72.76 },
+            { L["Rare_Mrrlokk"],                 91174, 2437, 50.90, 65.41 },
+            { L["Rare_Spinefrill"],              89578, 2437, 30.80, 45.12 },
+            { L["Rare_TinyVermin"],              89580, 2437, 47.44, 34.35 },
+            { L["Rare_DevouringInvader"],        89583, 2437, 39.49, 20.32 },
+            { L["Rare_DepthbornEelamental"],     89573, 2437, 47.73, 20.73 },
+            { L["Rare_AshanEmpowered"],          91073, 2437, 45.34, 41.79 },
+            { L["Rare_SnappingScourge"],         89570, 2437, 51.61, 18.63 },
+            { L["Rare_LightwoodBorer"],          89575, 2437, 28.73, 24.03 },
+            { L["Rare_PoacherRavik"],            91634, 2437, 38.99, 50.01 },
+            { L["Rare_Oophaga"],                 89579, 2437, 46.45, 51.93 },
+            { L["Rare_VoidtouchedCrustacean"],   89581, 2437, 21.48, 70.69 },
+            { L["Rare_ElderOaktalon"],           89572, 2437, 33.47, 88.64 },
+            { L["Rare_DecayingDiamondback"],     91072, 2437, 46.77, 43.85 },
         },
     },
     {
@@ -113,21 +114,21 @@ local ZONES = {
         achievId = 61264,
         color    = { 0.16, 0.78, 0.55 },
         rares = {
-            { L["Rare_Rhazul"],                    91832 },
-            { L["Rare_Hakalawe"],                 92142 },
-            { L["Rare_QueenLastongue"],          92154 },
-            { L["Rare_Stumpy"],                    92168 },
-            { L["Rare_Mindrot"],                   92172 },
-            { L["Rare_Treetop"],                   92183 },
-            { L["Rare_Pterrock"],                  92191 },
-            { L["Rare_AnnulusWorldshaker"],   92194 },
-            { L["Rare_Chironex"],                  92137 },
-            { L["Rare_TallcapTruthspreader"], 92148 },
-            { L["Rare_Chlorokyll"],                92161 },
-            { L["Rare_Serrasa"],                   92170 },
-            { L["Rare_Dracaena"],                  92176 },
-            { L["Rare_Oroohna"],                  92190 },
-            { L["Rare_Ahluahuhi"],               92193 },
+            { L["Rare_Rhazul"],                  91832, 2413, 51.15, 45.33 },
+            { L["Rare_Hakalawe"],                92142, 2413, 70.17, 60.87 },
+            { L["Rare_QueenLastongue"],          92154, 2413, 60.16, 47.11 },
+            { L["Rare_Stumpy"],                  92168, 2413, 65.34, 32.95 },
+            { L["Rare_Mindrot"],                 92172, 2413, 46.11, 32.17 },
+            { L["Rare_Treetop"],                 92183, 2413, 36.34, 75.35 },
+            { L["Rare_Pterrock"],                92191, 2413, 27.39, 71.39 },
+            { L["Rare_AnnulusWorldshaker"],      92194, 2413, 43.76, 16.78 },
+            { L["Rare_Chironex"],                92137, 2413, 68.70, 40.61 },
+            { L["Rare_TallcapTruthspreader"],    92148, 2413, 72.62, 69.35 },
+            { L["Rare_Chlorokyll"],              92161, 2413, 64.47, 47.68 },
+            { L["Rare_Serrasa"],                 92170, 2413, 55.94, 31.63 },
+            { L["Rare_Dracaena"],                92176, 2413, 40.53, 43.27 },
+            { L["Rare_Oroohna"],                 92190, 2413, 28.19, 81.81 },
+            { L["Rare_Ahluahuhi"],               92193, 2413, 39.75, 60.21 },
         },
     },
     {
@@ -136,20 +137,20 @@ local ZONES = {
         achievId = 62130,
         color    = { 0.55, 0.28, 0.95 },
         rares = {
-            { L["Rare_SunderethCaller"],      90805 },
-            { L["Rare_Tremora"],                   91048 },
-            { L["Rare_BaneVilebloods"],    93946 },
-            { L["Rare_LotusDarkblossom"],         93947 },
-            { L["Rare_Ravengerus"],                93895 },
-            { L["Rare_BilemawGluttonous"],    93884 },
-            { L["Rare_Nightbrood"],                91051 },
-            { L["Rare_TerritorialVoidscythe"],    91050 },
-            { L["Rare_ScreammaxaMatriarch"],  93966 },
-            { L["Rare_AeonelleBlackstar"],        93944 },
-            { L["Rare_QueenOWar"],              93934 },
-            { L["Rare_RakshurBonegrinder"],   93953 },
-            { L["Rare_Eruundi"],                   91047 },
-            { L["Rare_FarthanaMad"],         93896 },
+            { L["Rare_SunderethCaller"],         90805, 2405, 29.50, 50.05 },
+            { L["Rare_Tremora"],                 91048, 2405, 35.67, 81.11 },
+            { L["Rare_BaneVilebloods"],          93946, 2405, 47.17, 79.82 },
+            { L["Rare_LotusDarkblossom"],        93947, 2405, 37.99, 71.64 },
+            { L["Rare_Ravengerus"],              93895, 2405, 48.62, 53.63 },
+            { L["Rare_BilemawGluttonous"],       93884, 2405, 35.59, 49.36 },
+            { L["Rare_Nightbrood"],              91051, 2405, 40.09, 41.36 },
+            { L["Rare_TerritorialVoidscythe"],   91050, 2405, 34.12, 82.02 },
+            { L["Rare_ScreammaxaMatriarch"],    93966, 2405, 43.92, 51.52 },
+            { L["Rare_AeonelleBlackstar"],       93944, 2405, 39.51, 64.62 },
+            { L["Rare_QueenOWar"],               93934, 2405, 55.72, 79.45 },
+            { L["Rare_RakshurBonegrinder"],      93953, 2444, 46.46, 41.03 },
+            { L["Rare_Eruundi"],                 91047, 2405, 39.18, 92.46 },
+            { L["Rare_FarthanaMad"],             93896, 2405, 53.89, 62.79 },
         },
     },
 }
@@ -745,6 +746,7 @@ BuildRaresFrame = function()
             hit:SetPoint("TOPLEFT",  body, "TOPLEFT",  xPos, yPos)
             hit:SetWidth(colW - 4)
             hit:SetHeight(ROW_H)
+            hit:EnableMouse(true)
             hit:SetScript("OnEnter", function()
                 local questId = rare[2]
                 local flagged = questId and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
@@ -764,9 +766,29 @@ BuildRaresFrame = function()
                 else
                     GameTooltip:AddLine(L["Rares_Tooltip_NotKilled"], 0.50, 0.50, 0.50)
                 end
+                if rare[3] and rare[4] and rare[5] then
+                    GameTooltip:AddLine(" ")
+                    GameTooltip:AddLine(L["Gathering_ClickWaypoint"], 0.45, 0.85, 1)
+                end
                 GameTooltip:Show()
             end)
             hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            hit:SetScript("OnMouseUp", function(_, button)
+                if button ~= "LeftButton" or not (rare[3] and rare[4] and rare[5]) then return end
+
+                local ok, source = MR:SetWaypoint({
+                    label = rare[1],
+                    waypointTitle = rare[1],
+                    zone = rare[3],
+                    x = rare[4],
+                    y = rare[5],
+                })
+                if ok then
+                    print(string.format(L["Waypoint_Set"], source, rare[1], rare[4], rare[5]))
+                else
+                    print(L["Waypoint_Unavailable"])
+                end
+            end)
 
             body.dotList[i]  = dot
             body.nameLbls[i] = lbl
