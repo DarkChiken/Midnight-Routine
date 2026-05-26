@@ -45,6 +45,9 @@ Modules/Renown.lua
 Modules/Rares.lua
 Modules/ProfessionKnowledge.lua
 
+UI/WarbandBoard.lua
+UI/CustomTaskDialogs.lua
+UI/EncounterJournalOverlay.lua
 UI.lua
 WelcomeScreen.lua
 MinimapButton.lua
