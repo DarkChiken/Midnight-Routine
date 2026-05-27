@@ -105,6 +105,7 @@ L["Config_ShowRow"] = "Klicken, um diese Zeile anzuzeigen"
 L["Config_RowsCollapsed"] = "Abgeschlossene Zeilen eingeklappt - klicken zum Ausklappen"
 L["Config_RowsShown"] = "Abgeschlossene Zeilen angezeigt - klicken zum Einklappen"
 L["Config_ExpandCollapseRows"] = "Zeilen ein-/ausklappen"
+L["Config_Collapsed"] = "Collapsed"
 
 L["%d / %d complete"] = "%d / %d Komplett"
 -- WelcomeScreen
@@ -149,6 +150,7 @@ L["Currency_VoidlightMarl_Label"] = "|cffc792ffLeerenlichmergel:|r"
 L["Currency_RestoredCofferKey_Label"] = "|cffe8c96eRestaurierter Kastenschluessel:|r"
 L["Currency_SparkRadiance_Label"] = "|cffffb347Funke der Strahlen:|r"
 L["Currency_Undercoin_Label"] = "|cffd8c36aLorenmuenzen:|r"
+L["CurrencyBrowser_All"] = "ALL"
 L["CurrencyBrowser_SearchPlaceholder"] = "Suche Währungen..."
 L["CurrencyBrowser_Add"] = "Add"
 L["CurrencyBrowser_Refresh"] = "Erneuern"
@@ -163,6 +165,7 @@ L["CurrencyBrowser_WarbandFilterTitle"] = "Zeige nur Kriegsmeutewährungen"
 L["CurrencyBrowser_WarbandFilterText"] = "Filter für übertragbare Kriegsmeutewährungen und Kriegsmeute-weite Währungen."
 L["CurrencyBrowser_WarbandFilterActive"] = "Zeige Kriegsmeutewährungen"
 L["CurrencyBrowser_WarbandFilterDisable"] = "Klicken um alle Währungen anzuzeigen."
+L["ToDebugString"] = "ToDebugString"
 
 -- Delves
 L["Delves"] = "Tiefe"

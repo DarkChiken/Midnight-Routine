@@ -108,6 +108,7 @@ L["Config_ShowRow"] = "이 행을 표시하려면 클릭"
 L["Config_RowsCollapsed"] = "완료된 행이 접힘 - 펼치려면 클릭"
 L["Config_RowsShown"] = "완료된 행이 표시됨 - 접으려면 클릭"
 L["Config_ExpandCollapseRows"] = "행 펼치기/접기"
+L["Config_Collapsed"] = "Collapsed"
 L["%d / %d complete"] = "%d / %d 완료"
 
 -- WelcomeScreen
@@ -722,6 +723,7 @@ L["Currency_VoidlightMarl_Label"] = "|cffc792ff공허빛 점토:|r"
 L["Currency_RestoredCofferKey_Label"] = "|cffe8c96e복원된 보관함 열쇠:|r"
 L["Currency_SparkRadiance_Label"] = "|cffffb347광휘의 불꽃:|r"
 L["Currency_Undercoin_Label"] = "|cffd8c36a언더코인:|r"
+L["CurrencyBrowser_All"] = "ALL"
 L["CurrencyBrowser_SearchPlaceholder"] = "Search currencies..."
 L["CurrencyBrowser_Add"] = "Add"
 L["CurrencyBrowser_Refresh"] = "Refresh"
@@ -736,6 +738,7 @@ L["CurrencyBrowser_WarbandFilterTitle"] = "Show Warband currencies only"
 L["CurrencyBrowser_WarbandFilterText"] = "Filters to Warband transferable and Warband-wide currencies."
 L["CurrencyBrowser_WarbandFilterActive"] = "Showing Warband currencies"
 L["CurrencyBrowser_WarbandFilterDisable"] = "Click to show all currencies."
+L["ToDebugString"] = "ToDebugString"
 
 -- Custom Tasks
 L["CustomTasks_Title"] = "사용자 정의 작업"

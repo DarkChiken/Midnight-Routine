@@ -105,6 +105,7 @@ L["Config_ShowRow"] = "Click to show this row"
 L["Config_RowsCollapsed"] = "Completed rows collapsed — click to expand"
 L["Config_RowsShown"] = "Completed rows shown — click to collapse"
 L["Config_ExpandCollapseRows"] = "Expand/collapse rows"
+L["Config_Collapsed"] = "Collapsed"
 L["%d / %d complete"] = "%d / %d complete"
 
 -- WelcomeScreen
@@ -716,6 +717,7 @@ L["Currency_VoidlightMarl_Label"] = "|cffc792ffVoidlight Marl:|r"
 L["Currency_RestoredCofferKey_Label"] = "|cffe8c96eRestored Coffer Key:|r"
 L["Currency_SparkRadiance_Label"] = "|cffffb347Spark of Radiance:|r"
 L["Currency_Undercoin_Label"] = "|cffd8c36aUndercoin:|r"
+L["CurrencyBrowser_All"] = "ALL"
 L["CurrencyBrowser_SearchPlaceholder"] = "Search currencies..."
 L["CurrencyBrowser_Add"] = "Add"
 L["CurrencyBrowser_Refresh"] = "Refresh"
@@ -730,6 +732,7 @@ L["CurrencyBrowser_WarbandFilterTitle"] = "Show Warband currencies only"
 L["CurrencyBrowser_WarbandFilterText"] = "Filters to Warband transferable and Warband-wide currencies."
 L["CurrencyBrowser_WarbandFilterActive"] = "Showing Warband currencies"
 L["CurrencyBrowser_WarbandFilterDisable"] = "Click to show all currencies."
+L["ToDebugString"] = "ToDebugString"
 
 -- Custom Tasks
 L["CustomTasks_Title"] = "Custom Tasks"
