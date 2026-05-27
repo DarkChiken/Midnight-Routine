@@ -26,6 +26,8 @@ Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua
 Theme.lua
 Locales/Localization.xml
 Core.lua
+Core/Resets.lua
+Core/Warband.lua
 
 Modules/Activities.lua
 Modules/WeeklyTasks.lua
@@ -49,5 +51,6 @@ UI/WarbandBoard.lua
 UI/CustomTaskDialogs.lua
 UI/EncounterJournalOverlay.lua
 UI.lua
+UI/Config.lua
 WelcomeScreen.lua
 MinimapButton.lua
