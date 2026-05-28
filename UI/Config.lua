@@ -24,7 +24,12 @@ local OptionsCheckbox = ns.OptionsCheckbox
 local OptionsBtn = ns.OptionsBtn
 local OptionsSlider = ns.OptionsSlider
 local OptionsColorSwatch = ns.OptionsColorSwatch
-local ApplyBackgroundTexture = ns.ApplyBackgroundTexture
+local ApplyBackgroundTexture    = ns.ApplyBackgroundTexture
+local hex                       = ns.Hex
+local GetMainHeaderPosition     = ns.GetMainHeaderPosition
+local IsAnimatedMinimizeEnabled = ns.IsAnimatedMinimizeEnabled
+local ApplyMainFrameLayout      = ns.ApplyMainFrameLayout
+local RestoreFramePos           = ns.RestoreManagedFramePos or ns.RestoreFramePos
 
 local function GetFontSize()
     if type(ns.GetFontSize) == "function" then
@@ -1789,11 +1794,3 @@ function MR:RepopulateConfigFrame()
         self:PopulateConfigFrame(cfgFrame)
     end
 end
-
-
-
-
-
-
-
-

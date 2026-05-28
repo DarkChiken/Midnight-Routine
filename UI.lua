@@ -2609,6 +2609,10 @@ local function ApplyMainFrameLayout(frame, preserveScreenPosition)
     ApplyMainFrameAnchor(frame, GetMainHeaderPosition(), preserveScreenPosition == true)
 end
 
+ns.GetMainHeaderPosition     = GetMainHeaderPosition
+ns.IsAnimatedMinimizeEnabled = IsAnimatedMinimizeEnabled
+ns.ApplyMainFrameLayout      = ApplyMainFrameLayout
+
 local function SetMainFrameChromeVisible(visible)
     if MR.scroll then MR.scroll:SetShown(visible) end
     if MR._scrollBg then MR._scrollBg:SetShown(visible) end
@@ -4612,4 +4616,3 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     table.insert(widgetBucket, rowFrame)
     return yOff + rowH
 end
-
