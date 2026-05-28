@@ -2140,7 +2140,7 @@ function MR:RefreshWarbandBoard()
                     GameTooltip:Show()
                 end)
                 row:SetScript("OnLeave", function(selfRow)
-                    HideTooltipIfOwned(selfRow)
+                    if GameTooltip:GetOwner() == selfRow then GameTooltip:Hide() end
                 end)
 
                 table.insert(frame.detailWidgets, row)
