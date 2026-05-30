@@ -264,6 +264,10 @@ local function FormatQuestMoneyReward(copper)
     return string.format("%dg", math.floor(copper / 10000))
 end
 
+local QUEST_REWARD_CACHE = {}
+local QUEST_REWARD_MAX_ATTEMPTS = 3
+local QUEST_REWARD_RETRY_SECONDS = 6
+
 local function HasLoadedQuestRewardData(questId)
     if HaveQuestRewardData then
         local ok, loaded = pcall(HaveQuestRewardData, questId)
@@ -326,6 +330,44 @@ local function GetQuestMoneyReward(questId)
     return 0
 end
 
+local function GetCachedQuestMoneyReward(questId)
+    questId = tonumber(questId)
+    if not questId then
+        return 0, false
+    end
+
+    local cached = QUEST_REWARD_CACHE[questId]
+    if cached and cached.loaded then
+        return cached.money or 0, false
+    end
+
+    if HasLoadedQuestRewardData(questId) then
+        local money = GetQuestMoneyReward(questId)
+        QUEST_REWARD_CACHE[questId] = {
+            loaded = true,
+            money = money,
+        }
+        return money, false
+    end
+
+    cached = cached or { attempts = 0 }
+    QUEST_REWARD_CACHE[questId] = cached
+
+    local now = GetTime and GetTime() or 0
+    if (cached.attempts or 0) >= QUEST_REWARD_MAX_ATTEMPTS then
+        return cached.money or 0, false
+    end
+
+    if not cached.nextRequestAt or now >= cached.nextRequestAt then
+        cached.attempts = (cached.attempts or 0) + 1
+        cached.nextRequestAt = now + QUEST_REWARD_RETRY_SECONDS
+        RequestQuestRewardData(questId)
+        return cached.money or 0, true
+    end
+
+    return cached.money or 0, false
+end
+
 local function GetQuestRewardSummary(questIds)
     if type(questIds) ~= "table" or #questIds == 0 then
         return 0, false
@@ -335,11 +377,10 @@ local function GetQuestRewardSummary(questIds)
     local pending = false
 
     for _, questId in ipairs(questIds) do
-        if not HasLoadedQuestRewardData(questId) then
+        local money, requested = GetCachedQuestMoneyReward(questId)
+        totalMoney = totalMoney + money
+        if requested then
             pending = true
-            RequestQuestRewardData(questId)
-        else
-            totalMoney = totalMoney + GetQuestMoneyReward(questId)
         end
     end
 
