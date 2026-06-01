@@ -8,6 +8,8 @@ local DAILY_HEADER_KEY = "__custom_task_daily_header"
 local WEEKLY_HEADER_KEY = "__custom_task_weekly_header"
 local DAILY_ADD_ROW_KEY = "__custom_task_add_daily"
 local WEEKLY_ADD_ROW_KEY = "__custom_task_add_weekly"
+local TASK_SCOPE_CHARACTER = "character"
+local TASK_SCOPE_SHARED = "shared"
 
 local function TrimText(value)
     value = tostring(value or "")
@@ -15,9 +17,26 @@ local function TrimText(value)
     return value
 end
 
-local function GetTaskStorage()
+local function Text(key, fallback)
+    local value = L[key]
+    return (value and value ~= key) and value or fallback
+end
+
+local function NormalizeTaskScope(scope)
+    return scope == TASK_SCOPE_SHARED and TASK_SCOPE_SHARED or TASK_SCOPE_CHARACTER
+end
+
+local function GetTaskStorage(scope)
     if not (MR and MR.db and MR.db.char) then
         return nil
+    end
+
+    scope = NormalizeTaskScope(scope)
+    if scope == TASK_SCOPE_SHARED then
+        MR.db.global = MR.db.global or {}
+        MR.db.global.customTasks = MR.db.global.customTasks or {}
+        MR.db.global.customTaskNextId = tonumber(MR.db.global.customTaskNextId) or 1
+        return MR.db.global.customTasks
     end
 
     MR.db.char.customTasks = MR.db.char.customTasks or {}
@@ -25,8 +44,13 @@ local function GetTaskStorage()
     return MR.db.char.customTasks
 end
 
-local function GetTaskRowKey(taskId)
-    return ("task_%s"):format(tostring(taskId))
+local function GetTaskRowKey(taskId, scope)
+    local prefix = NormalizeTaskScope(scope) == TASK_SCOPE_SHARED and "shared_task" or "task"
+    return ("%s_%s"):format(prefix, tostring(taskId))
+end
+
+local function GetTaskProgressKey(taskId, scope)
+    return GetTaskRowKey(taskId, scope)
 end
 
 local function NormalizeResetType(resetType)
@@ -130,10 +154,10 @@ local function CountTrackedDifficulties(task)
     return n
 end
 
-local function GetDiffProgress(self, taskId)
+local function GetDiffProgress(self, taskId, scope)
     if not self.db or not self.db.char then return {} end
     self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
-    local key = tostring(taskId)
+    local key = GetTaskProgressKey(taskId, scope)
     self.db.char.customTaskDiffProgress[key] = self.db.char.customTaskDiffProgress[key] or {}
     return self.db.char.customTaskDiffProgress[key]
 end
@@ -411,12 +435,23 @@ local function SortTasks(tasks)
     end)
 end
 
-function MR:GetCustomTaskRowKey(taskId)
-    return GetTaskRowKey(taskId)
+function MR:GetCustomTaskRowKey(taskId, scope)
+    return GetTaskRowKey(taskId, scope)
 end
 
 function MR:GetCustomTasks()
-    local tasks = GetTaskStorage() or {}
+    local tasks = {}
+
+    local function appendTasks(storage, scope)
+        for _, task in ipairs(storage or {}) do
+            tasks[#tasks + 1] = task
+            task.scope = scope
+        end
+    end
+
+    appendTasks(GetTaskStorage(TASK_SCOPE_CHARACTER), TASK_SCOPE_CHARACTER)
+    appendTasks(GetTaskStorage(TASK_SCOPE_SHARED), TASK_SCOPE_SHARED)
+
     for index, task in ipairs(tasks) do
         task.id = tonumber(task.id) or index
         task.label = TrimText(task.label ~= "" and task.label or (L["CustomTasks_Untitled"] or "Untitled Task"))
@@ -425,6 +460,7 @@ function MR:GetCustomTasks()
         task.questIds = NormalizeQuestIds(task.questIds or task.questId)
         task.encounterIds = NormalizeEncounterIds(task.encounterIds)
         task.resetType = ResolveQuestResetType(task.questIds, task.resetType)
+        task.scope = NormalizeTaskScope(task.scope)
         task.allowManualQuestClicks = NormalizeBoolean(task.allowManualQuestClicks)
         task.autoUpdateInstances = NormalizeBoolean(task.autoUpdateInstances)
         task.encounterDifficulties = NormalizeEncounterDifficulties(task.encounterDifficulties)
@@ -462,14 +498,14 @@ function MR:SetCustomTasksTitle(title)
     return true
 end
 
-function MR:GetCustomTaskById(taskId)
+function MR:GetCustomTaskById(taskId, scope)
     taskId = tonumber(taskId)
     if not taskId then
         return nil
     end
 
     for _, task in ipairs(self:GetCustomTasks()) do
-        if tonumber(task.id) == taskId then
+        if tonumber(task.id) == taskId and (scope == nil or NormalizeTaskScope(task.scope) == NormalizeTaskScope(scope)) then
             return task
         end
     end
@@ -494,7 +530,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
     local addRowVisible = MR:IsRowEnabled(CUSTOM_MODULE_KEY, addKey)
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
-            if tonumber(MR:GetProgress(CUSTOM_MODULE_KEY, GetTaskRowKey(task.id))) >= NormalizeTaskMax(task.max) then
+            if tonumber(MR:GetProgress(CUSTOM_MODULE_KEY, GetTaskRowKey(task.id, task.scope))) >= NormalizeTaskMax(task.max) then
                 doneCount = doneCount + 1
             end
         end
@@ -525,10 +561,14 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
         if NormalizeResetType(task.resetType) == resetType then
             local taskId = tonumber(task.id)
             if taskId then
-                local rowKey = GetTaskRowKey(taskId)
+                local taskScope = NormalizeTaskScope(task.scope)
+                local rowKey = GetTaskRowKey(taskId, taskScope)
                 local resetLabel = (resetType == "daily")
                     and (L["CustomTasks_ResetDaily"] or "Daily reset")
                     or (L["CustomTasks_ResetWeekly"] or "Weekly reset")
+                local scopeLabel = (taskScope == TASK_SCOPE_SHARED)
+                    and Text("CustomTasks_SharedScope", "All alts")
+                    or Text("CustomTasks_CharacterScope", "This character")
                 local questIds = NormalizeQuestIds(task.questIds)
                 local questIdText = BuildQuestIdsText(questIds)
                 local rewardCopper = GetQuestRewardSummary(questIds)
@@ -569,6 +609,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                             or (L["CustomTasks_TaskNote"] or "Left-click the checkbox to toggle. Shift-left-click to rename. Shift-right-click to delete.")
                     )
                 end
+                noteText = string.format("%s\n%s", scopeLabel, noteText)
                 local effectiveMax = task.max
                 local diffCount = CountTrackedDifficulties(task)
                 if diffCount >= 2 then effectiveMax = diffCount end
@@ -586,9 +627,11 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     autoUpdateInstances = task.autoUpdateInstances,
                     encounterDifficulties = task.encounterDifficulties,
                     taskId = task.id,
+                    taskScope = taskScope,
                     noDefaultTooltipHint = true,
                     tooltipFunc = function(tip)
                         tip:AddLine(" ")
+                        tip:AddLine(scopeLabel, 0.72, 0.80, 1.00, true)
                         tip:AddLine(resetLabel, 0.80, 0.90, 1.00, true)
                         if encounterIds then
                             tip:AddLine(
@@ -625,14 +668,14 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     end,
                     onLeftClick = function(row)
                         if IsShiftKeyDown() and MR.ShowCustomTaskDialog then
-                            MR:ShowCustomTaskDialog(taskId)
+                            MR:ShowCustomTaskDialog(taskId, nil, taskScope)
                             return true
                         end
                         return false
                     end,
                     onRightClick = function(row)
                         if IsShiftKeyDown() then
-                            MR:DeleteCustomTask(taskId)
+                            MR:DeleteCustomTask(taskId, taskScope)
                             return true
                         end
                         return false
@@ -666,8 +709,9 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
     }
 end
 
-function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties)
-    local tasks = GetTaskStorage()
+function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties, scope)
+    scope = NormalizeTaskScope(scope)
+    local tasks = GetTaskStorage(scope)
     local cleanLabel = TrimText(label)
     if not tasks or cleanLabel == "" then
         return nil
@@ -680,11 +724,19 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
     autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
     encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
 
-    local taskId = tonumber(self.db.char.customTaskNextId) or 1
-    self.db.char.customTaskNextId = taskId + 1
+    local taskId
+    if scope == TASK_SCOPE_SHARED then
+        self.db.global = self.db.global or {}
+        taskId = tonumber(self.db.global.customTaskNextId) or 1
+        self.db.global.customTaskNextId = taskId + 1
+    else
+        taskId = tonumber(self.db.char.customTaskNextId) or 1
+        self.db.char.customTaskNextId = taskId + 1
+    end
 
     tasks[#tasks + 1] = {
         id = taskId,
+        scope = scope,
         label = cleanLabel,
         max = NormalizeTaskMax(maxValue),
         order = #tasks + 1,
@@ -703,11 +755,54 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
     return taskId
 end
 
-function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties)
-    local task = self:GetCustomTaskById(taskId)
+function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties, scope, originalScope)
+    scope = NormalizeTaskScope(scope)
+    originalScope = NormalizeTaskScope(originalScope or scope)
+    local task = self:GetCustomTaskById(taskId, originalScope)
     local cleanLabel = TrimText(label)
     if not task or cleanLabel == "" then
         return false
+    end
+
+    local oldScope = NormalizeTaskScope(task.scope)
+    local oldTaskId = task.id
+    local oldRowKey = GetTaskRowKey(oldTaskId, oldScope)
+    if oldScope ~= scope then
+        local oldTasks = GetTaskStorage(oldScope)
+        local newTasks = GetTaskStorage(scope)
+        if not oldTasks or not newTasks then
+            return false
+        end
+
+        for index = #oldTasks, 1, -1 do
+            if oldTasks[index] == task then
+                table.remove(oldTasks, index)
+                break
+            end
+        end
+
+        if scope == TASK_SCOPE_SHARED then
+            self.db.global = self.db.global or {}
+            task.id = tonumber(self.db.global.customTaskNextId) or 1
+            self.db.global.customTaskNextId = task.id + 1
+        else
+            task.id = tonumber(self.db.char.customTaskNextId) or 1
+            self.db.char.customTaskNextId = task.id + 1
+        end
+
+        task.order = #newTasks + 1
+        newTasks[#newTasks + 1] = task
+
+        if self.db.char.progress and self.db.char.progress[CUSTOM_MODULE_KEY] then
+            self.db.char.progress[CUSTOM_MODULE_KEY][oldRowKey] = nil
+        end
+        if self.db.char.manualOverrides and self.db.char.manualOverrides[CUSTOM_MODULE_KEY] then
+            self.db.char.manualOverrides[CUSTOM_MODULE_KEY][oldRowKey] = nil
+        end
+        if self.db.char.customTaskDiffProgress then
+            self.db.char.customTaskDiffProgress[oldRowKey] = nil
+            self.db.char.customTaskDiffProgress[tostring(oldTaskId)] = nil
+        end
     end
 
     questIds = NormalizeQuestIds(questIds)
@@ -716,6 +811,7 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
     autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
     task.label = cleanLabel
+    task.scope = scope
     task.resetType = resetType
     task.max = NormalizeTaskMax(maxValue)
     task.questIds = questIds
@@ -730,13 +826,13 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     return true
 end
 
-function MR:ToggleCustomTask(taskId)
-    local task = self:GetCustomTaskById(taskId)
+function MR:ToggleCustomTask(taskId, scope)
+    local task = self:GetCustomTaskById(taskId, scope)
     if not task then
         return false
     end
 
-    local rowKey = GetTaskRowKey(task.id)
+    local rowKey = GetTaskRowKey(task.id, task.scope)
     local cur = tonumber(self:GetProgress(CUSTOM_MODULE_KEY, rowKey)) or 0
     self:SetProgress(CUSTOM_MODULE_KEY, rowKey, cur >= 1 and 0 or 1, 1, task.autoUpdateInstances == true)
     return true
@@ -754,16 +850,20 @@ function MR:ResetCustomTasksByType(resetType)
     local diffProg = self.db and self.db.char and self.db.char.customTaskDiffProgress
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
-            local rowKey = GetTaskRowKey(task.id)
+            local rowKey = GetTaskRowKey(task.id, task.scope)
             if progress then progress[rowKey] = nil end
             if overrides then overrides[rowKey] = nil end
-            if diffProg then diffProg[tostring(task.id)] = nil end
+            if diffProg then
+                diffProg[tostring(task.id)] = nil
+                diffProg[GetTaskProgressKey(task.id, task.scope)] = nil
+            end
         end
     end
 end
 
-function MR:DeleteCustomTask(taskId)
-    local tasks = GetTaskStorage()
+function MR:DeleteCustomTask(taskId, scope)
+    scope = NormalizeTaskScope(scope)
+    local tasks = GetTaskStorage(scope)
     taskId = tonumber(taskId)
     if not tasks or not taskId then
         return false
@@ -784,6 +884,7 @@ function MR:DeleteCustomTask(taskId)
 
     if self.db and self.db.char and self.db.char.customTaskDiffProgress then
         self.db.char.customTaskDiffProgress[tostring(taskId)] = nil
+        self.db.char.customTaskDiffProgress[GetTaskProgressKey(taskId, scope)] = nil
     end
 
     SortTasks(tasks)
@@ -791,7 +892,7 @@ function MR:DeleteCustomTask(taskId)
         task.order = index
     end
 
-    local rowKey = GetTaskRowKey(taskId)
+    local rowKey = GetTaskRowKey(taskId, scope)
     if self.db.char.progress and self.db.char.progress[CUSTOM_MODULE_KEY] then
         self.db.char.progress[CUSTOM_MODULE_KEY][rowKey] = nil
     end
@@ -895,7 +996,7 @@ function MR:RefreshEncounterProgress(encounterId, refreshUI, difficultyId)
                     local cur = progress[mod.key][row.key] or 0
                     local maxVal = row.max or 1
                     if difficultyId and row.taskId then
-                        local diffState = GetDiffProgress(self, row.taskId)
+                        local diffState = GetDiffProgress(self, row.taskId, row.taskScope)
                         if not diffState[difficultyId] then
                             diffState[difficultyId] = true
                             if cur < maxVal then

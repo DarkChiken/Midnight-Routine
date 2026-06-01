@@ -570,7 +570,10 @@ local function MainStatusButtonOnClick(selfBtn)
     local row = data.row
     local mod = data.mod
     if row.toggleStatus and MR.ToggleCustomTask and mod.key == "custom_tasks" then
-        MR:ToggleCustomTask(tonumber((row.key or ""):match("task_(%d+)")))
+        local rowKey = row.key or ""
+        local scope = row.taskScope or (rowKey:match("^shared_task_") and "shared" or "character")
+        local taskId = tonumber(rowKey:match("^shared_task_(%d+)") or rowKey:match("^task_(%d+)"))
+        MR:ToggleCustomTask(taskId, scope)
         return
     end
 
@@ -4411,7 +4414,10 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
     if statusBtn:GetObjectType() == "Button" then
         statusBtn:SetScript("OnClick", function()
             if row.toggleStatus and MR.ToggleCustomTask and mod.key == "custom_tasks" then
-                MR:ToggleCustomTask(tonumber((row.key or ""):match("task_(%d+)")))
+                local rowKey = row.key or ""
+                local scope = row.taskScope or (rowKey:match("^shared_task_") and "shared" or "character")
+                local taskId = tonumber(rowKey:match("^shared_task_(%d+)") or rowKey:match("^task_(%d+)"))
+                MR:ToggleCustomTask(taskId, scope)
                 return
             end
             local cur = MR:GetManualOverride(mod.key, row.key)

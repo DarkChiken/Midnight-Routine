@@ -13,6 +13,10 @@ end
 local function GetLocaleFont()
     return (ns.GetDefaultFontTexture and ns.GetDefaultFontTexture()) or "Fonts\\FRIZQT__.TTF"
 end
+local function Text(key, fallback)
+    local value = L[key]
+    return (value and value ~= key) and value or fallback
+end
 local function RefreshFonts()
     if ns.EnsureFonts then
         FONT_HEADERS, FONT_ROWS = ns.EnsureFonts()
@@ -47,7 +51,7 @@ local function ApplyCustomTaskDialogTheme(frame)
     local editFont  = math.max(9,  fontSize)
 
 
-    frame:SetSize(400, 460)
+    frame:SetSize(400, 486)
 
     local function sf(fs, size) if fs then fs:SetFont(FONT_ROWS, size, GetFontFlags()) end end
     sf(frame.title,           math.max(10, fontSize + 1))
@@ -63,7 +67,7 @@ local function ApplyCustomTaskDialogTheme(frame)
 
     if frame.title then frame.title:SetFont(FONT_HEADERS, math.max(10, fontSize + 1), GetFontFlags()) end
 
-    local checks = { frame.weeklyCheck, frame.dailyCheck, frame.manualQuestCheck, frame.autoUpdateCheck }
+    local checks = { frame.weeklyCheck, frame.dailyCheck, frame.manualQuestCheck, frame.autoUpdateCheck, frame.sharedTaskCheck }
     for _, cb in ipairs(checks) do
         if cb and cb._text then cb._text:SetFont(FONT_ROWS, rowFont, GetFontFlags()) end
     end
@@ -141,7 +145,7 @@ local function EnsureCustomTaskDialog()
     local LH   = 14
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(400, 460)
+    frame:SetSize(400, 486)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(80)
     frame:SetClampedToScreen(true)
@@ -389,6 +393,20 @@ local function EnsureCustomTaskDialog()
     frame.autoUpdateCheck = autoUpdateCheck
     frame.autoUpdateHint  = frame:CreateFontString(nil, "OVERLAY")
 
+    local sharedTaskCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    sharedTaskCheck:SetSize(20, 20)
+    sharedTaskCheck:SetPoint("TOPLEFT", autoUpdateCheck, "BOTTOMLEFT", 0, -4)
+    local sharedTaskText = frame:CreateFontString(nil, "OVERLAY")
+    sharedTaskText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    sharedTaskText:SetPoint("LEFT", sharedTaskCheck, "RIGHT", 2, 0)
+    sharedTaskText:SetText(Text("CustomTasks_SharedTask", "Show on all alts"))
+    sharedTaskText:SetTextColor(0.84, 0.90, 0.96)
+    sharedTaskCheck._text = sharedTaskText
+    sharedTaskCheck:SetScript("OnClick", function(selfBtn)
+        frame.taskScope = selfBtn:GetChecked() and "shared" or "character"
+    end)
+    frame.sharedTaskCheck = sharedTaskCheck
+
 
     local function CreateDialogButton(width, label, color, borderColor)
         local btn = CreateFrame("Button", nil, frame, "BackdropTemplate")
@@ -423,7 +441,7 @@ local function EnsureCustomTaskDialog()
 
     cancelBtn:SetScript("OnClick", function() frame:Hide() end)
     deleteBtn:SetScript("OnClick", function()
-        if frame.taskId then MR:DeleteCustomTask(frame.taskId) end
+        if frame.taskId then MR:DeleteCustomTask(frame.taskId, frame.originalTaskScope or frame.taskScope) end
         frame:Hide()
     end)
     frame.saveBtn   = saveBtn
@@ -519,9 +537,9 @@ local function EnsureCustomTaskDialog()
         end
 
         if self.taskId then
-            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties)
+            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties, self.taskScope, self.originalTaskScope)
         else
-            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties)
+            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties, self.taskScope)
         end
         self:Hide()
     end
@@ -539,11 +557,14 @@ local function EnsureCustomTaskDialog()
 end
 
 
-function MR:ShowCustomTaskDialog(taskId, presetResetType)
+function MR:ShowCustomTaskDialog(taskId, presetResetType, taskScope)
     local dialog = EnsureCustomTaskDialog()
-    local task = taskId and self.GetCustomTaskById and self:GetCustomTaskById(taskId) or nil
+    taskScope = taskScope == "shared" and "shared" or "character"
+    local task = taskId and self.GetCustomTaskById and self:GetCustomTaskById(taskId, taskScope) or nil
 
     dialog.taskId = task and task.id or nil
+    dialog.taskScope = (task and task.scope) or taskScope
+    dialog.originalTaskScope = dialog.taskScope
     dialog.resetType = (task and task.resetType) or presetResetType or "weekly"
     dialog.title:SetText(task and (L["CustomTasks_EditTitle"] or "Edit Custom Task") or (L["CustomTasks_AddTitle"] or "Add Custom Task"))
     dialog.input:SetText(task and task.label or "")
@@ -554,6 +575,9 @@ function MR:ShowCustomTaskDialog(taskId, presetResetType)
     dialog.autoUpdateInstances = task and task.autoUpdateInstances or false
     if dialog.autoUpdateCheck then
         dialog.autoUpdateCheck:SetChecked(dialog.autoUpdateInstances)
+    end
+    if dialog.sharedTaskCheck then
+        dialog.sharedTaskCheck:SetChecked(dialog.taskScope == "shared")
     end
 
     local storedDiffs = task and task.encounterDifficulties or nil
