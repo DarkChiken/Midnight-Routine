@@ -195,6 +195,111 @@ local function GetRareKillStatus(questId)
     return (rec.d == GetCurrentDayKey()) and "today" or "week"
 end
 
+local function GetStoredRareKillStatus(charData, questId, weekKey, dayKey)
+    if type(charData) ~= "table" or type(charData.raresKills) ~= "table" or not questId then
+        return nil
+    end
+
+    local rec = charData.raresKills[tostring(questId)]
+    if type(rec) ~= "table" or rec.w ~= weekKey then
+        return nil
+    end
+
+    return (rec.d == dayKey) and "today" or "week"
+end
+
+local function GetCharacterTooltipName(charKey, charData, currentKey)
+    local name = type(charKey) == "string" and charKey:match("^(.-)%s%-%s.+$") or nil
+    name = name or tostring(charKey or L["Unknown"] or "Unknown")
+
+    if charKey == currentKey then
+        name = string.format("%s (%s)", name, L["AltBoard_Current"] or "Current")
+    end
+
+    local classColor = charData and charData.classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[charData.classFile]
+    if classColor and classColor.colorStr then
+        return string.format("|c%s%s|r", classColor.colorStr, name)
+    end
+
+    return name
+end
+
+local function GetWarbandRareStatuses(questId)
+    local svChars = MR.db and MR.db.sv and MR.db.sv.char
+    if type(svChars) ~= "table" or not questId then
+        return nil, 0, 0
+    end
+
+    local weekKey = MR:GetCurrentWeekKey()
+    if not weekKey or weekKey == 0 then
+        return nil, 0, 0
+    end
+
+    local dayKey = GetCurrentDayKey()
+    local currentKey = MR.GetCurrentCharacterKey and MR:GetCurrentCharacterKey() or nil
+    local hiddenChars = (MR.db and MR.db.profile and MR.db.profile.altBoardHiddenCharacters) or {}
+    local showHidden = MR.db and MR.db.profile and MR.db.profile.altBoardShowHidden == true
+    local weeklyReset = MR.GetLastResetTimestamp and MR:GetLastResetTimestamp() or 0
+    local rows, killed = {}, 0
+
+    for charKey, charData in pairs(svChars) do
+        if type(charData) == "table" and (showHidden or not hiddenChars[charKey]) then
+            local status = GetStoredRareKillStatus(charData, questId, weekKey, dayKey)
+            local lastSyncAt = tonumber(charData.lastSyncAt) or 0
+            local stale = weeklyReset > 0 and lastSyncAt > 0 and lastSyncAt < weeklyReset
+            if status then
+                killed = killed + 1
+            end
+
+            rows[#rows + 1] = {
+                key = charKey,
+                name = GetCharacterTooltipName(charKey, charData, currentKey),
+                status = status,
+                stale = stale,
+                current = charKey == currentKey,
+            }
+        end
+    end
+
+    table.sort(rows, function(a, b)
+        if a.current ~= b.current then return a.current end
+        if (a.status ~= nil) ~= (b.status ~= nil) then return a.status ~= nil end
+        if a.status ~= b.status then
+            if a.status == "today" then return true end
+            if b.status == "today" then return false end
+            if a.status == "week" then return true end
+            if b.status == "week" then return false end
+        end
+        if a.stale ~= b.stale then return not a.stale end
+        return (a.key or "") < (b.key or "")
+    end)
+
+    return rows, killed, #rows
+end
+
+local function AddWarbandRareTooltipLines(tip, questId)
+    local rows, killed, total = GetWarbandRareStatuses(questId)
+    if not rows or total <= 0 then
+        return
+    end
+
+    local headerText = L["Rares_Tooltip_WarbandHeader"] or "Warband: %d/%d killed this week"
+    tip:AddLine(" ")
+    tip:AddLine(string.format(headerText, killed, total), 0.65, 0.90, 1)
+
+    for _, row in ipairs(rows) do
+        if row.status == "today" then
+            tip:AddDoubleLine(row.name, L["Rares_Tooltip_WarbandToday"] or "Killed today", 0.90, 0.90, 0.90, 0.20, 0.85, 0.45)
+        elseif row.status == "week" then
+            tip:AddDoubleLine(row.name, L["Rares_Tooltip_WarbandWeek"] or "Killed this week", 0.90, 0.90, 0.90, 0.85, 0.65, 0.10)
+        elseif row.stale then
+            tip:AddDoubleLine(row.name, L["Rares_Tooltip_WarbandStale"] or "Needs login", 0.65, 0.65, 0.65, 0.70, 0.70, 0.70)
+        else
+            tip:AddDoubleLine(row.name, L["Rares_Tooltip_WarbandNotKilled"] or "Not killed", 0.90, 0.90, 0.90, 0.50, 0.50, 0.50)
+        end
+    end
+end
+
 local function GetZoneColor(zone)
     local db = MR.db and MR.db.profile or {}
     if db.raresColors and db.raresColors[zone.key] then
@@ -766,6 +871,7 @@ BuildRaresFrame = function()
                 else
                     GameTooltip:AddLine(L["Rares_Tooltip_NotKilled"], 0.50, 0.50, 0.50)
                 end
+                AddWarbandRareTooltipLines(GameTooltip, questId)
                 if rare[3] and rare[4] and rare[5] then
                     GameTooltip:AddLine(" ")
                     GameTooltip:AddLine(L["Gathering_ClickWaypoint"], 0.45, 0.85, 1)
