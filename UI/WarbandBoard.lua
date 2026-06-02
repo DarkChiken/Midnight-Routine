@@ -81,17 +81,17 @@ local function WBApplySurface(frame, variant, alpha)
     end
 
     if variant == "panel" then
-        frame:SetBackdropColor(0.025, 0.045, 0.080, alpha or 0.98)
-        frame:SetBackdropBorderColor(0.12, 0.22, 0.32, 0.95)
+        frame:SetBackdropColor(0.018, 0.030, 0.050, alpha or 0.96)
+        frame:SetBackdropBorderColor(0.10, 0.16, 0.24, 0.72)
     elseif variant == "raised" then
-        frame:SetBackdropColor(0.040, 0.075, 0.125, alpha or 0.98)
-        frame:SetBackdropBorderColor(0.16, 0.30, 0.40, 0.95)
+        frame:SetBackdropColor(0.030, 0.055, 0.085, alpha or 0.96)
+        frame:SetBackdropBorderColor(0.16, 0.26, 0.34, 0.78)
     elseif variant == "soft" then
-        frame:SetBackdropColor(0.030, 0.055, 0.095, alpha or 0.94)
-        frame:SetBackdropBorderColor(0.08, 0.16, 0.24, 0.80)
+        frame:SetBackdropColor(0.022, 0.038, 0.060, alpha or 0.92)
+        frame:SetBackdropBorderColor(0.07, 0.12, 0.18, 0.62)
     else
-        frame:SetBackdropColor(0.018, 0.030, 0.055, alpha or 0.98)
-        frame:SetBackdropBorderColor(0.10, 0.18, 0.26, 0.90)
+        frame:SetBackdropColor(0.014, 0.024, 0.042, alpha or 0.98)
+        frame:SetBackdropBorderColor(0.08, 0.13, 0.20, 0.76)
     end
 end
 
@@ -100,10 +100,10 @@ local function WBStylePillButton(btn, active)
         return
     end
 
-    btn:SetBackdropColor(active and 0.07 or 0.035, active and 0.17 or 0.075, active and 0.23 or 0.12, active and 0.98 or 0.92)
-    btn:SetBackdropBorderColor(active and 0.24 or 0.13, active and 0.82 or 0.32, active and 0.70 or 0.38, active and 1 or 0.88)
+    btn:SetBackdropColor(active and 0.045 or 0.024, active and 0.095 or 0.050, active and 0.130 or 0.080, active and 0.96 or 0.88)
+    btn:SetBackdropBorderColor(active and 0.20 or 0.10, active and 0.62 or 0.24, active and 0.56 or 0.30, active and 0.95 or 0.70)
     if btn._label then
-        btn._label:SetTextColor(active and 0.92 or 0.68, active and 1.00 or 0.84, active and 0.96 or 0.84)
+        btn._label:SetTextColor(active and 0.88 or 0.62, active and 0.96 or 0.76, active and 0.92 or 0.78)
     end
 end
 
@@ -115,9 +115,9 @@ local function WBAddSoftSheen(frame, r, g, b, alpha)
     local tex = frame:CreateTexture(nil, "BACKGROUND")
     tex:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
     tex:SetPoint("RIGHT", frame, "RIGHT", -1, 0)
-    tex:SetHeight(28)
+    tex:SetHeight(24)
     tex:SetTexture("Interface\\Buttons\\WHITE8X8")
-    tex:SetColorTexture(r or 0.10, g or 0.20, b or 0.30, alpha or 0.12)
+    tex:SetColorTexture(r or 0.10, g or 0.20, b or 0.30, alpha or 0.07)
     return tex
 end
 
@@ -1639,6 +1639,7 @@ function MR:RefreshWarbandBoard()
         frame.leftPane:ClearAllPoints()
         frame.leftPane:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -76)
         frame.leftPane:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 14)
+        frame.leftPane:SetWidth(238)
     end
 
     local data = self:GetWarbandWeeklyData()
@@ -1736,62 +1737,75 @@ function MR:RefreshWarbandBoard()
 
     for index, entry in ipairs(data) do
         local btn = CreateFrame("Button", nil, frame.charRail, "BackdropTemplate")
-        btn:SetSize(204, 54)
-        btn:SetPoint("TOPLEFT", frame.charRail, "TOPLEFT", 0, -((index - 1) * 60))
+        btn:SetSize(216, 66)
+        btn:SetPoint("TOPLEFT", frame.charRail, "TOPLEFT", 0, -((index - 1) * 72))
         btn:SetBackdrop(MakeBackdrop())
 
         local isSelected = (selected.key == entry.key)
         local sr, sg, sb = WBClassColor(entry)
         if isSelected then
-            btn:SetBackdropColor(0.055, 0.120, 0.185, 0.99)
-            btn:SetBackdropBorderColor(sr, sg, sb, 0.95)
+            btn:SetBackdropColor(0.034 + sr * 0.035, 0.050 + sg * 0.035, 0.070 + sb * 0.035, 0.98)
+            btn:SetBackdropBorderColor(sr * 0.52, sg * 0.52, sb * 0.52, 0.90)
         else
-            btn:SetBackdropColor(0.025, 0.050, 0.090, 0.94)
-            btn:SetBackdropBorderColor(0.08, 0.16, 0.24, 0.78)
+            btn:SetBackdropColor(0.018, 0.032, 0.052, 0.90)
+            btn:SetBackdropBorderColor(0.07, 0.12, 0.18, 0.56)
         end
 
-        WBAddSoftSheen(btn, sr, sg, sb, isSelected and 0.16 or 0.06)
+        WBAddSoftSheen(btn, sr, sg, sb, isSelected and 0.10 or 0.025)
 
         local accent = btn:CreateTexture(nil, "ARTWORK")
         accent:SetPoint("TOPLEFT")
         accent:SetPoint("BOTTOMLEFT")
-        accent:SetWidth(isSelected and 4 or 3)
-        accent:SetColorTexture(sr, sg, sb, 1)
+        accent:SetWidth(isSelected and 3 or 2)
+        accent:SetColorTexture(sr, sg, sb, isSelected and 0.92 or 0.62)
 
         local progressBg = btn:CreateTexture(nil, "BACKGROUND", nil, 1)
-        progressBg:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 10, 7)
-        progressBg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -34, 7)
+        progressBg:SetPoint("BOTTOMLEFT", btn, "BOTTOMLEFT", 12, 8)
+        progressBg:SetPoint("BOTTOMRIGHT", btn, "BOTTOMRIGHT", -34, 8)
         progressBg:SetHeight(3)
-        progressBg:SetColorTexture(0.07, 0.10, 0.14, 0.95)
+        progressBg:SetColorTexture(0.07, 0.09, 0.12, 0.82)
 
         local progressFill = btn:CreateTexture(nil, "ARTWORK")
         progressFill:SetPoint("LEFT", progressBg, "LEFT", 0, 0)
         progressFill:SetHeight(3)
         local pr, pg, pb = countColor(entry.doneRows, math.max(entry.totalRows, 1))
-        progressFill:SetColorTexture(pr, pg, pb, 1)
-        progressFill:SetWidth(math.max(1, (160 * math.min(1, entry.doneRows / math.max(entry.totalRows, 1)))))
+        progressFill:SetColorTexture(pr, pg, pb, 0.92)
+        progressFill:SetWidth(math.max(1, (170 * math.min(1, entry.doneRows / math.max(entry.totalRows, 1)))))
 
         local name = btn:CreateFontString(nil, "OVERLAY")
         name:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
-        name:SetPoint("TOPLEFT", btn, "TOPLEFT", 12, -8)
+        name:SetPoint("TOPLEFT", btn, "TOPLEFT", 13, -8)
         name:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -34, -7)
         name:SetJustifyH("LEFT")
         name:SetText(entry.isCurrent and (entry.name .. "  |cff7ce7d8" .. (L["AltBoard_Current"] or "Current") .. "|r") or entry.name)
 
         local meta = btn:CreateFontString(nil, "OVERLAY")
         meta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-        meta:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -4)
+        meta:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -3)
         meta:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -34, -3)
         meta:SetJustifyH("LEFT")
-        meta:SetText(string.format("%s  |  %d/%d", entry.realm ~= "" and entry.realm or (L["AltBoard_UnknownRealm"] or "Unknown Realm"), entry.doneRows, entry.totalRows))
-        meta:SetTextColor(0.72, 0.79, 0.86)
+        local metaText = string.format("%s  |  %d/%d", entry.realm ~= "" and entry.realm or (L["AltBoard_UnknownRealm"] or "Unknown Realm"), entry.doneRows, entry.totalRows)
+        meta:SetText(metaText)
+        meta:SetTextColor(0.62, 0.70, 0.80)
+
+        local note = btn:CreateFontString(nil, "OVERLAY")
+        note:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+        note:SetPoint("TOPLEFT", meta, "BOTTOMLEFT", 0, -2)
+        note:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -34, -3)
+        note:SetJustifyH("LEFT")
+        if entry.note and entry.note ~= "" then
+            note:SetText(entry.note)
+            note:SetTextColor(0.78, 0.86, 0.86)
+        else
+            note:SetText("")
+        end
 
         local hideBtn = CreateFrame("Button", nil, btn, "BackdropTemplate")
-        hideBtn:SetSize(18, 18)
-        hideBtn:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -8, -9)
+        hideBtn:SetSize(16, 16)
+        hideBtn:SetPoint("TOPRIGHT", btn, "TOPRIGHT", -8, -8)
         hideBtn:SetBackdrop(MakeBackdrop())
-        hideBtn:SetBackdropColor(0.07, 0.12, 0.18, 0.95)
-        hideBtn:SetBackdropBorderColor(0.18, 0.30, 0.36, 0.95)
+        hideBtn:SetBackdropColor(0.035, 0.060, 0.090, 0.88)
+        hideBtn:SetBackdropBorderColor(0.12, 0.20, 0.26, 0.72)
 
         local hideLabel = hideBtn:CreateFontString(nil, "OVERLAY")
         hideLabel:SetFont(FONT_HEADERS, 10, GetFontFlags())
@@ -1821,8 +1835,8 @@ function MR:RefreshWarbandBoard()
             GameTooltip:Show()
         end)
         hideBtn:SetScript("OnLeave", function(selfBtn)
-            selfBtn:SetBackdropColor(0.07, 0.12, 0.18, 0.95)
-            selfBtn:SetBackdropBorderColor(0.18, 0.30, 0.36, 0.95)
+            selfBtn:SetBackdropColor(0.035, 0.060, 0.090, 0.88)
+            selfBtn:SetBackdropBorderColor(0.12, 0.20, 0.26, 0.72)
             hideLabel:SetTextColor(0.78, 0.88, 0.92)
             GameTooltip:Hide()
         end)
@@ -1833,21 +1847,21 @@ function MR:RefreshWarbandBoard()
         end)
         btn:SetScript("OnEnter", function(selfBtn)
             if not isSelected then
-                selfBtn:SetBackdropColor(0.040, 0.085, 0.135, 0.98)
-                selfBtn:SetBackdropBorderColor(sr, sg, sb, 1)
+                selfBtn:SetBackdropColor(0.026, 0.046, 0.072, 0.96)
+                selfBtn:SetBackdropBorderColor(sr * 0.42, sg * 0.42, sb * 0.42, 0.86)
             end
         end)
         btn:SetScript("OnLeave", function(selfBtn)
             if not isSelected then
-                selfBtn:SetBackdropColor(0.025, 0.050, 0.090, 0.94)
-                selfBtn:SetBackdropBorderColor(0.08, 0.16, 0.24, 0.78)
+                selfBtn:SetBackdropColor(0.018, 0.032, 0.052, 0.90)
+                selfBtn:SetBackdropBorderColor(0.07, 0.12, 0.18, 0.56)
             end
         end)
 
         table.insert(frame.charButtons, btn)
     end
 
-    frame.charRail:SetHeight(math.max(#data * 60, 1))
+    frame.charRail:SetHeight(math.max(#data * 72, 1))
     if frame.leftScrollUpdate then
         frame.leftScrollUpdate()
     end
@@ -1880,6 +1894,9 @@ function MR:RefreshWarbandBoard()
     frame.heroName:SetText(selected.name)
     local syncAt = selected.lastSyncAt and selected.lastSyncAt > 0 and selected.lastSyncAt or selected.lastResetAt
     frame.heroMeta:SetText(string.format(L["AltBoard_LastSynced"] or "%s  |  Last synced: %s", selected.realm ~= "" and selected.realm or (L["AltBoard_UnknownRealm"] or "Unknown Realm"), WBFormatTimestamp(syncAt)))
+    if frame.heroNoteBox and not frame.heroNoteBox:HasFocus() then
+        frame.heroNoteBox:SetText(selected.note or "")
+    end
     frame.heroStatus:ClearAllPoints()
     frame.heroStatus:SetPoint("BOTTOMLEFT", frame.hero, "BOTTOMLEFT", 14, 12)
     frame.heroStatus:SetText("")
@@ -1914,16 +1931,16 @@ function MR:RefreshWarbandBoard()
             chip:SetSize(chipWidth, rowHeight)
             chip:SetPoint("TOPLEFT", frame.concentrationPane, "TOPLEFT", xOffset, yOffset)
             chip:SetBackdrop(MakeBackdrop())
-            chip:SetBackdropColor(0.025 + rr * 0.08, 0.040 + rg * 0.08, 0.060 + rb * 0.08, 0.96)
-            chip:SetBackdropBorderColor(rr * 0.60, rg * 0.60, rb * 0.60, 0.95)
+            chip:SetBackdropColor(0.018 + rr * 0.045, 0.030 + rg * 0.045, 0.046 + rb * 0.045, 0.92)
+            chip:SetBackdropBorderColor(rr * 0.42, rg * 0.42, rb * 0.42, 0.72)
 
             local chipGlow = chip:CreateTexture(nil, "BACKGROUND")
             chipGlow:SetAllPoints()
             chipGlow:SetTexture("Interface\\Buttons\\WHITE8X8")
-            chipGlow:SetColorTexture(rr, rg, rb, 0.08)
+            chipGlow:SetColorTexture(rr, rg, rb, 0.04)
 
             local dot = chip:CreateTexture(nil, "ARTWORK")
-            dot:SetSize(6, 12)
+            dot:SetSize(4, 14)
             dot:SetPoint("LEFT", chip, "LEFT", 8, 0)
             dot:SetColorTexture(rr, rg, rb, 1)
 
@@ -1999,23 +2016,23 @@ function MR:RefreshWarbandBoard()
         card:SetSize(1, 1)
         card:SetWidth(detailWidth)
         card:SetBackdrop(MakeBackdrop())
-        WBApplySurface(card, "soft", 0.96)
+        WBApplySurface(card, "soft", 0.92)
 
         local mr, mg, mb = WBHexColor(moduleEntry.color, 1, 1, 1)
         local collapsedModules = (MR.db and MR.db.profile and MR.db.profile.altBoardCollapsedModules) or {}
         local isCollapsed = collapsedModules[moduleEntry.key] == true
-        WBAddSoftSheen(card, mr, mg, mb, 0.09)
+        WBAddSoftSheen(card, mr, mg, mb, 0.035)
 
         local topAccent = card:CreateTexture(nil, "ARTWORK")
         topAccent:SetPoint("TOPLEFT")
         topAccent:SetPoint("TOPRIGHT")
-        topAccent:SetHeight(3)
-        topAccent:SetColorTexture(mr, mg, mb, 1)
+        topAccent:SetHeight(2)
+        topAccent:SetColorTexture(mr, mg, mb, 0.92)
 
         local headerBtn = CreateFrame("Button", nil, card)
         headerBtn:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
         headerBtn:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
-        headerBtn:SetHeight(38)
+        headerBtn:SetHeight(36)
 
         local headerHover = headerBtn:CreateTexture(nil, "BACKGROUND")
         headerHover:SetAllPoints()
@@ -2023,35 +2040,35 @@ function MR:RefreshWarbandBoard()
 
         local arrow = headerBtn:CreateFontString(nil, "OVERLAY")
         arrow:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
-        arrow:SetPoint("TOPLEFT", headerBtn, "TOPLEFT", 12, -11)
+        arrow:SetPoint("TOPLEFT", headerBtn, "TOPLEFT", 13, -10)
         arrow:SetText(isCollapsed and "+" or "-")
-        arrow:SetTextColor(0.78, 0.88, 0.92)
+        arrow:SetTextColor(0.62, 0.72, 0.78)
 
         local title = headerBtn:CreateFontString(nil, "OVERLAY")
         title:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
-        title:SetPoint("TOPLEFT", arrow, "TOPRIGHT", 7, 0)
+        title:SetPoint("TOPLEFT", arrow, "TOPRIGHT", 8, 0)
         title:SetPoint("RIGHT", headerBtn, "RIGHT", -120, 0)
         title:SetJustifyH("LEFT")
         title:SetText(moduleEntry.label)
-        title:SetTextColor(mr, mg, mb)
+        title:SetTextColor(math.min(1, mr + 0.08), math.min(1, mg + 0.08), math.min(1, mb + 0.08))
 
         local progress = card:CreateFontString(nil, "OVERLAY")
         progress:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-        progress:SetPoint("TOPRIGHT", card, "TOPRIGHT", -14, -11)
+        progress:SetPoint("TOPRIGHT", card, "TOPRIGHT", -14, -10)
         progress:SetText(string.format("%d / %d", moduleEntry.doneRows, moduleEntry.totalRows))
         local pr, pg, pb = countColor(moduleEntry.doneRows, math.max(moduleEntry.totalRows, 1))
         progress:SetTextColor(pr, pg, pb)
 
         local progressTrack = card:CreateTexture(nil, "BACKGROUND", nil, 1)
-        progressTrack:SetPoint("TOPLEFT", card, "TOPLEFT", 13, -31)
-        progressTrack:SetPoint("TOPRIGHT", card, "TOPRIGHT", -13, -31)
-        progressTrack:SetHeight(3)
-        progressTrack:SetColorTexture(0.08, 0.11, 0.16, 0.92)
+        progressTrack:SetPoint("TOPLEFT", card, "TOPLEFT", 13, -30)
+        progressTrack:SetPoint("TOPRIGHT", card, "TOPRIGHT", -13, -30)
+        progressTrack:SetHeight(2)
+        progressTrack:SetColorTexture(0.08, 0.10, 0.14, 0.72)
 
         local progressFill = card:CreateTexture(nil, "ARTWORK")
         progressFill:SetPoint("LEFT", progressTrack, "LEFT", 0, 0)
-        progressFill:SetHeight(3)
-        progressFill:SetColorTexture(pr, pg, pb, 1)
+        progressFill:SetHeight(2)
+        progressFill:SetColorTexture(pr, pg, pb, 0.92)
         progressFill:SetWidth(math.max(1, (detailWidth - 26) * math.min(1, moduleEntry.doneRows / math.max(moduleEntry.totalRows, 1))))
 
         headerBtn:SetScript("OnClick", function()
@@ -2062,24 +2079,24 @@ function MR:RefreshWarbandBoard()
             MR:RefreshWarbandBoard()
         end)
         headerBtn:SetScript("OnEnter", function()
-            headerHover:SetColorTexture(1, 1, 1, 0.04)
+            headerHover:SetColorTexture(1, 1, 1, 0.025)
         end)
         headerBtn:SetScript("OnLeave", function()
             headerHover:SetColorTexture(1, 1, 1, 0)
         end)
 
-        local moduleY = 44
+        local moduleY = 42
         if not isCollapsed then
             for rowIndex, rowEntry in ipairs(visibleRows) do
                 local row = CreateFrame("Frame", nil, card)
                 row:SetPoint("TOPLEFT", card, "TOPLEFT", 11, -moduleY)
                 row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -11, -moduleY)
-                row:SetHeight(24)
+                row:SetHeight(23)
 
                 if rowIndex % 2 == 0 then
                     local rowBg = row:CreateTexture(nil, "BACKGROUND")
                     rowBg:SetAllPoints()
-                    rowBg:SetColorTexture(1, 1, 1, 0.025)
+                    rowBg:SetColorTexture(1, 1, 1, 0.018)
                 end
 
                 local rr, rg, rb
@@ -2094,17 +2111,17 @@ function MR:RefreshWarbandBoard()
                 end
 
                 local dot = row:CreateTexture(nil, "ARTWORK")
-                dot:SetSize(6, 12)
+                dot:SetSize(4, 13)
                 dot:SetPoint("LEFT", row, "LEFT", 2, 0)
-                dot:SetColorTexture(rr, rg, rb, 1)
+                dot:SetColorTexture(rr, rg, rb, 0.92)
 
                 local label = row:CreateFontString(nil, "OVERLAY")
                 label:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
-                label:SetPoint("LEFT", row, "LEFT", 18, 0)
+                label:SetPoint("LEFT", row, "LEFT", 16, 0)
                 label:SetPoint("RIGHT", row, "RIGHT", -120, 0)
                 label:SetJustifyH("LEFT")
                 label:SetText(rowEntry.label)
-                label:SetTextColor(0.90, 0.93, 0.97)
+                label:SetTextColor(0.84, 0.88, 0.93)
 
                 local value = row:CreateFontString(nil, "OVERLAY")
                 value:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
@@ -2144,7 +2161,7 @@ function MR:RefreshWarbandBoard()
                 end)
 
                 table.insert(frame.detailWidgets, row)
-                moduleY = moduleY + 25
+                moduleY = moduleY + 24
             end
         end
 
@@ -2176,7 +2193,7 @@ function MR:ToggleWarbandBoard()
 
     if not self.altBoardFrame then
         local frame = StyledFrame(UIParent, nil, "DIALOG", 30)
-        frame:SetSize(820, 640)
+        frame:SetSize(860, 640)
         frame:SetScale(self.db.profile.scale or 1)
         local pos = GetWindowLayoutValue("warbandBoardPosition")
         if pos and pos.point then
@@ -2189,10 +2206,10 @@ function MR:ToggleWarbandBoard()
         bgGlow:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
         bgGlow:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
         bgGlow:SetTexture("Interface\\Buttons\\WHITE8X8")
-        bgGlow:SetColorTexture(0.02, 0.05, 0.10, 0.98)
+        bgGlow:SetColorTexture(0.012, 0.020, 0.036, 0.98)
 
         local titleBar = TitleBar(frame, 42)
-        titleBar:SetBackdropColor(0.025, 0.070, 0.125, 1)
+        titleBar:SetBackdropColor(0.018, 0.038, 0.066, 1)
         titleBar:SetScript("OnDragStart", function()
             frame:StartMoving()
         end)
@@ -2207,7 +2224,7 @@ function MR:ToggleWarbandBoard()
         title:SetPoint("RIGHT", titleBar, "RIGHT", -150, 0)
         title:SetJustifyH("LEFT")
         title:SetText(L["AltBoard_Title"] or "Alt Weekly Board")
-        title:SetTextColor(0.92, 0.97, 1.0)
+        title:SetTextColor(0.90, 0.95, 1.0)
 
         local summaryValue = titleBar:CreateFontString(nil, "OVERLAY")
         summaryValue:SetFont(FONT_HEADERS, math.max(11, GetFontSize() + 1), GetFontFlags())
@@ -2217,7 +2234,7 @@ function MR:ToggleWarbandBoard()
         local summarySub = frame:CreateFontString(nil, "OVERLAY")
         summarySub:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
         summarySub:SetPoint("TOPLEFT", frame, "TOPLEFT", 16, -52)
-        summarySub:SetTextColor(0.62, 0.71, 0.79)
+        summarySub:SetTextColor(0.58, 0.67, 0.76)
         summarySub:SetText("")
 
         CloseButton(titleBar, function() frame:Hide() end)
@@ -2231,16 +2248,16 @@ function MR:ToggleWarbandBoard()
         local leftPane = CreateFrame("Frame", nil, frame, "BackdropTemplate")
         leftPane:SetPoint("TOPLEFT", frame, "TOPLEFT", 14, -76)
         leftPane:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 14, 14)
-        leftPane:SetWidth(226)
+        leftPane:SetWidth(238)
         leftPane:SetBackdrop(MakeBackdrop())
         WBApplySurface(leftPane, "panel")
-        WBAddSoftSheen(leftPane, 0.10, 0.22, 0.28, 0.08)
+        WBAddSoftSheen(leftPane, 0.10, 0.18, 0.24, 0.04)
 
         local leftLabel = leftPane:CreateFontString(nil, "OVERLAY")
         leftLabel:SetFont(FONT_ROWS, math.max(9, GetFontSize()), GetFontFlags())
         leftLabel:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 12, -12)
         leftLabel:SetText(L["AltBoard_Characters"] or "Characters")
-        leftLabel:SetTextColor(0.74, 0.86, 0.89)
+        leftLabel:SetTextColor(0.70, 0.82, 0.86)
 
         local showHiddenBtn = CreateFrame("Button", nil, leftPane, "BackdropTemplate")
         showHiddenBtn:SetSize(96, 20)
@@ -2280,7 +2297,7 @@ function MR:ToggleWarbandBoard()
         rightPane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -14, 14)
         rightPane:SetBackdrop(MakeBackdrop())
         WBApplySurface(rightPane, "panel")
-        WBAddSoftSheen(rightPane, 0.08, 0.16, 0.25, 0.08)
+        WBAddSoftSheen(rightPane, 0.08, 0.14, 0.20, 0.04)
 
         local tabBar = CreateFrame("Frame", nil, rightPane)
         tabBar:SetPoint("TOPLEFT", rightPane, "TOPLEFT", 14, -14)
@@ -2289,7 +2306,7 @@ function MR:ToggleWarbandBoard()
 
         local function CreateAltBoardTab(label, viewKey)
             local btn = CreateFrame("Button", nil, tabBar, "BackdropTemplate")
-            btn:SetSize(146, 24)
+            btn:SetSize(136, 23)
             btn:SetBackdrop(MakeBackdrop())
             btn:SetScript("OnClick", function()
                 WBSetAltBoardView(viewKey)
@@ -2322,11 +2339,11 @@ function MR:ToggleWarbandBoard()
         concentrationTab:SetPoint("LEFT", characterTab, "RIGHT", 8, 0)
 
         local concentrationTrackerBtn = CreateFrame("Button", nil, tabBar, "BackdropTemplate")
-        concentrationTrackerBtn:SetSize(154, 24)
+        concentrationTrackerBtn:SetSize(144, 23)
         concentrationTrackerBtn:SetPoint("LEFT", concentrationTab, "RIGHT", 8, 0)
         concentrationTrackerBtn:SetBackdrop(MakeBackdrop())
-        concentrationTrackerBtn:SetBackdropColor(0.05, 0.10, 0.18, 0.95)
-        concentrationTrackerBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+        concentrationTrackerBtn:SetBackdropColor(0.024, 0.050, 0.080, 0.90)
+        concentrationTrackerBtn:SetBackdropBorderColor(0.12, 0.25, 0.30, 0.75)
 
         local concentrationTrackerLabel = concentrationTrackerBtn:CreateFontString(nil, "OVERLAY")
         concentrationTrackerLabel:SetFont(FONT_ROWS, 9, GetFontFlags())
@@ -2341,20 +2358,20 @@ function MR:ToggleWarbandBoard()
             MR:ToggleConcentrationTracker()
         end)
         concentrationTrackerBtn:SetScript("OnEnter", function(selfBtn)
-            selfBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
-            selfBtn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
+            selfBtn:SetBackdropColor(0.045, 0.105, 0.145, 0.96)
+            selfBtn:SetBackdropBorderColor(0.20, 0.62, 0.56, 0.95)
             concentrationTrackerLabel:SetTextColor(1, 1, 1)
         end)
         concentrationTrackerBtn:SetScript("OnLeave", function(selfBtn)
-            selfBtn:SetBackdropColor(0.05, 0.10, 0.18, 0.95)
-            selfBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+            selfBtn:SetBackdropColor(0.024, 0.050, 0.080, 0.90)
+            selfBtn:SetBackdropBorderColor(0.12, 0.25, 0.30, 0.75)
             concentrationTrackerLabel:SetTextColor(0.70, 0.88, 0.85)
         end)
 
         local hero = CreateFrame("Frame", nil, rightPane, "BackdropTemplate")
         hero:SetPoint("TOPLEFT", tabBar, "BOTTOMLEFT", 0, -14)
         hero:SetPoint("TOPRIGHT", tabBar, "BOTTOMRIGHT", 0, -14)
-        hero:SetHeight(86)
+        hero:SetHeight(92)
         hero:SetBackdrop(MakeBackdrop())
         WBApplySurface(hero, "raised")
 
@@ -2362,25 +2379,79 @@ function MR:ToggleWarbandBoard()
         heroGlow:SetPoint("TOPLEFT")
         heroGlow:SetPoint("BOTTOMRIGHT")
         heroGlow:SetTexture("Interface\\Buttons\\WHITE8X8")
-        heroGlow:SetColorTexture(0.10, 0.24, 0.30, 0.16)
+        heroGlow:SetColorTexture(0.08, 0.16, 0.22, 0.08)
 
         local heroName = hero:CreateFontString(nil, "OVERLAY")
         heroName:SetFont(FONT_HEADERS, math.max(13, GetFontSize() + 3), GetFontFlags())
-        heroName:SetPoint("TOPLEFT", hero, "TOPLEFT", 16, -14)
+        heroName:SetPoint("TOPLEFT", hero, "TOPLEFT", 18, -15)
+        heroName:SetPoint("RIGHT", hero, "RIGHT", -244, 0)
         heroName:SetTextColor(0.96, 0.99, 1.00)
 
         local heroMeta = hero:CreateFontString(nil, "OVERLAY")
         heroMeta:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
-        heroMeta:SetPoint("TOPLEFT", heroName, "BOTTOMLEFT", 0, -7)
+        heroMeta:SetPoint("TOPLEFT", heroName, "BOTTOMLEFT", 0, -8)
+        heroMeta:SetPoint("RIGHT", heroName, "RIGHT", 0, 0)
         heroMeta:SetTextColor(0.70, 0.78, 0.86)
 
         local heroStatus = hero:CreateFontString(nil, "OVERLAY")
         heroStatus:SetFont(FONT_ROWS, math.max(10, GetFontSize()), GetFontFlags())
-        heroStatus:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 16, 14)
+        heroStatus:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 18, 14)
+
+        local heroNoteLabel = hero:CreateFontString(nil, "OVERLAY")
+        heroNoteLabel:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+        heroNoteLabel:SetPoint("TOPLEFT", hero, "TOPRIGHT", -226, -15)
+        heroNoteLabel:SetText(L["AltBoard_NoteLabel"] or "Note / tag")
+        heroNoteLabel:SetTextColor(0.62, 0.74, 0.80)
+
+        local heroNoteBox = CreateFrame("EditBox", nil, hero, "BackdropTemplate")
+        heroNoteBox:SetSize(210, 24)
+        heroNoteBox:SetPoint("TOPLEFT", heroNoteLabel, "BOTTOMLEFT", 0, -6)
+        heroNoteBox:SetAutoFocus(false)
+        heroNoteBox:SetFont(FONT_ROWS, math.max(9, GetFontSize()), GetFontFlags())
+        heroNoteBox:SetTextColor(0.92, 0.96, 1.00)
+        heroNoteBox:SetJustifyH("LEFT")
+        heroNoteBox:SetMaxLetters(80)
+        heroNoteBox:SetBackdrop(MakeBackdrop())
+        heroNoteBox:SetBackdropColor(0.014, 0.026, 0.044, 0.94)
+        heroNoteBox:SetBackdropBorderColor(0.10, 0.18, 0.24, 0.76)
+        heroNoteBox:SetTextInsets(8, 8, 0, 0)
+
+        local function SaveHeroNote()
+            if not frame.selectedCharKey then
+                return
+            end
+
+            MR:SetAltBoardCharacterNote(frame.selectedCharKey, heroNoteBox:GetText() or "")
+            MR:RequestWarbandBoardRefresh(true)
+        end
+
+        heroNoteBox:SetScript("OnEnterPressed", function(selfBox)
+            SaveHeroNote()
+            selfBox:ClearFocus()
+        end)
+        heroNoteBox:SetScript("OnEscapePressed", function(selfBox)
+            selfBox:SetText(MR:GetAltBoardCharacterNote(frame.selectedCharKey) or "")
+            selfBox:ClearFocus()
+        end)
+        heroNoteBox:SetScript("OnEditFocusLost", function()
+            SaveHeroNote()
+            heroNoteBox:SetBackdropBorderColor(0.10, 0.18, 0.24, 0.76)
+        end)
+        heroNoteBox:SetScript("OnEditFocusGained", function()
+            heroNoteBox:SetBackdropBorderColor(0.24, 0.66, 0.60, 0.95)
+        end)
+        heroNoteBox:SetScript("OnEnter", function(selfBox)
+            GameTooltip:SetOwner(selfBox, "ANCHOR_RIGHT")
+            GameTooltip:SetText(L["AltBoard_NoteTooltip"] or "Add a short note or tag for this character.", 1, 1, 1)
+            GameTooltip:Show()
+        end)
+        heroNoteBox:SetScript("OnLeave", function()
+            GameTooltip:Hide()
+        end)
 
         local concentrationPane = CreateFrame("Frame", nil, rightPane, "BackdropTemplate")
-        concentrationPane:SetPoint("TOPLEFT", hero, "BOTTOMLEFT", 0, -14)
-        concentrationPane:SetPoint("TOPRIGHT", hero, "BOTTOMRIGHT", 0, -14)
+        concentrationPane:SetPoint("TOPLEFT", hero, "BOTTOMLEFT", 0, -10)
+        concentrationPane:SetPoint("TOPRIGHT", hero, "BOTTOMRIGHT", 0, -10)
         concentrationPane:SetHeight(42)
         concentrationPane:SetBackdrop(MakeBackdrop())
         WBApplySurface(concentrationPane, "soft")
@@ -2388,14 +2459,14 @@ function MR:ToggleWarbandBoard()
         local concentrationAccent = concentrationPane:CreateTexture(nil, "ARTWORK")
         concentrationAccent:SetPoint("TOPLEFT")
         concentrationAccent:SetPoint("TOPRIGHT")
-        concentrationAccent:SetHeight(2)
-        concentrationAccent:SetColorTexture(0.76, 0.62, 0.98, 1)
+        concentrationAccent:SetHeight(1)
+        concentrationAccent:SetColorTexture(0.50, 0.42, 0.72, 0.95)
 
         local concentrationTitle = concentrationPane:CreateFontString(nil, "OVERLAY")
         concentrationTitle:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
         concentrationTitle:SetPoint("TOPLEFT", concentrationPane, "TOPLEFT", 14, -10)
         concentrationTitle:SetText(WBConcentrationLabel())
-        concentrationTitle:SetTextColor(0.88, 0.82, 1.00)
+        concentrationTitle:SetTextColor(0.78, 0.76, 0.92)
 
         local concentrationStatus = concentrationPane:CreateFontString(nil, "OVERLAY")
         concentrationStatus:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
@@ -2492,6 +2563,8 @@ function MR:ToggleWarbandBoard()
         frame.heroName = heroName
         frame.heroMeta = heroMeta
         frame.heroStatus = heroStatus
+        frame.heroNoteLabel = heroNoteLabel
+        frame.heroNoteBox = heroNoteBox
         frame.titleText = title
         frame.leftLabel = leftLabel
         frame.showHiddenLabel = showHiddenLabel

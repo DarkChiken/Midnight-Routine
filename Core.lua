@@ -15,10 +15,6 @@ local MODULES_WITH_OPTIONAL_CURRENCY_COMPLETION = {
 }
 
 local DEFAULTS = {
-    global = {
-        customTasks = {},
-        customTaskNextId = 1,
-    },
     profile = {
         locked          = false,
         scale           = 1.0,
@@ -103,6 +99,7 @@ local DEFAULTS = {
         selectedExpansion   = "midnight",
         altBoardSelectedExpansion = "midnight",
         altBoardHiddenCharacters = {},
+        altBoardCharacterNotes = {},
         altBoardShowHidden = false,
         altBoardView = "character",
         altBoardCollapsedModules = {},
@@ -1513,7 +1510,7 @@ function MR:ScanAutoUpdateInstanceRows(changedQuestId, changedEncounterId, diffi
                     if difficultyId and row.taskId then
                         if self.db and self.db.char then
                             self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
-                            local key = row.key or tostring(row.taskId)
+                            local key = tostring(row.taskId)
                             self.db.char.customTaskDiffProgress[key] = self.db.char.customTaskDiffProgress[key] or {}
                             local diffState = self.db.char.customTaskDiffProgress[key]
                             if not diffState[difficultyId] then
@@ -1888,8 +1885,6 @@ function MR:ResetAllSettings()
 
     RestoreDefaults(self.db.profile, DEFAULTS.profile)
     RestoreDefaults(self.db.char, DEFAULTS.char)
-    self.db.global = self.db.global or {}
-    RestoreDefaults(self.db.global, DEFAULTS.global)
 
     self.db.char.welcomeSeen = welcomeSeen and true or false
     self.db.profile.welcomeSuppressed = welcomeSuppressed and true or false

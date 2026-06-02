@@ -121,12 +121,14 @@ function MR:GetWarbandWeeklyData()
             local lastSyncAt = charData.lastSyncAt or 0
             local stale = resetAt > 0 and lastSyncAt > 0 and lastSyncAt < resetAt
             local hidden = hiddenChars[charKey] == true
+            local note = self:GetAltBoardCharacterNote(charKey)
             local savedProfessions = type(charData.professions) == "table" and charData.professions or nil
             local snapshot = {
                 key = charKey,
                 name = name,
                 realm = realm,
                 classFile = charData.classFile,
+                note = note,
                 isCurrent = (charKey == currentKey),
                 stale = stale,
                 hidden = hidden,
@@ -307,6 +309,41 @@ function MR:SetAltBoardCharacterHidden(charKey, hidden)
         self.db.profile.altBoardHiddenCharacters[charKey] = true
     else
         self.db.profile.altBoardHiddenCharacters[charKey] = nil
+    end
+end
+
+function MR:GetAltBoardCharacterNote(charKey)
+    if not (self and self.db and self.db.profile and charKey) then
+        return ""
+    end
+
+    local notes = self.db.profile.altBoardCharacterNotes
+    if type(notes) ~= "table" then
+        return ""
+    end
+
+    local note = notes[charKey]
+    return type(note) == "string" and note or ""
+end
+
+function MR:SetAltBoardCharacterNote(charKey, note)
+    if not (self and self.db and self.db.profile and charKey) then
+        return
+    end
+
+    if type(self.db.profile.altBoardCharacterNotes) ~= "table" then
+        self.db.profile.altBoardCharacterNotes = {}
+    end
+
+    note = type(note) == "string" and note:gsub("^%s+", ""):gsub("%s+$", "") or ""
+    if #note > 80 then
+        note = note:sub(1, 80)
+    end
+
+    if note == "" then
+        self.db.profile.altBoardCharacterNotes[charKey] = nil
+    else
+        self.db.profile.altBoardCharacterNotes[charKey] = note
     end
 end
 
