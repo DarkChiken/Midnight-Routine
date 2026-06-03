@@ -602,7 +602,9 @@ function MR:ApplyFontSizeToAll(v)
 end
 
 function MR:BumpProgress(moduleKey, rowKey, delta, maxVal, bypassInstanceSuspend)
-    self:SetProgress(moduleKey, rowKey, self:GetProgress(moduleKey, rowKey) + delta, maxVal, bypassInstanceSuspend)
+    local progress = self.db and self.db.char and self.db.char.progress
+    local current = progress and progress[moduleKey] and progress[moduleKey][rowKey] or 0
+    self:SetProgress(moduleKey, rowKey, current + delta, maxVal, bypassInstanceSuspend)
 end
 
 local function CleanDisplayLabel(text)
