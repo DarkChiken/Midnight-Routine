@@ -111,6 +111,13 @@ local function GetMainHeaderHeight()
     return math.max(24, GetFontSize() + 11)
 end
 
+local function GetMainCharacterBarHeight()
+    if not (MR and MR.db and MR.db.profile and MR.db.profile.showMainCharacterBar ~= false) then
+        return 0
+    end
+    return math.max(22, GetFontSize() + 10)
+end
+
 local function GetMainHeaderMetrics()
     local fontSize = GetFontSize()
     local headerHeight = GetMainHeaderHeight()
@@ -219,11 +226,16 @@ local function ApplyTheme()
     if MR._titleBar then
         MR._titleBar:SetBackdrop(MakeBackdrop())
     end
+    if MR._characterBar then
+        MR._characterBar:SetBackdrop(MakeBackdrop())
+    end
     if t then
         f:SetBackdropColor(0, 0, 0, 0)
         f:SetBackdropBorderColor(0, 0, 0, 0)
         if MR._titleBar    then MR._titleBar:SetBackdropColor(0, 0, 0, 0) end
         if MR._titleBar    then MR._titleBar:SetBackdropBorderColor(0, 0, 0, 0) end
+        if MR._characterBar then MR._characterBar:SetBackdropColor(0, 0, 0, 0) end
+        if MR._characterBar then MR._characterBar:SetBackdropBorderColor(0, 0, 0, 0) end
         if MR._scrollBg    then ApplyBackgroundTexture(MR._scrollBg, 0, 0, 0, 0) end
         if MR._titleAccent then MR._titleAccent:SetAlpha(0) end
     else
@@ -231,6 +243,8 @@ local function ApplyTheme()
         f:SetBackdropBorderColor(0.15, 0.15, 0.2, v)
         if MR._titleBar    then MR._titleBar:SetBackdropColor(0.03, 0.06, 0.12, 0.98 * v) end
         if MR._titleBar    then MR._titleBar:SetBackdropBorderColor(0.17, 0.24, 0.32, v) end
+        if MR._characterBar then MR._characterBar:SetBackdropColor(0.020, 0.040, 0.060, 0.96 * v) end
+        if MR._characterBar then MR._characterBar:SetBackdropBorderColor(0.08, 0.16, 0.22, 0.45 * v) end
         if MR._scrollBg    then ApplyBackgroundTexture(MR._scrollBg, COL.bg[1], COL.bg[2], COL.bg[3], 0.96 * v) end
         if MR._titleAccent then MR._titleAccent:SetAlpha(0) end
     end
@@ -426,6 +440,10 @@ local function StyleCurrencyBrowserButton(button, transparent, frameAlpha)
 end
 
 local function MainHeaderActionOnClick(selfBtn)
+    if MR.IsMainAltViewActive and MR:IsMainAltViewActive() then
+        return
+    end
+
     local owner = selfBtn._mrOwner
     local data = owner and owner._mrData
     if data and data.row and data.row.onHeaderActionClick then
@@ -530,6 +548,10 @@ local function MainRowOnMouseDown(selfRow, button)
         return
     end
 
+    if MR.IsMainAltViewActive and MR:IsMainAltViewActive() then
+        return
+    end
+
     local row = data.row
     local mod = data.mod
     local done = data.done
@@ -564,6 +586,10 @@ local function MainStatusButtonOnClick(selfBtn)
     local owner = selfBtn._mrOwner
     local data = owner and owner._mrData
     if not data or data.mode ~= "normal" then
+        return
+    end
+
+    if MR.IsMainAltViewActive and MR:IsMainAltViewActive() then
         return
     end
 
@@ -2549,7 +2575,10 @@ local function ApplyMainFrameLayout(frame, preserveScreenPosition)
     local track = MR and MR._scrollTrack
     local dragger = MR and MR._dragger
     local expansionDropdown = MR and MR.expansionDropdown
+    local characterBar = MR and MR._characterBar
     local headerHeight = titleBar and titleBar:GetHeight() or GetMainHeaderHeight()
+    local characterBarHeight = GetMainCharacterBarHeight()
+    local chromeHeight = headerHeight + characterBarHeight
     local headerBottom = IsMainHeaderAtBottom()
 
     if titleBar then
@@ -2563,13 +2592,26 @@ local function ApplyMainFrameLayout(frame, preserveScreenPosition)
         end
     end
 
+    if characterBar then
+        characterBar:ClearAllPoints()
+        characterBar:SetHeight(math.max(1, characterBarHeight))
+        characterBar:SetShown(characterBarHeight > 0 and not (MR.db and MR.db.profile and MR.db.profile.minimized))
+        if headerBottom then
+            characterBar:SetPoint("BOTTOMLEFT", titleBar, "TOPLEFT", 0, 0)
+            characterBar:SetPoint("BOTTOMRIGHT", titleBar, "TOPRIGHT", 0, 0)
+        else
+            characterBar:SetPoint("TOPLEFT", titleBar, "BOTTOMLEFT", 0, 0)
+            characterBar:SetPoint("TOPRIGHT", titleBar, "BOTTOMRIGHT", 0, 0)
+        end
+    end
+
     if scrollBg then
         scrollBg:ClearAllPoints()
         if headerBottom then
             scrollBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
-            scrollBg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, headerHeight)
+            scrollBg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, chromeHeight)
         else
-            scrollBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -headerHeight)
+            scrollBg:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -chromeHeight)
             scrollBg:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, 0)
         end
     end
@@ -2578,9 +2620,9 @@ local function ApplyMainFrameLayout(frame, preserveScreenPosition)
         scroll:ClearAllPoints()
         if headerBottom then
             scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -4)
-            scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -9, headerHeight + 6)
+            scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -9, chromeHeight + 6)
         else
-            scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -(headerHeight + 6))
+            scroll:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -(chromeHeight + 6))
             scroll:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -9, 4)
         end
     end
@@ -2620,6 +2662,9 @@ local function SetMainFrameChromeVisible(visible)
     if MR.scroll then MR.scroll:SetShown(visible) end
     if MR._scrollBg then MR._scrollBg:SetShown(visible) end
     if MR._scrollTrack then MR._scrollTrack:SetShown(visible) end
+    if MR._characterBar then
+        MR._characterBar:SetShown(visible and MR.db and MR.db.profile and MR.db.profile.showMainCharacterBar ~= false)
+    end
     if MR._dragger then
         MR._dragger:SetShown(visible and not (MR.db and MR.db.profile and MR.db.profile.minimized))
     end
@@ -2968,6 +3013,101 @@ function MR:BuildUI()
     end)
     self.warbandBtn = warbandBtn
 
+    local characterBar = CreateFrame("Button", nil, f, "BackdropTemplate")
+    characterBar:SetHeight(GetMainCharacterBarHeight())
+    characterBar:SetBackdrop(MakeBackdrop())
+    characterBar:SetBackdropColor(0.020, 0.040, 0.060, 0.96)
+    characterBar:SetBackdropBorderColor(0.08, 0.16, 0.22, 0.45)
+    characterBar:SetFrameLevel(f:GetFrameLevel() + 2)
+    MR._characterBar = characterBar
+
+    local characterAccent = characterBar:CreateTexture(nil, "ARTWORK")
+    characterAccent:SetTexture("Interface\\Buttons\\WHITE8X8")
+    characterAccent:SetPoint("BOTTOMLEFT", characterBar, "BOTTOMLEFT", 1, 0)
+    characterAccent:SetPoint("BOTTOMRIGHT", characterBar, "BOTTOMRIGHT", -1, 0)
+    characterAccent:SetHeight(1)
+    characterAccent:SetColorTexture(0.18, 0.78, 0.72, 0.38)
+
+    local characterIconPlate = CreateFrame("Frame", nil, characterBar, "BackdropTemplate")
+    characterIconPlate:SetSize(16, 16)
+    characterIconPlate:SetPoint("LEFT", characterBar, "LEFT", 7, 0)
+    characterIconPlate:SetBackdrop(MakeBackdrop())
+    characterIconPlate:SetBackdropColor(0.005, 0.012, 0.020, 0.86)
+    characterIconPlate:SetBackdropBorderColor(0.12, 0.24, 0.30, 0.70)
+
+    local characterIcon = characterIconPlate:CreateTexture(nil, "ARTWORK")
+    characterIcon:SetPoint("TOPLEFT", characterIconPlate, "TOPLEFT", 2, -2)
+    characterIcon:SetPoint("BOTTOMRIGHT", characterIconPlate, "BOTTOMRIGHT", -2, 2)
+    characterIcon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+
+    local characterName = characterBar:CreateFontString(nil, "OVERLAY")
+    characterName:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 2), GetFontFlags())
+    characterName:SetPoint("LEFT", characterIconPlate, "RIGHT", 6, 0)
+    characterName:SetJustifyH("LEFT")
+    characterName:SetWordWrap(false)
+
+    local characterRealm = characterBar:CreateFontString(nil, "OVERLAY")
+    characterRealm:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 3), GetFontFlags())
+    characterRealm:SetPoint("LEFT", characterName, "RIGHT", 5, 0)
+    characterRealm:SetPoint("RIGHT", characterBar, "RIGHT", -28, 0)
+    characterRealm:SetJustifyH("LEFT")
+    characterRealm:SetWordWrap(false)
+    characterRealm:SetTextColor(0.42, 0.60, 0.64)
+
+    local characterCaret = characterBar:CreateFontString(nil, "OVERLAY")
+    characterCaret:SetFont(FONT_HEADERS, 9, GetFontFlags())
+    characterCaret:SetPoint("RIGHT", characterBar, "RIGHT", -9, 1)
+    characterCaret:SetText("v")
+    characterCaret:SetTextColor(0.48, 0.72, 0.74)
+
+    local function UpdateCharacterBar()
+        local altInfo = MR.GetMainAltViewCharacterInfo and MR:GetMainAltViewCharacterInfo() or nil
+        local name = altInfo and altInfo.name or (UnitName and UnitName("player")) or (L["Unknown"] or "Unknown")
+        local realm = altInfo and altInfo.realm or (GetRealmName and GetRealmName()) or ""
+        local classFile = altInfo and altInfo.data and altInfo.data.classFile or select(2, UnitClass("player"))
+        local classColor = classFile and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classFile] or nil
+        local cr, cg, cb = 0.18, 0.78, 0.72
+        if classColor then
+            cr, cg, cb = classColor.r, classColor.g, classColor.b
+        end
+        characterName:SetText(name)
+        characterName:SetTextColor(cr, cg, cb)
+        characterName:SetWidth(math.min(math.max(characterName:GetStringWidth() + 2, 20), math.max((characterBar:GetWidth() or 260) - 120, 50)))
+        characterRealm:SetText(realm ~= "" and ("|cff789094-|r " .. realm) or "")
+        characterAccent:SetColorTexture(cr, cg, cb, 0.38)
+        characterIconPlate:SetBackdropBorderColor(cr * 0.45, cg * 0.45, cb * 0.45, 0.72)
+        local coords = classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classFile] or nil
+        if coords then
+            characterIcon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+            characterIcon:Show()
+        else
+            characterIcon:Hide()
+        end
+    end
+    self.UpdateMainCharacterBar = UpdateCharacterBar
+
+    characterBar:SetScript("OnClick", function()
+        if MR.ToggleMainAltPicker then
+            MR:ToggleMainAltPicker()
+        end
+    end)
+    characterBar:SetScript("OnEnter", function(selfBtn)
+        selfBtn:SetBackdropColor(0.030, 0.060, 0.082, 1)
+        selfBtn:SetBackdropBorderColor(0.14, 0.34, 0.40, 0.82)
+        characterCaret:SetTextColor(1, 1, 1)
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+        GameTooltip:SetText(L["AltPicker_OpenTooltip"] or "Open Alt Picker", 1, 1, 1)
+        GameTooltip:AddLine(L["AltPicker_OpenTooltipSub"] or "Pick an alt to show its saved progress in the main frame.", 0.6, 0.85, 0.85, true)
+        GameTooltip:Show()
+    end)
+    characterBar:SetScript("OnLeave", function(selfBtn)
+        selfBtn:SetBackdropColor(0.020, 0.040, 0.060, 0.96)
+        selfBtn:SetBackdropBorderColor(0.08, 0.16, 0.22, 0.45)
+        characterCaret:SetTextColor(0.48, 0.72, 0.74)
+        GameTooltip:Hide()
+    end)
+    self.characterBar = characterBar
+
     titleCount:SetPoint("RIGHT", warbandBtn, "LEFT", -6, 0)
     title:ClearAllPoints()
     title:SetPoint("LEFT", titleIcon, "RIGHT", 5, 0)
@@ -2982,6 +3122,10 @@ function MR:BuildUI()
         minBtn:SetSize(metrics.buttonSize, metrics.buttonSize)
         cfgBtn:SetSize(metrics.buttonSize, metrics.buttonSize)
         warbandBtn:SetSize(metrics.warbandWidth, metrics.buttonSize)
+        characterBar:SetHeight(math.max(1, GetMainCharacterBarHeight()))
+        characterIconPlate:SetSize(math.max(14, metrics.fontSize + 5), math.max(14, metrics.fontSize + 5))
+        characterName:SetFont(FONT_HEADERS, math.max(9, metrics.fontSize - 2), GetFontFlags())
+        characterRealm:SetFont(FONT_ROWS, math.max(8, metrics.fontSize - 3), GetFontFlags())
         if cfgBtn._iconTex then
             cfgBtn._iconTex:SetSize(metrics.buttonSize - 5, metrics.buttonSize - 5)
         end
@@ -2994,6 +3138,7 @@ function MR:BuildUI()
         title:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 2), GetFontFlags())
         titleCount:SetFont(FONT_ROWS, math.max(8, metrics.fontSize - 2), GetFontFlags())
         warbandText:SetFont(FONT_HEADERS, math.max(8, metrics.fontSize - 2), GetFontFlags())
+        UpdateCharacterBar()
         ApplyMainFrameLayout(f)
     end
     self.RefreshMainHeaderChrome = RefreshMainHeaderChrome
@@ -3530,6 +3675,9 @@ function MR:RefreshUI()
 
         if self.titleText then
             self.titleText:SetText(L["Title"] or "Routine")
+        end
+        if self.UpdateMainCharacterBar then
+            self:UpdateMainCharacterBar()
         end
         if self.expansionDropdown and self.expansionDropdown.Update then
             self.expansionDropdown:Update()

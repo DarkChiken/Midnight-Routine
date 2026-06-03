@@ -95,6 +95,7 @@ local DEFAULTS = {
         peekOnHover         = false,
         animatedMinimize    = false,
         mainHeaderPosition  = "top",
+        showMainCharacterBar = true,
         characterWindowLayout = false,
         selectedExpansion   = "midnight",
         altBoardSelectedExpansion = "midnight",
@@ -535,7 +536,9 @@ function MR:GetWeeklyRewardActivityBuckets()
 end
 
 function MR:GetProgress(moduleKey, rowKey)
-    local m = self.db.char.progress[moduleKey]
+    local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
+    local progress = source and source.progress or self.db.char.progress
+    local m = progress and progress[moduleKey]
     return m and m[rowKey] or 0
 end
 
@@ -647,7 +650,8 @@ function MR:SetWaypoint(target)
 end
 
 function MR:GetManualOverride(modKey, rowKey)
-    local m = self.db.char.manualOverrides
+    local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
+    local m = source and source.manualOverrides or self.db.char.manualOverrides
     return (m and m[modKey] and m[modKey][rowKey]) or 0
 end
 

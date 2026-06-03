@@ -975,6 +975,24 @@ function MR:PopulateConfigFrame(f)
 
         Gap(2)
         yOff = OptionsCheckbox(body, yOff,
+            L["Config_ShowMainCharacterBar"] or "Show Character Switcher Bar",
+            function() return MR.db.profile.showMainCharacterBar ~= false end,
+            function(v)
+                MR.db.profile.showMainCharacterBar = v and true or false
+                if not v and MR.HideMainAltPicker then
+                    MR:HideMainAltPicker()
+                end
+                if MR.RefreshMainHeaderChrome then
+                    MR:RefreshMainHeaderChrome()
+                elseif MR.frame then
+                    ApplyMainFrameLayout(MR.frame, true)
+                end
+                MR:RefreshUI()
+            end,
+            0.16, 0.78, 0.75, 8, nil, cfgFs)
+
+        Gap(2)
+        yOff = OptionsCheckbox(body, yOff,
             L["Config_AnimatedMinimize"] or "Animated Minimize / Restore",
             function() return IsAnimatedMinimizeEnabled() end,
             function(v)

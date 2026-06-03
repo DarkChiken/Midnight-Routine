@@ -18,6 +18,7 @@ local hex = ns.Hex
 local COL = ns.COLORS
 local DAY_SECONDS = 24 * 60 * 60
 local concentrationTrackerConfigFrame
+local mainAltPickerFrame
 
 local function GetFontSize()
     return (ns.GetFontSize and ns.GetFontSize()) or 11
@@ -172,18 +173,18 @@ local function WBStatusText(entry)
     if entry.stale then
         return L["AltBoard_NeedsLogin"] or "Needs login after reset"
     end
-    if entry.doneRows >= entry.totalRows and entry.totalRows > 0 then
+    if (entry.doneRows or 0) >= (entry.totalRows or 0) and (entry.totalRows or 0) > 0 then
         return L["AltBoard_EverythingDone"] or "Everything done"
     end
-    if entry.doneRows == 0 and entry.activeRows == 0 then
+    if (entry.doneRows or 0) == 0 and (entry.activeRows or 0) == 0 then
         return L["AltBoard_FreshWeek"] or "Fresh week"
     end
 
-    if entry.activeRows > 0 then
-        return string.format(L["AltBoard_StatusCompleteProgress"] or "%d complete, %d in progress", entry.doneRows, entry.activeRows)
+    if (entry.activeRows or 0) > 0 then
+        return string.format(L["AltBoard_StatusCompleteProgress"] or "%d complete, %d in progress", entry.doneRows or 0, entry.activeRows or 0)
     end
 
-    return string.format(L["AltBoard_StatusCompleteOnly"] or "%d complete", entry.doneRows)
+    return string.format(L["AltBoard_StatusCompleteOnly"] or "%d complete", entry.doneRows or 0)
 end
 
 local function WBStatusColor(entry)
@@ -193,14 +194,30 @@ local function WBStatusColor(entry)
     if entry.stale then
         return 0.95, 0.50, 0.25
     end
-    if entry.doneRows >= entry.totalRows and entry.totalRows > 0 then
+    if (entry.doneRows or 0) >= (entry.totalRows or 0) and (entry.totalRows or 0) > 0 then
         return 0.20, 0.95, 0.60
     end
-    if entry.activeRows > 0 then
+    if (entry.activeRows or 0) > 0 then
         return 1.00, 0.76, 0.28
     end
 
     return 0.55, 0.72, 0.95
+end
+
+local function WBCharacterMatchesSearch(entry, query)
+    if not entry or query == nil or query == "" then
+        return true
+    end
+
+    query = tostring(query):lower()
+    local haystack = table.concat({
+        entry.name or "",
+        entry.realm or "",
+        entry.note or "",
+        entry.key or "",
+    }, " "):lower()
+
+    return haystack:find(query, 1, true) ~= nil
 end
 
 local function WBClassColor(entry)
@@ -944,6 +961,257 @@ local function WBPopulateConcentrationOverview(frame, data)
     return totalCharacters, totalProfessions
 end
 
+local function WBRefreshMainAltPicker(frame)
+    frame = frame or mainAltPickerFrame
+    if not frame then
+        return
+    end
+
+    RefreshFonts()
+    frame:SetScale(MR.db and MR.db.profile and MR.db.profile.scale or 1)
+
+    local data = MR:GetWarbandWeeklyData(false)
+    local searchText = frame.characterSearchText or ""
+    local listData = {}
+    for _, entry in ipairs(data or {}) do
+        if WBCharacterMatchesSearch(entry, searchText) then
+            listData[#listData + 1] = entry
+        end
+    end
+
+    local selectedKey = MR.GetMainAltViewCharacterKey and MR:GetMainAltViewCharacterKey() or nil
+    local currentKey = MR.GetCurrentCharacterKey and MR:GetCurrentCharacterKey() or nil
+    WBReleaseWidgets(frame.charButtons)
+    frame.charButtons = frame.charButtons or {}
+
+    if frame.titleText then
+        frame.titleText:SetText(L["AltPicker_Title"] or "All Characters")
+    end
+
+    local currentRow = {
+        key = currentKey,
+        name = UnitName and UnitName("player") or (L["AltPicker_CurrentCharacter"] or "Current Character"),
+        realm = GetRealmName and GetRealmName() or "",
+        classFile = select(2, UnitClass("player")),
+        isCurrent = true,
+        stale = false,
+        hidden = false,
+        doneRows = 0,
+        activeRows = 0,
+        totalRows = 0,
+    }
+
+    local rows = { currentRow }
+    for _, entry in ipairs(listData) do
+        if entry.key ~= currentKey then
+            rows[#rows + 1] = entry
+        end
+    end
+    if frame.charRail and frame.leftScroll then
+        frame.charRail:SetWidth(math.max((frame.leftScroll:GetWidth() or 220) - 2, 1))
+    end
+    if frame.countText then
+        frame.countText:SetText(tostring(#rows))
+    end
+
+    for index, entry in ipairs(rows) do
+        local row = CreateFrame("Button", nil, frame.charRail, "BackdropTemplate")
+        row:SetHeight(28)
+        row:SetPoint("TOPLEFT", frame.charRail, "TOPLEFT", 0, -((index - 1) * 30))
+        row:SetPoint("TOPRIGHT", frame.charRail, "TOPRIGHT", 0, -((index - 1) * 30))
+        row:SetBackdrop(MakeBackdrop())
+
+        local selectedRow = (entry.isCurrent and not selectedKey) or (selectedKey and selectedKey == entry.key)
+        local cr, cg, cb = WBClassColor(entry)
+        if selectedRow then
+            row:SetBackdropColor(0.030, 0.058, 0.078, 0.98)
+            row:SetBackdropBorderColor(0.16, 0.44, 0.48, 0.78)
+        else
+            row:SetBackdropColor(0.008, 0.014, 0.022, 0.36)
+            row:SetBackdropBorderColor(0.04, 0.07, 0.10, 0.26)
+        end
+
+        local iconPlate = CreateFrame("Frame", nil, row, "BackdropTemplate")
+        iconPlate:SetSize(16, 16)
+        iconPlate:SetPoint("LEFT", row, "LEFT", 7, 0)
+        iconPlate:SetBackdrop(MakeBackdrop())
+        iconPlate:SetBackdropColor(0.004, 0.010, 0.016, 0.86)
+        iconPlate:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, selectedRow and 0.84 or 0.58)
+
+        local classIcon = iconPlate:CreateTexture(nil, "ARTWORK")
+        classIcon:SetPoint("TOPLEFT", iconPlate, "TOPLEFT", 2, -2)
+        classIcon:SetPoint("BOTTOMRIGHT", iconPlate, "BOTTOMRIGHT", -2, 2)
+        classIcon:SetTexture("Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES")
+        local coords = entry.classFile and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[entry.classFile] or nil
+        if coords then
+            classIcon:SetTexCoord(coords[1], coords[2], coords[3], coords[4])
+        else
+            iconPlate:Hide()
+        end
+
+        local name = row:CreateFontString(nil, "OVERLAY")
+        name:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
+        name:SetPoint("LEFT", row, "LEFT", 29, 0)
+        name:SetPoint("RIGHT", row, "RIGHT", -76, 0)
+        name:SetJustifyH("LEFT")
+        name:SetWordWrap(false)
+        name:SetText(entry.name)
+        name:SetTextColor(cr, cg, cb)
+
+        local realm = row:CreateFontString(nil, "OVERLAY")
+        realm:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+        realm:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+        realm:SetJustifyH("RIGHT")
+        realm:SetText(entry.realm ~= "" and entry.realm or (L["AltBoard_UnknownRealm"] or "Unknown Realm"))
+        realm:SetTextColor(0.68, 0.70, 0.74)
+
+        row:SetScript("OnClick", function()
+            if MR.SetMainAltViewCharacter then
+                MR:SetMainAltViewCharacter(entry.isCurrent and nil or entry.key)
+            end
+            frame:Hide()
+        end)
+        row:SetScript("OnEnter", function(selfRow)
+            if not selectedRow then
+                selfRow:SetBackdropColor(0.020, 0.036, 0.052, 0.82)
+                selfRow:SetBackdropBorderColor(0.10, 0.26, 0.32, 0.62)
+            end
+        end)
+        row:SetScript("OnLeave", function(selfRow)
+            if not selectedRow then
+                selfRow:SetBackdropColor(0.008, 0.014, 0.022, 0.36)
+                selfRow:SetBackdropBorderColor(0.04, 0.07, 0.10, 0.26)
+            end
+        end)
+
+        table.insert(frame.charButtons, row)
+    end
+
+    frame.charRail:SetHeight(math.max(#rows * 30, 1))
+    if frame.leftScrollUpdate then frame.leftScrollUpdate() end
+end
+
+local function WBBuildMainAltPicker()
+    local frame = StyledFrame(UIParent, nil, "DIALOG", 26)
+    frame:SetSize(220, 286)
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    if MR._characterBar then
+        frame:SetPoint("TOPLEFT", MR._characterBar, "BOTTOMLEFT", 0, -2)
+    elseif MR.frame then
+        frame:SetPoint("TOPLEFT", MR.frame, "BOTTOMLEFT", 0, -2)
+    else
+        frame:SetPoint("CENTER", UIParent, "CENTER", -120, 0)
+    end
+    frame:SetBackdrop(MakeBackdrop())
+    frame:SetBackdropColor(0.006, 0.010, 0.016, 0.97)
+    frame:SetBackdropBorderColor(0.12, 0.28, 0.34, 0.90)
+    frame:Hide()
+
+    local titleBar = TitleBar(frame, 26)
+    titleBar:SetBackdropColor(0.012, 0.030, 0.044, 0.99)
+    titleBar:SetBackdropBorderColor(0.12, 0.32, 0.38, 0.90)
+    titleBar:SetScript("OnDragStart", function() frame:StartMoving() end)
+    titleBar:SetScript("OnDragStop", function() frame:StopMovingOrSizing() end)
+
+    local title = titleBar:CreateFontString(nil, "OVERLAY")
+    title:SetFont(FONT_HEADERS, math.max(10, GetFontSize()), GetFontFlags())
+    title:SetPoint("LEFT", titleBar, "LEFT", 8, 1)
+    title:SetText(L["AltPicker_Title"] or "All Characters")
+    title:SetTextColor(0.78, 0.96, 0.98)
+    frame.titleText = title
+
+    CloseButton(titleBar, function()
+        frame:Hide()
+    end)
+
+    local countText = titleBar:CreateFontString(nil, "OVERLAY")
+    countText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
+    countText:SetPoint("RIGHT", titleBar, "RIGHT", -30, 1)
+    countText:SetTextColor(0.42, 0.68, 0.72)
+    frame.countText = countText
+
+    local leftPane = CreateFrame("Frame", nil, frame)
+    leftPane:SetPoint("TOPLEFT", frame, "TOPLEFT", 7, -33)
+    leftPane:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -7, 7)
+
+    local searchBox = CreateFrame("EditBox", nil, leftPane, "BackdropTemplate")
+    searchBox:SetHeight(24)
+    searchBox:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 0, 0)
+    searchBox:SetPoint("TOPRIGHT", leftPane, "TOPRIGHT", 0, 0)
+    searchBox:SetAutoFocus(false)
+    searchBox:SetFont(FONT_ROWS, math.max(9, GetFontSize() - 1), GetFontFlags())
+    searchBox:SetTextColor(0.90, 0.95, 1.00)
+    searchBox:SetJustifyH("LEFT")
+    searchBox:SetBackdrop(MakeBackdrop())
+    searchBox:SetBackdropColor(0.004, 0.010, 0.016, 0.98)
+    searchBox:SetBackdropBorderColor(0.08, 0.22, 0.28, 0.78)
+    searchBox:SetTextInsets(8, 24, 0, 0)
+
+    local placeholder = searchBox:CreateFontString(nil, "OVERLAY")
+    placeholder:SetFont(FONT_ROWS, math.max(9, GetFontSize() - 1), GetFontFlags())
+    placeholder:SetPoint("LEFT", searchBox, "LEFT", 8, 0)
+    placeholder:SetText(L["AltBoard_SearchPlaceholder"] or "Search characters...")
+    placeholder:SetTextColor(0.42, 0.44, 0.50)
+
+    local clearBtn = CreateFrame("Button", nil, searchBox, "BackdropTemplate")
+    clearBtn:SetSize(15, 15)
+    clearBtn:SetPoint("RIGHT", searchBox, "RIGHT", -5, 0)
+    clearBtn:SetBackdrop(MakeBackdrop())
+    clearBtn:SetBackdropColor(0.030, 0.030, 0.042, 0.86)
+    clearBtn:SetBackdropBorderColor(0.12, 0.12, 0.16, 0.72)
+    clearBtn:Hide()
+
+    local clearLabel = clearBtn:CreateFontString(nil, "OVERLAY")
+    clearLabel:SetFont(FONT_HEADERS, 8, GetFontFlags())
+    clearLabel:SetPoint("CENTER", clearBtn, "CENTER", 0, 1)
+    clearLabel:SetText("x")
+    clearLabel:SetTextColor(0.70, 0.72, 0.78)
+
+    local function UpdateSearch(text)
+        placeholder:SetShown(text == "")
+        clearBtn:SetShown(text ~= "")
+    end
+
+    searchBox:SetScript("OnTextChanged", function(selfBox)
+        local text = selfBox:GetText() or ""
+        if frame.characterSearchText == text then
+            UpdateSearch(text)
+            return
+        end
+        frame.characterSearchText = text
+        UpdateSearch(text)
+        WBRefreshMainAltPicker(frame)
+    end)
+    searchBox:SetScript("OnEscapePressed", function(selfBox)
+        selfBox:SetText("")
+        selfBox:ClearFocus()
+    end)
+    searchBox:SetScript("OnEditFocusGained", function()
+        searchBox:SetBackdropBorderColor(0.20, 0.58, 0.62, 0.95)
+    end)
+    searchBox:SetScript("OnEditFocusLost", function()
+        searchBox:SetBackdropBorderColor(0.08, 0.22, 0.28, 0.78)
+    end)
+    clearBtn:SetScript("OnClick", function()
+        searchBox:SetText("")
+        searchBox:ClearFocus()
+    end)
+    frame.characterSearchBox = searchBox
+
+    local leftScroll, charRail, leftScrollUpdate = WBCreateScrollArea(
+        leftPane,
+        { "TOPLEFT", leftPane, "TOPLEFT", 0, -31 },
+        { "BOTTOMRIGHT", leftPane, "BOTTOMRIGHT", -2, 0 }
+    )
+    frame.leftScroll = leftScroll
+    frame.charRail = charRail
+    frame.leftScrollUpdate = leftScrollUpdate
+    frame.charButtons = {}
+
+    return frame
+end
+
 local function WBPopulateConcentrationTracker(frame)
     if not frame or not frame.content then
         return
@@ -1644,6 +1912,13 @@ function MR:RefreshWarbandBoard()
 
     local data = self:GetWarbandWeeklyData()
     frame._data = data
+    local searchText = frame.characterSearchText or ""
+    local listData = {}
+    for _, entry in ipairs(data or {}) do
+        if WBCharacterMatchesSearch(entry, searchText) then
+            listData[#listData + 1] = entry
+        end
+    end
 
     if not frame.selectedCharKey or not data then
         frame.selectedCharKey = nil
@@ -1656,9 +1931,21 @@ function MR:RefreshWarbandBoard()
             break
         end
     end
-    if not selected then
-        selected = data[1]
+    if searchText ~= "" and selected and not WBCharacterMatchesSearch(selected, searchText) then
+        selected = listData[1]
         frame.selectedCharKey = selected and selected.key or nil
+    end
+    if searchText ~= "" and #listData == 0 then
+        selected = nil
+        frame.selectedCharKey = nil
+    end
+    if not selected then
+        if searchText ~= "" and #listData == 0 then
+            frame.selectedCharKey = nil
+        else
+            selected = listData[1] or data[1]
+            frame.selectedCharKey = selected and selected.key or nil
+        end
     end
 
     WBReleaseWidgets(frame.charButtons)
@@ -1689,6 +1976,9 @@ function MR:RefreshWarbandBoard()
     if frame.showHiddenBtn and frame.showHiddenBtn._label then
         frame.showHiddenBtn._label:SetText(MR.db.profile.altBoardShowHidden and (L["AltBoard_HideHidden"] or "Hide Hidden") or (L["AltBoard_ShowHidden"] or "Show Hidden"))
         WBStylePillButton(frame.showHiddenBtn, MR.db.profile.altBoardShowHidden == true)
+    end
+    if frame.characterSearchBox and not frame.characterSearchBox:HasFocus() and frame.characterSearchBox:GetText() ~= searchText then
+        frame.characterSearchBox:SetText(searchText)
     end
     if frame.hideCompletedBtn and frame.hideCompletedBtn._label then
         frame.hideCompletedBtn._label:SetText(MR.db.profile.altBoardHideCompleted and (L["AltBoard_ShowCompleted"] or "Show Completed") or (L["AltBoard_HideCompleted"] or "Hide Completed"))
@@ -1722,7 +2012,7 @@ function MR:RefreshWarbandBoard()
         if frame.overviewEmptyLabel then
             frame.overviewEmptyLabel:SetPoint("TOPLEFT", frame.overviewContent, "TOPLEFT", 8, -6)
             frame.overviewEmptyLabel:SetPoint("TOPRIGHT", frame.overviewContent, "TOPRIGHT", -8, -6)
-            frame.overviewEmptyLabel:SetText(L["AltBoard_ConcentrationNone"] or "No concentration data on tracked characters yet.")
+            frame.overviewEmptyLabel:SetText(searchText ~= "" and (L["AltBoard_NoCharacters"] or "No characters found") or (L["AltBoard_ConcentrationNone"] or "No concentration data on tracked characters yet."))
             frame.overviewEmptyLabel:Show()
         end
         if frame.overviewContent then
@@ -1735,7 +2025,7 @@ function MR:RefreshWarbandBoard()
         return
     end
 
-    for index, entry in ipairs(data) do
+    for index, entry in ipairs(listData) do
         local btn = CreateFrame("Button", nil, frame.charRail, "BackdropTemplate")
         btn:SetSize(216, 66)
         btn:SetPoint("TOPLEFT", frame.charRail, "TOPLEFT", 0, -((index - 1) * 72))
@@ -1861,7 +2151,7 @@ function MR:RefreshWarbandBoard()
         table.insert(frame.charButtons, btn)
     end
 
-    frame.charRail:SetHeight(math.max(#data * 72, 1))
+    frame.charRail:SetHeight(math.max(#listData * 72, 1))
     if frame.leftScrollUpdate then
         frame.leftScrollUpdate()
     end
@@ -2286,9 +2576,92 @@ function MR:ToggleWarbandBoard()
             WBStylePillButton(selfBtn, MR.db.profile.altBoardShowHidden == true)
         end)
 
+        local searchBox = CreateFrame("EditBox", nil, leftPane, "BackdropTemplate")
+        searchBox:SetSize(214, 24)
+        searchBox:SetPoint("TOPLEFT", leftPane, "TOPLEFT", 10, -34)
+        searchBox:SetAutoFocus(false)
+        searchBox:SetFont(FONT_ROWS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        searchBox:SetTextColor(0.90, 0.95, 1.00)
+        searchBox:SetJustifyH("LEFT")
+        searchBox:SetBackdrop(MakeBackdrop())
+        searchBox:SetBackdropColor(0.010, 0.018, 0.030, 0.94)
+        searchBox:SetBackdropBorderColor(0.08, 0.14, 0.20, 0.72)
+        searchBox:SetTextInsets(22, 26, 0, 0)
+
+        local searchIcon = searchBox:CreateFontString(nil, "OVERLAY")
+        searchIcon:SetFont(FONT_ROWS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        searchIcon:SetPoint("LEFT", searchBox, "LEFT", 8, 0)
+        searchIcon:SetText(">")
+        searchIcon:SetTextColor(0.42, 0.52, 0.60)
+
+        local searchPlaceholder = searchBox:CreateFontString(nil, "OVERLAY")
+        searchPlaceholder:SetFont(FONT_ROWS, math.max(9, GetFontSize() - 1), GetFontFlags())
+        searchPlaceholder:SetPoint("LEFT", searchBox, "LEFT", 22, 0)
+        searchPlaceholder:SetText(L["AltBoard_SearchPlaceholder"] or "Search characters...")
+        searchPlaceholder:SetTextColor(0.42, 0.50, 0.58)
+
+        local clearSearchBtn = CreateFrame("Button", nil, searchBox, "BackdropTemplate")
+        clearSearchBtn:SetSize(16, 16)
+        clearSearchBtn:SetPoint("RIGHT", searchBox, "RIGHT", -5, 0)
+        clearSearchBtn:SetBackdrop(MakeBackdrop())
+        clearSearchBtn:SetBackdropColor(0.025, 0.045, 0.065, 0.88)
+        clearSearchBtn:SetBackdropBorderColor(0.10, 0.16, 0.22, 0.72)
+
+        local clearSearchLabel = clearSearchBtn:CreateFontString(nil, "OVERLAY")
+        clearSearchLabel:SetFont(FONT_HEADERS, 9, GetFontFlags())
+        clearSearchLabel:SetPoint("CENTER", clearSearchBtn, "CENTER", 0, 1)
+        clearSearchLabel:SetText("x")
+        clearSearchLabel:SetTextColor(0.58, 0.68, 0.76)
+        clearSearchBtn:Hide()
+
+        local function UpdateSearchVisuals(text)
+            if text == "" then
+                searchPlaceholder:Show()
+                clearSearchBtn:Hide()
+            else
+                searchPlaceholder:Hide()
+                clearSearchBtn:Show()
+            end
+        end
+
+        searchBox:SetScript("OnTextChanged", function(selfBox)
+            local text = selfBox:GetText() or ""
+            if frame.characterSearchText == text then
+                UpdateSearchVisuals(text)
+                return
+            end
+            frame.characterSearchText = text
+            UpdateSearchVisuals(text)
+            MR:RequestWarbandBoardRefresh(true)
+        end)
+        searchBox:SetScript("OnEscapePressed", function(selfBox)
+            selfBox:SetText("")
+            selfBox:ClearFocus()
+        end)
+        searchBox:SetScript("OnEditFocusGained", function()
+            searchBox:SetBackdropBorderColor(0.20, 0.55, 0.52, 0.92)
+        end)
+        searchBox:SetScript("OnEditFocusLost", function()
+            searchBox:SetBackdropBorderColor(0.08, 0.14, 0.20, 0.72)
+        end)
+        clearSearchBtn:SetScript("OnClick", function()
+            searchBox:SetText("")
+            searchBox:ClearFocus()
+        end)
+        clearSearchBtn:SetScript("OnEnter", function(selfBtn)
+            selfBtn:SetBackdropColor(0.055, 0.095, 0.120, 0.96)
+            selfBtn:SetBackdropBorderColor(0.18, 0.38, 0.42, 0.90)
+            clearSearchLabel:SetTextColor(1, 1, 1)
+        end)
+        clearSearchBtn:SetScript("OnLeave", function(selfBtn)
+            selfBtn:SetBackdropColor(0.025, 0.045, 0.065, 0.88)
+            selfBtn:SetBackdropBorderColor(0.10, 0.16, 0.22, 0.72)
+            clearSearchLabel:SetTextColor(0.58, 0.68, 0.76)
+        end)
+
         local leftScroll, charRail, leftScrollUpdate = WBCreateScrollArea(
             leftPane,
-            { "TOPLEFT", leftPane, "TOPLEFT", 8, -30 },
+            { "TOPLEFT", leftPane, "TOPLEFT", 8, -64 },
             { "BOTTOMRIGHT", leftPane, "BOTTOMRIGHT", -12, 8 }
         )
 
@@ -2559,6 +2932,7 @@ function MR:ToggleWarbandBoard()
         frame.concentrationTrackerBtn = concentrationTrackerBtn
         frame.leftPane = leftPane
         frame.showHiddenBtn = showHiddenBtn
+        frame.characterSearchBox = searchBox
         frame.hideCompletedBtn = hideCompletedBtn
         frame.heroName = heroName
         frame.heroMeta = heroMeta
@@ -2582,5 +2956,46 @@ function MR:ToggleWarbandBoard()
     self.altBoardFrame:SetScale(self.db.profile.scale or 1)
     self.altBoardFrame:Show()
     self:RefreshWarbandBoard()
+end
+
+function MR:ToggleMainAltPicker()
+    if mainAltPickerFrame and mainAltPickerFrame:IsShown() then
+        mainAltPickerFrame:Hide()
+        return
+    end
+
+    if not mainAltPickerFrame then
+        mainAltPickerFrame = WBBuildMainAltPicker()
+    end
+
+    if MR._characterBar then
+        mainAltPickerFrame:SetWidth(math.max(220, MR._characterBar:GetWidth() or 220))
+    end
+    mainAltPickerFrame:ClearAllPoints()
+    if MR._characterBar then
+        if ns.GetMainHeaderPosition and ns.GetMainHeaderPosition() == "bottom" then
+            mainAltPickerFrame:SetPoint("BOTTOMLEFT", MR._characterBar, "TOPLEFT", 0, 2)
+        else
+            mainAltPickerFrame:SetPoint("TOPLEFT", MR._characterBar, "BOTTOMLEFT", 0, -2)
+        end
+    elseif MR.frame then
+        mainAltPickerFrame:SetPoint("TOPLEFT", MR.frame, "BOTTOMLEFT", 0, -2)
+    else
+        mainAltPickerFrame:SetPoint("CENTER", UIParent, "CENTER", -120, 0)
+    end
+    mainAltPickerFrame:Show()
+    WBRefreshMainAltPicker(mainAltPickerFrame)
+end
+
+function MR:HideMainAltPicker()
+    if mainAltPickerFrame then
+        mainAltPickerFrame:Hide()
+    end
+end
+
+function MR:RefreshMainAltPicker()
+    if mainAltPickerFrame and mainAltPickerFrame:IsShown() then
+        WBRefreshMainAltPicker(mainAltPickerFrame)
+    end
 end
 
