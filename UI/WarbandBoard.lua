@@ -481,7 +481,10 @@ end
 
 local function WBConcentrationDailyGain(entry)
     local cycleMS = tonumber(entry and entry.rechargingCycleDurationMS) or 0
-    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 0
+    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 1
+    if amountPerCycle <= 0 then
+        amountPerCycle = 1
+    end
     if cycleMS <= 0 or amountPerCycle <= 0 then
         return 0
     end
@@ -493,7 +496,10 @@ local function WBConcentrationProjectedQuantity(entry, aheadSeconds)
     local current = WBConcentrationCurrent(entry)
     local maxQuantity = tonumber(entry and entry.maxQuantity) or 0
     local cycleMS = tonumber(entry and entry.rechargingCycleDurationMS) or 0
-    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 0
+    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 1
+    if amountPerCycle <= 0 then
+        amountPerCycle = 1
+    end
     local secondsAhead = tonumber(aheadSeconds) or 0
 
     if maxQuantity > 0 and current >= maxQuantity then
@@ -516,7 +522,10 @@ local function WBConcentrationTimeToFull(entry)
     local current = WBConcentrationCurrent(entry)
     local maxQuantity = tonumber(entry and entry.maxQuantity) or 0
     local cycleMS = tonumber(entry and entry.rechargingCycleDurationMS) or 0
-    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 0
+    local amountPerCycle = tonumber(entry and entry.rechargingAmountPerCycle) or 1
+    if amountPerCycle <= 0 then
+        amountPerCycle = 1
+    end
 
     if maxQuantity <= 0 or current >= maxQuantity then
         return 0, GetServerTime()
@@ -1591,6 +1600,12 @@ function MR:ToggleConcentrationTracker()
         refreshBtn._label:SetText(L["CurrencyBrowser_Refresh"] or "Refresh")
         refreshBtn._label:SetTextColor(0.70, 0.88, 0.85)
         refreshBtn:SetScript("OnClick", function()
+            if MR.RefreshPlayerProfessions then
+                MR:RefreshPlayerProfessions()
+            end
+            if MR.RefreshProfessionConcentration then
+                MR:RefreshProfessionConcentration()
+            end
             WBPopulateConcentrationTracker(frame)
         end)
         refreshBtn:SetScript("OnEnter", function(selfBtn)

@@ -1215,7 +1215,8 @@ local function ConcentrationDataEqual(a, b)
             or (infoA.quantity or 0) ~= (infoB.quantity or 0)
             or (infoA.maxQuantity or 0) ~= (infoB.maxQuantity or 0)
             or (infoA.rechargingCycleDurationMS or 0) ~= (infoB.rechargingCycleDurationMS or 0)
-            or (infoA.rechargingAmountPerCycle or 0) ~= (infoB.rechargingAmountPerCycle or 0) then
+            or (infoA.rechargingAmountPerCycle or 0) ~= (infoB.rechargingAmountPerCycle or 0)
+            or (infoA.lastUpdated or 0) ~= (infoB.lastUpdated or 0) then
             return false
         end
     end
@@ -1281,16 +1282,49 @@ function MR:RefreshProfessionConcentration()
         if self.playerProfessions and self.playerProfessions[skillLineID] then
             local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo and C_CurrencyInfo.GetCurrencyInfo(currencyID)
             if info then
+                local quantity = info.quantity or 0
+                local maxQuantity = info.maxQuantity or 0
+                local cycleMS = info.rechargingCycleDurationMS or 0
+                local amountPerCycle = info.rechargingAmountPerCycle or 1
+                if amountPerCycle <= 0 then
+                    amountPerCycle = 1
+                end
+                local lastUpdated = GetServerTime()
+                local previousInfo = type(previous) == "table" and previous[skillLineID] or nil
+
+                if type(previousInfo) == "table" then
+                    local previousQuantity = tonumber(previousInfo.quantity) or 0
+                    local previousMax = tonumber(previousInfo.maxQuantity) or 0
+                    local previousUpdated = tonumber(previousInfo.lastUpdated) or 0
+                    local previousCycleMS = tonumber(previousInfo.rechargingCycleDurationMS) or cycleMS
+                    local previousAmountPerCycle = tonumber(previousInfo.rechargingAmountPerCycle) or amountPerCycle
+                    if previousCycleMS <= 0 then
+                        previousCycleMS = cycleMS
+                    end
+                    if previousAmountPerCycle <= 0 then
+                        previousAmountPerCycle = amountPerCycle
+                    end
+
+                    if quantity == previousQuantity
+                        and previousMax > 0
+                        and previousQuantity < previousMax
+                        and previousUpdated > 0
+                        and previousCycleMS > 0
+                        and previousAmountPerCycle > 0 then
+                        lastUpdated = previousUpdated
+                    end
+                end
+
                 concentration[skillLineID] = {
                     currencyID = currencyID,
-                    quantity = info.quantity or 0,
-                    maxQuantity = info.maxQuantity or 0,
-                    rechargingCycleDurationMS = info.rechargingCycleDurationMS or 0,
-                    rechargingAmountPerCycle = info.rechargingAmountPerCycle or 0,
+                    quantity = quantity,
+                    maxQuantity = maxQuantity,
+                    rechargingCycleDurationMS = cycleMS,
+                    rechargingAmountPerCycle = amountPerCycle,
                     name = info.name,
                     iconFileID = info.iconFileID,
                     quality = info.quality or 0,
-                    lastUpdated = GetServerTime(),
+                    lastUpdated = lastUpdated,
                 }
             end
         end

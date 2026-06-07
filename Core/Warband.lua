@@ -44,26 +44,23 @@ local function EstimateCurrencyQuantity(currencyInfo)
     local quantity = tonumber(currencyInfo.quantity) or 0
     local maxQuantity = tonumber(currencyInfo.maxQuantity) or 0
     local lastUpdated = tonumber(currencyInfo.lastUpdated) or 0
-    local dailyGain = tonumber(currencyInfo.rechargingAmountPerCycle) or 250
-    if dailyGain < 0 then
-        dailyGain = 0
+    local cycleMS = tonumber(currencyInfo.rechargingCycleDurationMS) or 0
+    local amountPerCycle = tonumber(currencyInfo.rechargingAmountPerCycle) or 1
+    if amountPerCycle <= 0 then
+        amountPerCycle = 1
     end
 
     if maxQuantity <= 0 then
         return quantity, maxQuantity
     end
 
-    if lastUpdated <= 0 or not (MR and MR.GetLastDailyTimestamp) then
+    if lastUpdated <= 0 or cycleMS <= 0 or amountPerCycle <= 0 then
         return math.min(quantity, maxQuantity), maxQuantity
     end
 
-    local lastDailyReset = MR:GetLastDailyTimestamp()
-    if not lastDailyReset or lastUpdated >= lastDailyReset then
-        return math.min(quantity, maxQuantity), maxQuantity
-    end
-
-    local resetsMissed = math.floor((lastDailyReset - lastUpdated - 1) / DAY_SECONDS) + 1
-    local estimated = quantity + (math.max(0, resetsMissed) * dailyGain)
+    local now = (GetServerTime and GetServerTime()) or time()
+    local elapsed = math.max(0, now - lastUpdated)
+    local estimated = quantity + (((elapsed * 1000) / cycleMS) * amountPerCycle)
 
     return math.min(estimated, maxQuantity), maxQuantity
 end
@@ -94,7 +91,55 @@ function MR:GetCurrentCharacterKey()
     return UnitName and UnitName("player") or "Unknown"
 end
 
-function MR:GetWarbandWeeklyData()
+function MR:GetMainFrameProgressSource()
+    local charKey = self.mainAltViewCharKey
+    if not (charKey and self.db and self.db.sv and self.db.sv.char) then
+        return self.db and self.db.char or nil
+    end
+
+    return self.db.sv.char[charKey] or self.db.char
+end
+
+function MR:IsMainAltViewActive()
+    return self.mainAltViewCharKey ~= nil
+end
+
+function MR:GetMainAltViewCharacterKey()
+    return self.mainAltViewCharKey
+end
+
+function MR:SetMainAltViewCharacter(charKey)
+    local currentKey = self:GetCurrentCharacterKey()
+    if not charKey or charKey == currentKey then
+        self.mainAltViewCharKey = nil
+    elseif self.db and self.db.sv and self.db.sv.char and self.db.sv.char[charKey] then
+        self.mainAltViewCharKey = charKey
+    end
+
+    if self.RefreshUI then
+        self:RefreshUI()
+    end
+    if self.RefreshMainAltPicker then
+        self:RefreshMainAltPicker()
+    end
+end
+
+function MR:GetMainAltViewCharacterInfo()
+    local charKey = self.mainAltViewCharKey
+    if not (charKey and self.db and self.db.sv and self.db.sv.char and self.db.sv.char[charKey]) then
+        return nil
+    end
+
+    local name, realm = ParseCharacterKey(charKey)
+    return {
+        key = charKey,
+        name = name,
+        realm = realm,
+        data = self.db.sv.char[charKey],
+    }
+end
+
+function MR:GetWarbandWeeklyData(showHiddenOverride)
     if not (self and self.db and self.db.sv and self.db.sv.char) then
         return {}
     end
@@ -104,7 +149,12 @@ function MR:GetWarbandWeeklyData()
     local currentKey = self:GetCurrentCharacterKey()
     local resetAt = self.GetLastResetTimestamp and self:GetLastResetTimestamp() or 0
     local hiddenChars = (self.db and self.db.profile and self.db.profile.altBoardHiddenCharacters) or {}
-    local showHidden = self.db and self.db.profile and self.db.profile.altBoardShowHidden == true
+    local showHidden = showHiddenOverride
+    if showHidden == nil then
+        showHidden = self.db and self.db.profile and self.db.profile.altBoardShowHidden == true
+    else
+        showHidden = showHidden == true
+    end
     local useCharacterLayout = self:IsCharacterWindowLayoutEnabled()
     local sharedModuleStateBuckets = (not useCharacterLayout)
         and type(self.db.profile.expansionModuleStates) == "table"
@@ -238,6 +288,10 @@ function MR:GetWarbandWeeklyData()
                 for skillLineID, currencyInfo in pairs(savedConcentration) do
                     if currencyInfo and (savedProfessions == nil or savedProfessions[skillLineID]) then
                         local estimated, maxQuantity = EstimateCurrencyQuantity(currencyInfo)
+                        local amountPerCycle = tonumber(currencyInfo.rechargingAmountPerCycle) or 1
+                        if amountPerCycle <= 0 then
+                            amountPerCycle = 1
+                        end
                         table.insert(snapshot.concentration, {
                             skillLineID = skillLineID,
                             label = GetProfessionLabelBySkillLine(skillLineID),
@@ -246,7 +300,7 @@ function MR:GetWarbandWeeklyData()
                             estimatedQuantity = estimated,
                             maxQuantity = maxQuantity,
                             rechargingCycleDurationMS = tonumber(currencyInfo.rechargingCycleDurationMS) or 0,
-                            rechargingAmountPerCycle = tonumber(currencyInfo.rechargingAmountPerCycle) or 0,
+                            rechargingAmountPerCycle = amountPerCycle,
                             lastUpdated = tonumber(currencyInfo.lastUpdated) or 0,
                         })
                     end
