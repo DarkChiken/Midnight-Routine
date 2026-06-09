@@ -137,6 +137,13 @@ local DEFAULTS = {
         expansionModuleStates = {},
         expansionModuleOrder = {},
     },
+    global = {
+        customTasks = {},
+        customTaskNextId = 1,
+        customTaskProgress = {},
+        customTaskManualOverrides = {},
+        customTaskDiffProgress = {},
+    },
 }
 
 MR.modules     = {}
@@ -282,10 +289,11 @@ function MR:FlushCombatDeferredUpdates()
 
     if deferredProgress then
         for _, entry in ipairs(deferredProgress) do
-            if not self.db.char.progress[entry.moduleKey] then
-                self.db.char.progress[entry.moduleKey] = {}
+            local progressBucket = self.GetProgressBucket and self:GetProgressBucket(entry.moduleKey, entry.rowKey) or self.db.char.progress
+            if not progressBucket[entry.moduleKey] then
+                progressBucket[entry.moduleKey] = {}
             end
-            self.db.char.progress[entry.moduleKey][entry.rowKey] = math.max(0, math.min(entry.value, entry.maxVal))
+            progressBucket[entry.moduleKey][entry.rowKey] = math.max(0, math.min(entry.value, entry.maxVal))
         end
     end
 
@@ -536,18 +544,45 @@ function MR:GetWeeklyRewardActivityBuckets()
 end
 
 function MR:GetProgress(moduleKey, rowKey)
+    if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        local progress = self.db and self.db.global and self.db.global.customTaskProgress
+        local m = progress and progress[moduleKey]
+        return m and m[rowKey] or 0
+    end
+
     local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
     local progress = source and source.progress or self.db.char.progress
     local m = progress and progress[moduleKey]
     return m and m[rowKey] or 0
 end
 
+function MR:GetProgressBucket(moduleKey, rowKey)
+    if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        self.db.global = self.db.global or {}
+        self.db.global.customTaskProgress = self.db.global.customTaskProgress or {}
+        return self.db.global.customTaskProgress
+    end
+
+    return self.db.char.progress
+end
+
+function MR:GetManualOverrideBucket(moduleKey, rowKey)
+    if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        self.db.global = self.db.global or {}
+        self.db.global.customTaskManualOverrides = self.db.global.customTaskManualOverrides or {}
+        return self.db.global.customTaskManualOverrides
+    end
+
+    return self.db.char.manualOverrides
+end
+
 function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
+    local progressBucket = self.GetProgressBucket and self:GetProgressBucket(moduleKey, rowKey) or self.db.char.progress
     if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() and not bypassInstanceSuspend then
-        if not self.db.char.progress[moduleKey] then
-            self.db.char.progress[moduleKey] = {}
+        if not progressBucket[moduleKey] then
+            progressBucket[moduleKey] = {}
         end
-        self.db.char.progress[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
+        progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
         return
     end
 
@@ -556,10 +591,10 @@ function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
         return
     end
 
-    if not self.db.char.progress[moduleKey] then
-        self.db.char.progress[moduleKey] = {}
+    if not progressBucket[moduleKey] then
+        progressBucket[moduleKey] = {}
     end
-    self.db.char.progress[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
+    progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
     self:RefreshUI()
 end
 
@@ -602,8 +637,7 @@ function MR:ApplyFontSizeToAll(v)
 end
 
 function MR:BumpProgress(moduleKey, rowKey, delta, maxVal, bypassInstanceSuspend)
-    local progress = self.db and self.db.char and self.db.char.progress
-    local current = progress and progress[moduleKey] and progress[moduleKey][rowKey] or 0
+    local current = self:GetProgress(moduleKey, rowKey)
     self:SetProgress(moduleKey, rowKey, current + delta, maxVal, bypassInstanceSuspend)
 end
 
@@ -652,21 +686,27 @@ function MR:SetWaypoint(target)
 end
 
 function MR:GetManualOverride(modKey, rowKey)
+    if modKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        local m = self.db and self.db.global and self.db.global.customTaskManualOverrides
+        return (m and m[modKey] and m[modKey][rowKey]) or 0
+    end
+
     local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
     local m = source and source.manualOverrides or self.db.char.manualOverrides
     return (m and m[modKey] and m[modKey][rowKey]) or 0
 end
 
 function MR:SetManualOverride(modKey, rowKey, val, maxVal)
-    if not self.db.char.manualOverrides then self.db.char.manualOverrides = {} end
-    if not self.db.char.manualOverrides[modKey] then self.db.char.manualOverrides[modKey] = {} end
+    local overrides = self.GetManualOverrideBucket and self:GetManualOverrideBucket(modKey, rowKey) or self.db.char.manualOverrides
+    if not overrides then return end
+    if not overrides[modKey] then overrides[modKey] = {} end
     if val <= 0 then
-        self.db.char.manualOverrides[modKey][rowKey] = nil
+        overrides[modKey][rowKey] = nil
         self:SetProgress(modKey, rowKey, 0, maxVal or 1)
         self:Scan()
     else
-        self.db.char.manualOverrides[modKey][rowKey] = maxVal and math.min(val, maxVal) or val
-        self:SetProgress(modKey, rowKey, self.db.char.manualOverrides[modKey][rowKey], maxVal)
+        overrides[modKey][rowKey] = maxVal and math.min(val, maxVal) or val
+        self:SetProgress(modKey, rowKey, overrides[modKey][rowKey], maxVal)
     end
 end
 
@@ -1470,7 +1510,9 @@ local function UpdateQuestProgressForRow(self, progress, mod, row)
     end
 
     local value = math.min(done, row.max or done)
-    return WriteProgress(progress, mod.key, row.key, value, self.db.char.manualOverrides)
+    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+    local overridesBucket = (self.GetManualOverrideBucket and self:GetManualOverrideBucket(mod.key, row.key)) or self.db.char.manualOverrides
+    return WriteProgress(progressBucket, mod.key, row.key, value, overridesBucket)
 end
 
 local function UpdateItemProgressForRow(self, progress, mod, row)
@@ -1526,7 +1568,8 @@ function MR:ScanAutoUpdateInstanceRows(changedQuestId, changedEncounterId, diffi
                 if not row.turnInTracked then
                     UpdateQuestProgressForRow(self, progress, mod, row)
                 elseif row.allowQuestFlagBackfill then
-                    local cur = progress[mod.key] and progress[mod.key][row.key] or 0
+                    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                    local cur = progressBucket[mod.key] and progressBucket[mod.key][row.key] or 0
                     if cur <= 0 then
                         UpdateQuestProgressForRow(self, progress, mod, row)
                     end
@@ -1542,29 +1585,40 @@ function MR:ScanAutoUpdateInstanceRows(changedQuestId, changedEncounterId, diffi
 
                 local diffOk = (not difficultyId) or (not row.encounterDifficulties) or (row.encounterDifficulties[difficultyId] == true)
                 if diffOk then
-                    if not progress[mod.key] then progress[mod.key] = {} end
-                    local cur = progress[mod.key][row.key] or 0
+                    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                    if not progressBucket[mod.key] then progressBucket[mod.key] = {} end
+                    local cur = progressBucket[mod.key][row.key] or 0
                     local maxVal = row.max or 1
 
 
                     if difficultyId and row.taskId then
-                        if self.db and self.db.char then
-                            self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
-                            local key = tostring(row.taskId)
-                            self.db.char.customTaskDiffProgress[key] = self.db.char.customTaskDiffProgress[key] or {}
-                            local diffState = self.db.char.customTaskDiffProgress[key]
-                            if not diffState[difficultyId] then
-                                diffState[difficultyId] = true
-                                if cur < maxVal then
-                                    progress[mod.key][row.key] = cur + 1
-                                    self._moduleStatsCache = nil
+                        if self.db then
+                            local diffProgress
+                            if row.accountWideComplete then
+                                self.db.global = self.db.global or {}
+                                self.db.global.customTaskDiffProgress = self.db.global.customTaskDiffProgress or {}
+                                diffProgress = self.db.global.customTaskDiffProgress
+                            elseif self.db.char then
+                                self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
+                                diffProgress = self.db.char.customTaskDiffProgress
+                            end
+                            local key = row.key or tostring(row.taskId)
+                            if diffProgress then
+                                diffProgress[key] = diffProgress[key] or {}
+                                local diffState = diffProgress[key]
+                                if not diffState[difficultyId] then
+                                    diffState[difficultyId] = true
+                                    if cur < maxVal then
+                                        progressBucket[mod.key][row.key] = cur + 1
+                                        self._moduleStatsCache = nil
+                                    end
                                 end
                             end
                         end
                     elseif not row.taskId then
 
                         if cur < maxVal then
-                            progress[mod.key][row.key] = maxVal
+                            progressBucket[mod.key][row.key] = maxVal
                             self._moduleStatsCache = nil
                         end
                     end
@@ -1627,7 +1681,8 @@ function MR:RefreshQuestProgress(questId, refreshUI)
 
                 if shouldUpdate then
                     if row.turnInTracked and row.allowQuestFlagBackfill then
-                        local currentValue = progress[mod.key] and progress[mod.key][row.key] or 0
+                        local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                        local currentValue = progressBucket[mod.key] and progressBucket[mod.key][row.key] or 0
                         if currentValue <= 0 and UpdateQuestProgressForRow(self, progress, mod, row) then
                             dirty = true
                         end

@@ -155,11 +155,13 @@ local function CountTrackedDifficulties(task)
 end
 
 local function GetDiffProgress(self, taskId, scope)
-    if not self.db or not self.db.char then return {} end
-    self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
+    if not self.db then return {} end
+    local task = self:GetCustomTaskById(taskId, scope)
+    local storage = GetDiffProgressStorage(task)
+    if not storage then return {} end
     local key = GetTaskProgressKey(taskId, scope)
-    self.db.char.customTaskDiffProgress[key] = self.db.char.customTaskDiffProgress[key] or {}
-    return self.db.char.customTaskDiffProgress[key]
+    storage[key] = storage[key] or {}
+    return storage[key]
 end
 
 
@@ -419,6 +421,41 @@ local function NormalizeBoolean(value)
     return value == true
 end
 
+local function GetAccountWideProgressStorage()
+    if not (MR and MR.db) then
+        return nil
+    end
+
+    MR.db.global = MR.db.global or {}
+    MR.db.global.customTaskProgress = MR.db.global.customTaskProgress or {}
+    return MR.db.global.customTaskProgress
+end
+
+local function GetAccountWideManualOverrideStorage()
+    if not (MR and MR.db) then
+        return nil
+    end
+
+    MR.db.global = MR.db.global or {}
+    MR.db.global.customTaskManualOverrides = MR.db.global.customTaskManualOverrides or {}
+    return MR.db.global.customTaskManualOverrides
+end
+
+local function GetDiffProgressStorage(task)
+    if task and task.accountWideComplete then
+        MR.db.global = MR.db.global or {}
+        MR.db.global.customTaskDiffProgress = MR.db.global.customTaskDiffProgress or {}
+        return MR.db.global.customTaskDiffProgress
+    end
+
+    if not (MR and MR.db and MR.db.char) then
+        return nil
+    end
+
+    MR.db.char.customTaskDiffProgress = MR.db.char.customTaskDiffProgress or {}
+    return MR.db.char.customTaskDiffProgress
+end
+
 local RefreshCustomTaskViews
 
 local function SortTasks(tasks)
@@ -437,6 +474,17 @@ end
 
 function MR:GetCustomTaskRowKey(taskId, scope)
     return GetTaskRowKey(taskId, scope)
+end
+
+function MR:IsCustomTaskAccountWideCompletion(rowKey)
+    if type(rowKey) ~= "string" then
+        return false
+    end
+
+    local scope = rowKey:match("^shared_task_") and TASK_SCOPE_SHARED or TASK_SCOPE_CHARACTER
+    local taskId = tonumber(rowKey:match("^shared_task_(%d+)") or rowKey:match("^task_(%d+)"))
+    local task = taskId and self:GetCustomTaskById(taskId, scope) or nil
+    return task and task.accountWideComplete == true or false
 end
 
 function MR:GetCustomTasks()
@@ -463,6 +511,7 @@ function MR:GetCustomTasks()
         task.scope = NormalizeTaskScope(task.scope)
         task.allowManualQuestClicks = NormalizeBoolean(task.allowManualQuestClicks)
         task.autoUpdateInstances = NormalizeBoolean(task.autoUpdateInstances)
+        task.accountWideComplete = NormalizeBoolean(task.accountWideComplete)
         task.encounterDifficulties = NormalizeEncounterDifficulties(task.encounterDifficulties)
         task.questId = nil
     end
@@ -567,8 +616,11 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     and (L["CustomTasks_ResetDaily"] or "Daily reset")
                     or (L["CustomTasks_ResetWeekly"] or "Weekly reset")
                 local scopeLabel = (taskScope == TASK_SCOPE_SHARED)
-                    and Text("CustomTasks_SharedScope", "All alts")
-                    or Text("CustomTasks_CharacterScope", "This character")
+                    and Text("CustomTasks_SharedScope", "Shows on all alts")
+                    or Text("CustomTasks_CharacterScope", "Shows on this character")
+                local completionScopeLabel = task.accountWideComplete
+                    and Text("CustomTasks_AccountCompleteScope", "Completion shared by all alts")
+                    or Text("CustomTasks_CharacterCompleteScope", "Completion tracked per character")
                 local questIds = NormalizeQuestIds(task.questIds)
                 local questIdText = BuildQuestIdsText(questIds)
                 local rewardCopper = GetQuestRewardSummary(questIds)
@@ -609,7 +661,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                             or (L["CustomTasks_TaskNote"] or "Left-click the checkbox to toggle. Shift-left-click to rename. Shift-right-click to delete.")
                     )
                 end
-                noteText = string.format("%s\n%s", scopeLabel, noteText)
+                noteText = string.format("%s\n%s\n%s", scopeLabel, completionScopeLabel, noteText)
                 local effectiveMax = task.max
                 local diffCount = CountTrackedDifficulties(task)
                 if diffCount >= 2 then effectiveMax = diffCount end
@@ -628,10 +680,12 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
                     encounterDifficulties = task.encounterDifficulties,
                     taskId = task.id,
                     taskScope = taskScope,
+                    accountWideComplete = task.accountWideComplete,
                     noDefaultTooltipHint = true,
                     tooltipFunc = function(tip)
                         tip:AddLine(" ")
                         tip:AddLine(scopeLabel, 0.72, 0.80, 1.00, true)
+                        tip:AddLine(completionScopeLabel, 0.72, 0.80, 1.00, true)
                         tip:AddLine(resetLabel, 0.80, 0.90, 1.00, true)
                         if encounterIds then
                             tip:AddLine(
@@ -709,7 +763,7 @@ local function BuildSectionRows(rows, tasks, resetType, headerKey, addKey, heade
     }
 end
 
-function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties, scope)
+function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties, scope, accountWideComplete)
     scope = NormalizeTaskScope(scope)
     local tasks = GetTaskStorage(scope)
     local cleanLabel = TrimText(label)
@@ -723,6 +777,7 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
     allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
     autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
     encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
+    accountWideComplete = NormalizeBoolean(accountWideComplete)
 
     local taskId
     if scope == TASK_SCOPE_SHARED then
@@ -745,6 +800,7 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
         encounterIds = encounterIds,
         allowManualQuestClicks = allowManualQuestClicks,
         autoUpdateInstances = autoUpdateInstances,
+        accountWideComplete = accountWideComplete,
         encounterDifficulties = encounterDifficulties,
     }
 
@@ -755,7 +811,7 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
     return taskId
 end
 
-function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties, scope, originalScope)
+function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allowManualQuestClicks, encounterIds, autoUpdateInstances, encounterDifficulties, scope, originalScope, accountWideComplete)
     scope = NormalizeTaskScope(scope)
     originalScope = NormalizeTaskScope(originalScope or scope)
     local task = self:GetCustomTaskById(taskId, originalScope)
@@ -767,6 +823,7 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     local oldScope = NormalizeTaskScope(task.scope)
     local oldTaskId = task.id
     local oldRowKey = GetTaskRowKey(oldTaskId, oldScope)
+    local oldAccountWideComplete = task.accountWideComplete == true
     if oldScope ~= scope then
         local oldTasks = GetTaskStorage(oldScope)
         local newTasks = GetTaskStorage(scope)
@@ -803,6 +860,18 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
             self.db.char.customTaskDiffProgress[oldRowKey] = nil
             self.db.char.customTaskDiffProgress[tostring(oldTaskId)] = nil
         end
+        if self.db.global then
+            if self.db.global.customTaskProgress and self.db.global.customTaskProgress[CUSTOM_MODULE_KEY] then
+                self.db.global.customTaskProgress[CUSTOM_MODULE_KEY][oldRowKey] = nil
+            end
+            if self.db.global.customTaskManualOverrides and self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY] then
+                self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY][oldRowKey] = nil
+            end
+            if self.db.global.customTaskDiffProgress then
+                self.db.global.customTaskDiffProgress[oldRowKey] = nil
+                self.db.global.customTaskDiffProgress[tostring(oldTaskId)] = nil
+            end
+        end
     end
 
     questIds = NormalizeQuestIds(questIds)
@@ -810,6 +879,20 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     resetType = ResolveQuestResetType(questIds, resetType)
     allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
     autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
+    accountWideComplete = NormalizeBoolean(accountWideComplete)
+
+    if oldAccountWideComplete ~= accountWideComplete then
+        local oldProgress = oldAccountWideComplete and GetAccountWideProgressStorage() or (self.db.char and self.db.char.progress)
+        local oldOverrides = oldAccountWideComplete and GetAccountWideManualOverrideStorage() or (self.db.char and self.db.char.manualOverrides)
+        local oldDiff = oldAccountWideComplete and (self.db.global and self.db.global.customTaskDiffProgress) or (self.db.char and self.db.char.customTaskDiffProgress)
+        if oldProgress and oldProgress[CUSTOM_MODULE_KEY] then oldProgress[CUSTOM_MODULE_KEY][oldRowKey] = nil end
+        if oldOverrides and oldOverrides[CUSTOM_MODULE_KEY] then oldOverrides[CUSTOM_MODULE_KEY][oldRowKey] = nil end
+        if oldDiff then
+            oldDiff[tostring(oldTaskId)] = nil
+            oldDiff[oldRowKey] = nil
+        end
+    end
+
     task.label = cleanLabel
     task.scope = scope
     task.resetType = resetType
@@ -818,6 +901,7 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     task.encounterIds = encounterIds
     task.allowManualQuestClicks = allowManualQuestClicks
     task.autoUpdateInstances = autoUpdateInstances
+    task.accountWideComplete = accountWideComplete
     task.encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
     RefreshCustomTaskViews(self)
     if self.RefreshQuestProgress then
@@ -843,19 +927,30 @@ function MR:ResetCustomTasksByType(resetType)
     local tasks = self:GetCustomTasks()
     local progress = self.db and self.db.char and self.db.char.progress and self.db.char.progress[CUSTOM_MODULE_KEY]
     local overrides = self.db and self.db.char and self.db.char.manualOverrides and self.db.char.manualOverrides[CUSTOM_MODULE_KEY]
-    if not tasks or (not progress and not overrides) then
-        return
+    local diffProg = self.db and self.db.char and self.db.char.customTaskDiffProgress
+    local globalProgress = self.db and self.db.global and self.db.global.customTaskProgress and self.db.global.customTaskProgress[CUSTOM_MODULE_KEY]
+    local globalOverrides = self.db and self.db.global and self.db.global.customTaskManualOverrides and self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY]
+    local globalDiffProg = self.db and self.db.global and self.db.global.customTaskDiffProgress
+    if not tasks or (not progress and not overrides and not diffProg) then
+        if not globalProgress and not globalOverrides and not globalDiffProg then
+            return
+        end
     end
 
-    local diffProg = self.db and self.db.char and self.db.char.customTaskDiffProgress
     for _, task in ipairs(tasks) do
         if NormalizeResetType(task.resetType) == resetType then
             local rowKey = GetTaskRowKey(task.id, task.scope)
             if progress then progress[rowKey] = nil end
             if overrides then overrides[rowKey] = nil end
+            if globalProgress then globalProgress[rowKey] = nil end
+            if globalOverrides then globalOverrides[rowKey] = nil end
             if diffProg then
                 diffProg[tostring(task.id)] = nil
                 diffProg[GetTaskProgressKey(task.id, task.scope)] = nil
+            end
+            if globalDiffProg then
+                globalDiffProg[tostring(task.id)] = nil
+                globalDiffProg[GetTaskProgressKey(task.id, task.scope)] = nil
             end
         end
     end
@@ -886,6 +981,10 @@ function MR:DeleteCustomTask(taskId, scope)
         self.db.char.customTaskDiffProgress[tostring(taskId)] = nil
         self.db.char.customTaskDiffProgress[GetTaskProgressKey(taskId, scope)] = nil
     end
+    if self.db and self.db.global and self.db.global.customTaskDiffProgress then
+        self.db.global.customTaskDiffProgress[tostring(taskId)] = nil
+        self.db.global.customTaskDiffProgress[GetTaskProgressKey(taskId, scope)] = nil
+    end
 
     SortTasks(tasks)
     for index, task in ipairs(tasks) do
@@ -898,6 +997,12 @@ function MR:DeleteCustomTask(taskId, scope)
     end
     if self.db.char.manualOverrides and self.db.char.manualOverrides[CUSTOM_MODULE_KEY] then
         self.db.char.manualOverrides[CUSTOM_MODULE_KEY][rowKey] = nil
+    end
+    if self.db.global and self.db.global.customTaskProgress and self.db.global.customTaskProgress[CUSTOM_MODULE_KEY] then
+        self.db.global.customTaskProgress[CUSTOM_MODULE_KEY][rowKey] = nil
+    end
+    if self.db.global and self.db.global.customTaskManualOverrides and self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY] then
+        self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY][rowKey] = nil
     end
     if self.db.profile.rowColors and self.db.profile.rowColors[CUSTOM_MODULE_KEY] then
         self.db.profile.rowColors[CUSTOM_MODULE_KEY][rowKey] = nil
@@ -990,24 +1095,25 @@ function MR:RefreshEncounterProgress(encounterId, refreshUI, difficultyId)
                 end
 
                 if shouldMark then
-                    if not progress[mod.key] then
-                        progress[mod.key] = {}
+                    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                    if not progressBucket[mod.key] then
+                        progressBucket[mod.key] = {}
                     end
-                    local cur = progress[mod.key][row.key] or 0
+                    local cur = progressBucket[mod.key][row.key] or 0
                     local maxVal = row.max or 1
                     if difficultyId and row.taskId then
                         local diffState = GetDiffProgress(self, row.taskId, row.taskScope)
                         if not diffState[difficultyId] then
                             diffState[difficultyId] = true
                             if cur < maxVal then
-                                progress[mod.key][row.key] = cur + 1
+                                progressBucket[mod.key][row.key] = cur + 1
                                 self._moduleStatsCache = nil
                                 dirty = true
                             end
                         end
                     elseif not row.taskId then
                         if cur < maxVal then
-                            progress[mod.key][row.key] = maxVal
+                            progressBucket[mod.key][row.key] = maxVal
                             self._moduleStatsCache = nil
                             dirty = true
                         end

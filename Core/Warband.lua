@@ -225,10 +225,17 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                             local rowEnabled = not (moduleSettings and moduleSettings.hiddenRows and moduleSettings.hiddenRows[row.key] == false)
 
                             if rowVisible and rowEnabled then
-                                local value = stale and 0 or tonumber(modProgress[row.key]) or 0
+                                local accountProgress = row.accountWideComplete
+                                    and MR.db
+                                    and MR.db.global
+                                    and MR.db.global.customTaskProgress
+                                    and MR.db.global.customTaskProgress[mod.key]
+                                    or nil
+                                local progressSource = accountProgress or modProgress
+                                local value = stale and not accountProgress and 0 or tonumber(progressSource[row.key]) or 0
                                 local maxValue = tonumber(row.max) or 0
                                 if row.trackWeeklyEarned then
-                                    value = stale and 0 or tonumber(modProgress[row.key .. "_collected"]) or value
+                                    value = stale and not accountProgress and 0 or tonumber(progressSource[row.key .. "_collected"]) or value
                                     maxValue = tonumber(row.weeklyCap or row.max) or maxValue
                                 end
                                 local complete = (row.trackWeeklyEarned or not row.noMax) and maxValue > 0 and value >= maxValue

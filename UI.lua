@@ -1431,8 +1431,10 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     local hasEncounterDiffTracking = row.encounterIds and rowFrame._diffBadges and row.taskId
     if hasEncounterDiffTracking then
         local diffState = {}
-        if MR.db and MR.db.char and MR.db.char.customTaskDiffProgress then
-            diffState = MR.db.char.customTaskDiffProgress[tostring(row.taskId)] or {}
+        if row.accountWideComplete and MR.db and MR.db.global and MR.db.global.customTaskDiffProgress then
+            diffState = MR.db.global.customTaskDiffProgress[row.key] or {}
+        elseif MR.db and MR.db.char and MR.db.char.customTaskDiffProgress then
+            diffState = MR.db.char.customTaskDiffProgress[row.key] or MR.db.char.customTaskDiffProgress[tostring(row.taskId)] or {}
         end
 
 

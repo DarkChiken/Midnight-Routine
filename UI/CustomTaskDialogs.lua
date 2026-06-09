@@ -51,7 +51,7 @@ local function ApplyCustomTaskDialogTheme(frame)
     local editFont  = math.max(9,  fontSize)
 
 
-    frame:SetSize(400, 486)
+    frame:SetSize(400, 512)
 
     local function sf(fs, size) if fs then fs:SetFont(FONT_ROWS, size, GetFontFlags()) end end
     sf(frame.title,           math.max(10, fontSize + 1))
@@ -67,7 +67,7 @@ local function ApplyCustomTaskDialogTheme(frame)
 
     if frame.title then frame.title:SetFont(FONT_HEADERS, math.max(10, fontSize + 1), GetFontFlags()) end
 
-    local checks = { frame.weeklyCheck, frame.dailyCheck, frame.manualQuestCheck, frame.autoUpdateCheck, frame.sharedTaskCheck }
+    local checks = { frame.weeklyCheck, frame.dailyCheck, frame.manualQuestCheck, frame.autoUpdateCheck, frame.sharedTaskCheck, frame.accountCompleteCheck }
     for _, cb in ipairs(checks) do
         if cb and cb._text then cb._text:SetFont(FONT_ROWS, rowFont, GetFontFlags()) end
     end
@@ -145,7 +145,7 @@ local function EnsureCustomTaskDialog()
     local LH   = 14
 
     local frame = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    frame:SetSize(400, 486)
+    frame:SetSize(400, 512)
     frame:SetFrameStrata("DIALOG")
     frame:SetFrameLevel(80)
     frame:SetClampedToScreen(true)
@@ -300,8 +300,10 @@ local function EnsureCustomTaskDialog()
 
     local diffHint = frame:CreateFontString(nil, "OVERLAY")
     diffHint:SetFont(FONT_ROWS, math.max(7, GetFontSize() - 2), GetFontFlags())
-    diffHint:SetPoint("LEFT", prevDiffCheck._text, "RIGHT", 18, 0)
-    diffHint:SetText("(all = any)")
+    diffHint:SetPoint("TOPLEFT", difficultyLabel, "BOTTOMLEFT", 0, -24)
+    diffHint:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -PAD, 0)
+    diffHint:SetJustifyH("LEFT")
+    diffHint:SetText(Text("CustomTasks_DifficultyHint", "Leave all checked for any difficulty."))
     diffHint:SetTextColor(0.40, 0.52, 0.62)
     frame.diffHint = diffHint
 
@@ -310,7 +312,7 @@ local function EnsureCustomTaskDialog()
 
 
 
-    local targetLabel = MakeLabel(difficultyLabel, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_TargetLabel"] or "Target")
+    local targetLabel = MakeLabel(diffHint, "BOTTOMLEFT", 0, -GAP, L["CustomTasks_TargetLabel"] or "Target")
     targetLabel:SetTextColor(0.74, 0.84, 0.92)
     local targetBg    = MakeInputBg(targetLabel, "BOTTOMLEFT", 0, -IGAP, 60, IH)
     local targetInput = MakeEditBox(targetBg, 3, true)
@@ -406,6 +408,20 @@ local function EnsureCustomTaskDialog()
         frame.taskScope = selfBtn:GetChecked() and "shared" or "character"
     end)
     frame.sharedTaskCheck = sharedTaskCheck
+
+    local accountCompleteCheck = CreateFrame("CheckButton", nil, frame, "UICheckButtonTemplate")
+    accountCompleteCheck:SetSize(20, 20)
+    accountCompleteCheck:SetPoint("TOPLEFT", sharedTaskCheck, "BOTTOMLEFT", 0, -4)
+    local accountCompleteText = frame:CreateFontString(nil, "OVERLAY")
+    accountCompleteText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
+    accountCompleteText:SetPoint("LEFT", accountCompleteCheck, "RIGHT", 2, 0)
+    accountCompleteText:SetText(Text("CustomTasks_AccountComplete", "Complete on all alts"))
+    accountCompleteText:SetTextColor(0.84, 0.90, 0.96)
+    accountCompleteCheck._text = accountCompleteText
+    accountCompleteCheck:SetScript("OnClick", function(selfBtn)
+        frame.accountWideComplete = selfBtn:GetChecked() and true or false
+    end)
+    frame.accountCompleteCheck = accountCompleteCheck
 
 
     local function CreateDialogButton(width, label, color, borderColor)
@@ -537,9 +553,9 @@ local function EnsureCustomTaskDialog()
         end
 
         if self.taskId then
-            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties, self.taskScope, self.originalTaskScope)
+            MR:UpdateCustomTask(self.taskId, text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties, self.taskScope, self.originalTaskScope, self.accountWideComplete)
         else
-            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties, self.taskScope)
+            MR:AddCustomTask(text, self.resetType, maxValue, self.questInput:GetText() or "", self.allowManualQuestClicks, self.encounterInput and self.encounterInput:GetText() or "", self.autoUpdateInstances, encounterDifficulties, self.taskScope, self.accountWideComplete)
         end
         self:Hide()
     end
@@ -573,11 +589,15 @@ function MR:ShowCustomTaskDialog(taskId, presetResetType, taskScope)
     dialog.targetInput:SetText(tostring((task and task.max) or 1))
     dialog.allowManualQuestClicks = task and task.allowManualQuestClicks or false
     dialog.autoUpdateInstances = task and task.autoUpdateInstances or false
+    dialog.accountWideComplete = task and task.accountWideComplete or false
     if dialog.autoUpdateCheck then
         dialog.autoUpdateCheck:SetChecked(dialog.autoUpdateInstances)
     end
     if dialog.sharedTaskCheck then
         dialog.sharedTaskCheck:SetChecked(dialog.taskScope == "shared")
+    end
+    if dialog.accountCompleteCheck then
+        dialog.accountCompleteCheck:SetChecked(dialog.accountWideComplete)
     end
 
     local storedDiffs = task and task.encounterDifficulties or nil
