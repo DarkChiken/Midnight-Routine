@@ -1477,7 +1477,42 @@ function MR:PopulateConfigFrame(f)
                     end
                 end)
 
-                local hideBtn = BuildHideCompleteBtn(headerFr, key, headerFr)
+                local isExp = MR._cfgExpanded[key]
+                local arrowBtn = CreateFrame("Button", nil, headerFr, "BackdropTemplate")
+                arrowBtn:SetSize(16, 16)
+                arrowBtn:SetPoint("RIGHT", headerFr, "RIGHT", 0, 0)
+                arrowBtn:SetBackdrop(MakeBackdrop())
+                arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                arrowBtn:SetBackdropBorderColor(0.15, 0.32, 0.38, 1)
+                local arrowLbl = arrowBtn:CreateFontString(nil, "OVERLAY")
+                arrowLbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
+                arrowLbl:SetPoint("CENTER", arrowBtn, "CENTER", 0, 1)
+                arrowLbl:SetText(isExp and "v" or ">")
+                arrowLbl:SetTextColor(0.45, 0.75, 0.70)
+                arrowBtn:SetScript("OnClick", function()
+                    MR._cfgExpanded[key] = not MR._cfgExpanded[key]
+                    if MR.RequestConfigRepopulate then
+                        MR:RequestConfigRepopulate(f, 0.04)
+                    else
+                        MR:PopulateConfigFrame(f)
+                    end
+                end)
+                arrowBtn:SetScript("OnEnter", function()
+                    arrowBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
+                    arrowBtn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
+                    arrowLbl:SetTextColor(1, 1, 1)
+                    GameTooltip:SetOwner(arrowBtn, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(L["Config_ExpandCollapseRows"], 1, 1, 1)
+                    GameTooltip:Show()
+                end)
+                arrowBtn:SetScript("OnLeave", function()
+                    arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                    arrowBtn:SetBackdropBorderColor(0.15, 0.32, 0.38, 1)
+                    arrowLbl:SetTextColor(0.45, 0.75, 0.70)
+                    GameTooltip:Hide()
+                end)
+
+                local hideBtn = BuildHideCompleteBtn(headerFr, key, arrowBtn)
                 local bgSwatch = BuildHeaderBackgroundSwatch(headerFr, key, hideBtn)
                 local colorSwatch = BuildColorSwatch(headerFr, key, mod, bgSwatch)
 
@@ -1495,6 +1530,143 @@ function MR:PopulateConfigFrame(f)
                 end
 
                 yOff = yOff - ROW_H
+
+                if MR._cfgExpanded[key] then
+                    local guide = body:CreateTexture(nil, "ARTWORK")
+                    guide:SetWidth(1)
+                    guide:SetColorTexture(0.20, 0.55, 0.50, 0.35)
+
+                    local guideTopY = yOff
+
+                    for _, row in ipairs(mod.rows) do
+                        if not row.control then
+                        local rkey    = row.key
+                        local enabled = MR:IsRowEnabled(key, rkey)
+
+                        local rowFr = CreateFrame("Frame", nil, body)
+                        rowFr:SetPoint("TOPLEFT", body, "TOPLEFT", 18, yOff)
+                        rowFr:SetSize(contentW - 20, 18)
+
+                        local rdot = rowFr:CreateTexture(nil, "ARTWORK")
+                        rdot:SetSize(5, 5)
+                        rdot:SetPoint("LEFT", rowFr, "LEFT", 0, 0)
+                        rdot:SetColorTexture(hex(MR:GetRowColor(key, rkey) or MR:GetHeaderColor(key)))
+                        rdot:SetAlpha(enabled and 0.8 or 0.25)
+
+                        local cleanLabel = row.label:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
+                        local rlbl = rowFr:CreateFontString(nil, "OVERLAY")
+                        rlbl:SetFont(FONT_ROWS, 9, GetFontFlags())
+                        rlbl:SetPoint("LEFT", rowFr, "LEFT", 10, 0)
+                        rlbl:SetPoint("RIGHT", rowFr, "RIGHT", -32, 0)
+                        rlbl:SetJustifyH("LEFT")
+                        rlbl:SetText(cleanLabel)
+                        if not enabled then
+                            rlbl:SetTextColor(0.35, 0.35, 0.35)
+                        else
+                            local rRowCustom    = MR:GetRowColor(key, rkey)
+                            local rHeaderCustom = MR.db.profile.headerColors and MR.db.profile.headerColors[key]
+                            local rEffective    = rRowCustom or rHeaderCustom
+                            if rEffective then
+                                rlbl:SetTextColor(hex(rEffective))
+                            else
+                                rlbl:SetTextColor(0.80, 0.80, 0.80)
+                            end
+                        end
+
+                        local eyeBtn = CreateFrame("Button", nil, rowFr, "BackdropTemplate")
+                        eyeBtn:SetSize(14, 14)
+                        eyeBtn:SetPoint("RIGHT", rowFr, "RIGHT", 0, 0)
+                        eyeBtn:SetBackdrop(MakeBackdrop())
+                        eyeBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                        eyeBtn:SetBackdropBorderColor(
+                            enabled and 0.15 or 0.35,
+                            enabled and 0.32 or 0.12,
+                            enabled and 0.38 or 0.12, 1)
+                        local eyeLbl = eyeBtn:CreateFontString(nil, "OVERLAY")
+                        eyeLbl:SetFont(FONT_ROWS, 9, GetFontFlags())
+                        eyeLbl:SetPoint("CENTER", eyeBtn, "CENTER", 0, 0)
+                        eyeLbl:SetText(enabled and "o" or "-")
+                        eyeLbl:SetTextColor(
+                            enabled and 0.25 or 0.55,
+                            enabled and 0.85 or 0.25,
+                            enabled and 0.70 or 0.25)
+
+                        local function ApplyRowToggleState(isEnabled)
+                            rdot:SetAlpha(isEnabled and 0.8 or 0.25)
+                            if not isEnabled then
+                                rlbl:SetTextColor(0.35, 0.35, 0.35)
+                            else
+                                local rRowCustom = MR:GetRowColor(key, rkey)
+                                local rHeaderCustom = MR.db.profile.headerColors and MR.db.profile.headerColors[key]
+                                local rEffective = rRowCustom or rHeaderCustom
+                                if rEffective then
+                                    rlbl:SetTextColor(hex(rEffective))
+                                else
+                                    rlbl:SetTextColor(0.80, 0.80, 0.80)
+                                end
+                            end
+                            eyeBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+                            eyeBtn:SetBackdropBorderColor(
+                                isEnabled and 0.15 or 0.35,
+                                isEnabled and 0.32 or 0.12,
+                                isEnabled and 0.38 or 0.12, 1)
+                            eyeLbl:SetText(isEnabled and "o" or "-")
+                            eyeLbl:SetTextColor(
+                                isEnabled and 0.25 or 0.55,
+                                isEnabled and 0.85 or 0.25,
+                                isEnabled and 0.70 or 0.25)
+                        end
+
+                        eyeBtn:SetScript("OnClick", function()
+                            enabled = not MR:IsRowEnabled(key, rkey)
+                            MR:SetRowEnabled(key, rkey, enabled, true)
+                            if MR.RequestConfigRefresh then
+                                MR:RequestConfigRefresh()
+                            else
+                                MR:RefreshUI()
+                            end
+                            ApplyRowToggleState(enabled)
+                        end)
+                        eyeBtn:SetScript("OnEnter", function()
+                            eyeBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
+                            eyeBtn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
+                            eyeLbl:SetTextColor(1, 1, 1)
+                            GameTooltip:SetOwner(eyeBtn, "ANCHOR_RIGHT")
+                            GameTooltip:SetText(enabled and L["Config_HideRow"] or L["Config_ShowRow"], 1, 1, 1)
+                            GameTooltip:Show()
+                        end)
+                        eyeBtn:SetScript("OnLeave", function()
+                            ApplyRowToggleState(enabled)
+                            GameTooltip:Hide()
+                        end)
+
+                        local rsr, rsg, rsb = hex(MR:GetRowColor(key, rkey) or MR:GetHeaderColor(key))
+                        local rowSwatch = OptionsColorSwatch(rowFr, rsr, rsg, rsb,
+                            function(nr, ng, nb)
+                                local hx = string.format("#%02x%02x%02x", nr*255, ng*255, nb*255)
+                                MR:SetRowColor(key, rkey, hx)
+                            end,
+                            function()
+                                MR:ResetRowColor(key, rkey)
+                                return hex(MR:GetHeaderColor(key))
+                            end,
+                            L["Config_RowColor"])
+                        rowSwatch:SetSize(14, 14)
+                        rowSwatch:SetPoint("RIGHT", eyeBtn, "LEFT", -2, 0)
+
+                        yOff = yOff - 19
+                        end
+                    end
+
+                    if yOff == guideTopY then
+                        guide:Hide()
+                    else
+                        guide:SetPoint("TOPLEFT",    body, "TOPLEFT", 14, guideTopY)
+                        guide:SetPoint("BOTTOMLEFT", body, "TOPLEFT", 14, yOff + 4)
+                    end
+
+                    Gap(3)
+                end
             end
 
         elseif optVisible then

@@ -196,13 +196,8 @@ L["Normal"] = "일반"
 L["Heroic"] = "영웅"
 L["Mythic"] = "신화"
 L["LFR"] = "공찾"
-
--- LFR
 L["Raid"] = "공격대"
-L["LFR_Wing1"] = "|cff99ccff1지구:|r"
-L["LFR_Wing2"] = "|cff99ccff2지구:|r"
-L["LFR_Wing3"] = "|cff99ccff3지구:|r"
-L["LFR_Wing4"] = "|cff99ccff4지구:|r"
+
 
 -- Prey
 L["Prey_Title"] = "사냥 시스템"

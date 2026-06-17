@@ -547,7 +547,13 @@ function MR:GetProgress(moduleKey, rowKey)
     if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
         local progress = self.db and self.db.global and self.db.global.customTaskProgress
         local m = progress and progress[moduleKey]
-        return m and m[rowKey] or 0
+        if m and m[rowKey] ~= nil then
+            return m[rowKey]
+        end
+
+        local taskId = type(rowKey) == "string" and rowKey:match("^shared_task_(%d+)")
+        local legacyKey = taskId and ("task_" .. taskId) or nil
+        return (legacyKey and m and m[legacyKey]) or 0
     end
 
     local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
@@ -582,6 +588,12 @@ function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
         if not progressBucket[moduleKey] then
             progressBucket[moduleKey] = {}
         end
+        if moduleKey == "custom_tasks" and type(rowKey) == "string" and rowKey:match("^shared_task_") then
+            local taskId = rowKey:match("^shared_task_(%d+)")
+            if taskId then
+                progressBucket[moduleKey]["task_" .. taskId] = nil
+            end
+        end
         progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
         return
     end
@@ -593,6 +605,12 @@ function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
 
     if not progressBucket[moduleKey] then
         progressBucket[moduleKey] = {}
+    end
+    if moduleKey == "custom_tasks" and type(rowKey) == "string" and rowKey:match("^shared_task_") then
+        local taskId = rowKey:match("^shared_task_(%d+)")
+        if taskId then
+            progressBucket[moduleKey]["task_" .. taskId] = nil
+        end
     end
     progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
     self:RefreshUI()
@@ -688,7 +706,14 @@ end
 function MR:GetManualOverride(modKey, rowKey)
     if modKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
         local m = self.db and self.db.global and self.db.global.customTaskManualOverrides
-        return (m and m[modKey] and m[modKey][rowKey]) or 0
+        local modOverrides = m and m[modKey]
+        if modOverrides and modOverrides[rowKey] ~= nil then
+            return modOverrides[rowKey]
+        end
+
+        local taskId = type(rowKey) == "string" and rowKey:match("^shared_task_(%d+)")
+        local legacyKey = taskId and ("task_" .. taskId) or nil
+        return (legacyKey and modOverrides and modOverrides[legacyKey]) or 0
     end
 
     local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
@@ -700,6 +725,12 @@ function MR:SetManualOverride(modKey, rowKey, val, maxVal)
     local overrides = self.GetManualOverrideBucket and self:GetManualOverrideBucket(modKey, rowKey) or self.db.char.manualOverrides
     if not overrides then return end
     if not overrides[modKey] then overrides[modKey] = {} end
+    if modKey == "custom_tasks" and type(rowKey) == "string" and rowKey:match("^shared_task_") then
+        local taskId = rowKey:match("^shared_task_(%d+)")
+        if taskId then
+            overrides[modKey]["task_" .. taskId] = nil
+        end
+    end
     if val <= 0 then
         overrides[modKey][rowKey] = nil
         self:SetProgress(modKey, rowKey, 0, maxVal or 1)

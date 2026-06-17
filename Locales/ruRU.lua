@@ -193,13 +193,7 @@ L["Normal"] = "Обычная"
 L["Heroic"] = "Героическая"
 L["Mythic"] = "Эпохальная"
 L["LFR"] = "ЛФР"
-
--- LFR
 L["Raid"] = "Рейд"
-L["LFR_Wing1"] = "|cff99ccff1-й квартал:|r"
-L["LFR_Wing2"] = "|cff99ccff2-й квартал:|r"
-L["LFR_Wing3"] = "|cff99ccff3-й квартал:|r"
-L["LFR_Wing4"] = "|cff99ccff4-й квартал:|r"
 
 -- Prey
 L["Prey_Title"] = "Система охоты"

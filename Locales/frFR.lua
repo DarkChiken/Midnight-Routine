@@ -193,13 +193,7 @@ L["Normal"] = "Normal"
 L["Heroic"] = "Héroïque"
 L["Mythic"] = "Mythique"
 L["LFR"] = "Outil Raids"
-
--- LFR
 L["Raid"] = "Raid"
-L["LFR_Wing1"] = "|cff99ccffAile 1 :|r"
-L["LFR_Wing2"] = "|cff99ccffAile 2 :|r"
-L["LFR_Wing3"] = "|cff99ccffAile 3 :|r"
-L["LFR_Wing4"] = "|cff99ccffAile 4 :|r"
 
 -- Prey
 L["Prey_Title"] = "Système de Traques"

@@ -193,13 +193,7 @@ L["Normal"] = "Normal"
 L["Heroic"] = "Heroico"
 L["Mythic"] = "Mítico"
 L["LFR"] = "Buscador de bandas"
-
--- LFR
 L["Raid"] = "Banda"
-L["LFR_Wing1"] = "|cff99ccffAla 1:|r"
-L["LFR_Wing2"] = "|cff99ccffAla 2:|r"
-L["LFR_Wing3"] = "|cff99ccffAla 3:|r"
-L["LFR_Wing4"] = "|cff99ccffAla 4:|r"
 
 -- Prey
 L["Prey_Title"] = "Sistema de presas"

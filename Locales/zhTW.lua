@@ -193,13 +193,8 @@ L["Normal"] = "普通"
 L["Heroic"] = "英雄"
 L["Mythic"] = "傳奇"
 L["LFR"] = "隨機"
-
--- LFR
 L["Raid"] = "團本"
-L["LFR_Wing1"] = "|cff99ccff第一區：|r"
-L["LFR_Wing2"] = "|cff99ccff第二區：|r"
-L["LFR_Wing3"] = "|cff99ccff第三區：|r"
-L["LFR_Wing4"] = "|cff99ccff第四區：|r"
+
 
 -- Prey
 L["Prey_Title"] = "狩獵系統"

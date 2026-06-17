@@ -595,6 +595,13 @@ local function MainStatusButtonOnClick(selfBtn)
 
     local row = data.row
     local mod = data.mod
+    if mod.key == "custom_tasks" and IsShiftKeyDown() and row.onLeftClick then
+        local handled = row.onLeftClick(row, mod, data.done, owner)
+        if handled ~= false then
+            return
+        end
+    end
+
     if row.toggleStatus and MR.ToggleCustomTask and mod.key == "custom_tasks" then
         local rowKey = row.key or ""
         local scope = row.taskScope or (rowKey:match("^shared_task_") and "shared" or "character")
@@ -2024,7 +2031,6 @@ local MODULE_ICON_FALLBACKS = {
     midnight_activities = { texture = "Interface\\Icons\\Ability_Creature_Cursed_04" },
     pvp_currencies      = { texture = "Interface\\TargetingFrame\\UI-PVP-FFA" },
     pvp_weeklies        = { texture = "Interface\\TargetingFrame\\UI-PVP-HORDE" },
-    lfr_s1              = { texture = "Interface\\LFGFrame\\LFGICON-RAIDFINDER" },
     s1_weekly           = { texture = "Interface\\Icons\\INV_Misc_Note_01" },
     world_bosses        = { texture = "Interface\\Icons\\Ability_Hunter_BeastCall" },
     timewalking         = { texture = "Interface\\Icons\\Achievement_Quests_Completed_08" },
@@ -2050,7 +2056,6 @@ local MODULE_HEADER_ICON_KEYS = {
     prey = true,
     pvp_currencies = true,
     pvp_weeklies = true,
-    lfr_s1 = true,
     s1_weekly = true,
     timewalking = true,
     world_bosses = true,
@@ -4563,6 +4568,13 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
 
     if statusBtn:GetObjectType() == "Button" then
         statusBtn:SetScript("OnClick", function()
+            if mod.key == "custom_tasks" and IsShiftKeyDown() and row.onLeftClick then
+                local handled = row.onLeftClick(row, mod, done, rowFrame)
+                if handled ~= false then
+                    return
+                end
+            end
+
             if row.toggleStatus and MR.ToggleCustomTask and mod.key == "custom_tasks" then
                 local rowKey = row.key or ""
                 local scope = row.taskScope or (rowKey:match("^shared_task_") and "shared" or "character")
