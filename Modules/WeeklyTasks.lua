@@ -753,6 +753,7 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_VoidAssaults_Note"] or "Complete the active Void Assault weekly in Eversong Woods or Zul'Aman for a Spark of Radiance.",
             questIds = { 95842, 94385, 94386 },
+            patchKey = "12.0.5",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
                 local s1db = MR.db.char.progress["s1_weekly"] or {}
@@ -783,6 +784,7 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_RitualSites_Note"] or "Complete a Ritual Site in Midnight for a Spark of Radiance.",
             questIds = { 95843, 94880, 94878 },
+            patchKey = "12.0.5",
             turnInTracked = true,
             allowQuestFlagBackfill = true,
             tooltipFunc = function(tip)
@@ -836,6 +838,7 @@ MR:RegisterModule({
             max      = 1,
             note     = L["Weekly_AbyssAnglers_Note"] or "Complete an Abyss Anglers dive in Zul'Aman. This helps cover the new weekly-capped activity tied to up to 3 Fused Vitality purchases.",
             questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID, ABYSS_ANGLERS_INTRO_QUEST_ID },
+            patchKey = "12.0.5",
             tooltipFunc = function(tip)
                 tip:AddLine(" ")
                 if C_QuestLog.IsQuestFlaggedCompleted and (
@@ -858,6 +861,7 @@ MR:RegisterModule({
             label    = L["Weekly_Arcantina_Label"],
             max      = 1,
             note     = L["Weekly_Arcantina_Note"],
+            patchKey = "12.0.0",
             turnInTracked = true,
             questIds = { 92319, 92321, 92320, 92322, 92323, 92324, 92325, 92326, 92327 },
             tooltipFunc = function(tip)
@@ -885,6 +889,7 @@ MR:RegisterModule({
             label    = L["Weekly_Halduron_Label"],
             max      = 1,
             note     = L["Weekly_Halduron_Note"],
+            patchKey = "12.0.0",
             questIds = { 93753, 93754, 93755, 93756, 93757, 93758, 95468 },
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(HALDURON_WEEKLIES)
@@ -911,6 +916,7 @@ MR:RegisterModule({
             label    = L["Weekly_CallToDelves_Label"],
             max      = 1,
             note     = L["Delves_Call_Note"],
+            patchKey = "12.0.0",
             isVisible = function()
                 local mdb = MR and MR.db and MR.db.char and MR.db.char.progress and MR.db.char.progress["s1_weekly"]
                 return IsQuestCurrentlyActive(93595) or ((mdb and tonumber(mdb["call_to_delves"])) or 0) > 0
@@ -920,12 +926,14 @@ MR:RegisterModule({
             key      = "abundance",
             label    = L["Weekly_Abundance_Label"],
             max      = 1,
+            patchKey = "12.0.0",
             questIds = { 89507 },
         },
         {
             key      = "lost_legends",
             label    = L["Weekly_Legends_Label"],
             max      = 1,
+            patchKey = "12.0.0",
             turnInTracked = true,
             allowQuestFlagBackfill = true,
             questIds = { 89268, 93891 },
@@ -935,6 +943,7 @@ MR:RegisterModule({
             label    = L["Weekly_Soiree_Label"],
             max      = 1,
             note     = L["Weekly_Soiree_Note"],
+            patchKey = "12.0.0",
             turnInTracked = true,
             questIds = { 89289, 91966 },
             tooltipFunc = function(tip)
@@ -964,6 +973,7 @@ MR:RegisterModule({
             label    = L["Weekly_Fortify_Label"],
             max      = 1,
             note     = L["Weekly_Fortify_Note"],
+            patchKey = "12.0.0",
             questIds = { 90573, 90574, 90575, 90576 },
 
             tooltipFunc = function(tip)
@@ -1004,6 +1014,7 @@ MR:RegisterModule({
             label    = L["Weekly_Unity_Label"],
             max      = 1,
             note     = L["Weekly_Unity_Note"],
+            patchKey = "12.0.0",
             turnInTracked = true,
             questIds = { 93744 },
             branchQuestIds = UATV_BRANCH_QUEST_IDS,
@@ -1045,6 +1056,7 @@ MR:RegisterModule({
             label    = L["Weekly_SA_Label"],
             max      = 1,
             note     = L["Weekly_SA_Note"],
+            patchKey = "12.0.0",
 
             questIds = { 91390, 91796, 92063, 92139, 92145, 93013, 93244, 93438 },
             tooltipFunc = function(tip)

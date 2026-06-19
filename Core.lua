@@ -109,6 +109,7 @@ local DEFAULTS = {
         concentrationTrackerHiddenCharacters = {},
         expansionModuleStates = {},
         expansionModuleOrder = {},
+        patchStates = {},
     },
     char = {
         progress = {},
@@ -148,11 +149,35 @@ local DEFAULTS = {
 
 MR.modules     = {}
 MR.moduleByKey = {}
+MR.pinnedModuleOrder = {
+    midnight_activities = 1,
+    s1_weekly = 2,
+}
 MR.expansions  = {
     midnight = {
         key = "midnight",
         label = L["Expansion_Midnight"] or "Midnight",
         shortLabel = L["Expansion_Midnight"] or "Midnight",
+    },
+}
+MR.patches = {
+    ["12.0.0"] = {
+        key = "12.0.0",
+        label = L["Patch_1200"] or "12.0.0 Launch",
+        shortLabel = "12.0.0",
+        order = 120000,
+    },
+    ["12.0.5"] = {
+        key = "12.0.5",
+        label = L["Patch_1205"] or "12.0.5",
+        shortLabel = "12.0.5",
+        order = 120005,
+    },
+    ["12.0.7"] = {
+        key = "12.0.7",
+        label = L["Patch_1207"] or "12.0.7 Revelations",
+        shortLabel = "12.0.7",
+        order = 120007,
     },
 }
 
@@ -334,6 +359,22 @@ function MR:GetModuleExpansionKey(modOrKey)
     end
 
     return (mod and mod.expansionKey) or "midnight"
+end
+
+function MR:GetModulePatchKey(modOrKey)
+    local mod = modOrKey
+    if type(modOrKey) == "string" then
+        mod = self.moduleByKey[modOrKey]
+    end
+
+    return mod and mod.patchKey or nil
+end
+
+function MR:GetRowPatchKey(modOrKey, row)
+    if row and row.patchKey then
+        return row.patchKey
+    end
+    return self:GetModulePatchKey(modOrKey)
 end
 
 function MR:GetExpansionInfo(key)
@@ -616,6 +657,71 @@ function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
     self:RefreshUI()
 end
 
+function MR:GetPatchInfo(key)
+    key = key or "general"
+    if key == "general" then
+        return {
+            key = "general",
+            label = L["Patch_General"] or "General",
+            shortLabel = L["Patch_GeneralShort"] or "General",
+            order = 0,
+        }
+    end
+    return self.patches[key] or {
+        key = key,
+        label = key,
+        shortLabel = key,
+        order = 999999,
+    }
+end
+
+function MR:GetPatchSortOrder(key)
+    if not key then
+        return 0
+    end
+    local info = self:GetPatchInfo(key)
+    return info.order or 999999
+end
+
+function MR:GetOrderedRows(mod)
+    if not mod or type(mod.rows) ~= "table" then
+        return {}
+    end
+
+    local ordered = {}
+    for index, row in ipairs(mod.rows) do
+        ordered[#ordered + 1] = { row = row, index = index }
+    end
+
+    table.sort(ordered, function(a, b)
+        local ao = self:GetPatchSortOrder(self:GetRowPatchKey(mod, a.row))
+        local bo = self:GetPatchSortOrder(self:GetRowPatchKey(mod, b.row))
+        if ao ~= bo then
+            return ao < bo
+        end
+        return a.index < b.index
+    end)
+
+    local rows = {}
+    for _, entry in ipairs(ordered) do
+        rows[#rows + 1] = entry.row
+    end
+    return rows
+end
+
+function MR:RegisterPatch(def)
+    assert(type(def) == "table", "MR patch registration requires a table")
+    assert(def.key, "MR patch missing .key")
+
+    local existing = self.patches[def.key] or {}
+    self.patches[def.key] = {
+        key = def.key,
+        label = def.label or existing.label or def.key,
+        shortLabel = def.shortLabel or existing.shortLabel or def.label or def.key,
+        order = def.order or existing.order or 999999,
+    }
+end
+
 function MR:ApplyScaleToAll(v)
     self.db.profile.scale          = v
     self.db.profile.raresScale     = v
@@ -748,7 +854,37 @@ function MR:GetOrderedModules(expansionKey)
     end
     local modules = self:GetVisibleExpansionModules(expansionKey)
     local saved = self:GetActiveModuleOrderStorage(expansionKey)
+    local function ApplyPinnedModuleOrder(source)
+        if type(source) ~= "table" or not self.pinnedModuleOrder then
+            return source
+        end
+
+        local result = {}
+        local pinned = {}
+        for _, mod in ipairs(source) do
+            local pin = mod and self.pinnedModuleOrder[mod.key]
+            if pin then
+                pinned[#pinned + 1] = { mod = mod, pin = pin }
+            else
+                result[#result + 1] = mod
+            end
+        end
+
+        table.sort(pinned, function(a, b)
+            if a.pin ~= b.pin then
+                return a.pin < b.pin
+            end
+            return (a.mod.key or "") < (b.mod.key or "")
+        end)
+
+        for i = #pinned, 1, -1 do
+            table.insert(result, 1, pinned[i].mod)
+        end
+        return result
+    end
+
     if not saved or #saved == 0 then
+        modules = ApplyPinnedModuleOrder(modules)
         if expansionKey == self:GetSelectedExpansionKey() then
             self._orderedModulesCache = modules
         end
@@ -762,6 +898,7 @@ function MR:GetOrderedModules(expansionKey)
     for _, mod in ipairs(modules) do
         if seen[mod.key] then table.insert(result, mod) end
     end
+    result = ApplyPinnedModuleOrder(result)
     if expansionKey == self:GetSelectedExpansionKey() then
         self._orderedModulesCache = result
     end
@@ -848,9 +985,43 @@ function MR:IsModuleEnabled(key)
     if mod and mod.profSkillLine and not self.playerProfessions[mod.profSkillLine] then
         return false
     end
+    if mod and not self:IsPatchEnabled(mod.patchKey) then
+        local hasEnabledPatchRows = false
+        for _, row in ipairs(mod.rows or {}) do
+            if self:GetRowPatchKey(mod, row) ~= mod.patchKey and self:IsPatchEnabled(self:GetRowPatchKey(mod, row)) then
+                hasEnabledPatchRows = true
+                break
+            end
+        end
+        if not hasEnabledPatchRows then
+            return false
+        end
+    end
     local storage = self:GetActiveModuleStorage()
     local s = storage and storage[key]
     return not (s and s.enabled == false)
+end
+
+function MR:IsPatchEnabled(patchKey)
+    if not patchKey then
+        return true
+    end
+    local states = self.db and self.db.profile and self.db.profile.patchStates
+    local state = states and states[patchKey]
+    return not (state and state.enabled == false)
+end
+
+function MR:SetPatchEnabled(patchKey, enabled, skipRefresh)
+    if not (self and self.db and self.db.profile and patchKey) then
+        return
+    end
+
+    self.db.profile.patchStates = self.db.profile.patchStates or {}
+    self.db.profile.patchStates[patchKey] = self.db.profile.patchStates[patchKey] or {}
+    self.db.profile.patchStates[patchKey].enabled = enabled and true or false
+    if not skipRefresh then
+        self:RefreshUI()
+    end
 end
 
 function MR:IsModuleOpen(key)
@@ -971,6 +1142,15 @@ function MR:SetModuleHideComplete(modKey, value, skipRefresh)
 end
 
 function MR:IsRowEnabled(modKey, rowKey)
+    local mod = self.moduleByKey and self.moduleByKey[modKey]
+    if mod then
+        for _, row in ipairs(mod.rows or {}) do
+            if row.key == rowKey and not self:IsPatchEnabled(self:GetRowPatchKey(mod, row)) then
+                return false
+            end
+        end
+    end
+
     local storage = self:GetActiveModuleStorage()
     local s = storage and storage[modKey]
     if not s or not s.hiddenRows then return true end

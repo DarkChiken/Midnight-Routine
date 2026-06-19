@@ -943,7 +943,8 @@ local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
     if isOpen then
         localY = localY + 1
         local hideComplete = stats and stats.hideComplete
-        for _, row in ipairs(mod.rows) do
+        local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
+        for _, row in ipairs(rows) do
             local rowVisible = not row.isVisible or row.isVisible()
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done = MR:GetProgress(mod.key, row.key)
@@ -1665,7 +1666,8 @@ local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordR
     if isOpen then
         localY = localY + 1
         local hideComplete = stats and stats.hideComplete
-        for _, row in ipairs(mod.rows) do
+        local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
+        for _, row in ipairs(rows) do
             local rowVisible = not row.isVisible or row.isVisible()
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done = MR:GetProgress(mod.key, row.key)
@@ -2029,6 +2031,7 @@ end
 local MODULE_ICON_FALLBACKS = {
     currencies          = { texture = "Interface\\Icons\\INV_Misc_Coin_17" },
     midnight_activities = { texture = "Interface\\Icons\\Ability_Creature_Cursed_04" },
+    omnium_folio        = { texture = "Interface\\Icons\\INV_Enchant_VoidSphere" },
     pvp_currencies      = { texture = "Interface\\TargetingFrame\\UI-PVP-FFA" },
     pvp_weeklies        = { texture = "Interface\\TargetingFrame\\UI-PVP-HORDE" },
     s1_weekly           = { texture = "Interface\\Icons\\INV_Misc_Note_01" },
@@ -2053,6 +2056,7 @@ local MODULE_HEADER_ICON_KEYS = {
     delves = true,
     great_vault = true,
     midnight_activities = true,
+    omnium_folio = true,
     prey = true,
     pvp_currencies = true,
     pvp_weeklies = true,
@@ -2199,7 +2203,8 @@ GetModuleIconInfo = function(mod)
     end
 
     if mod.rows then
-        for _, row in ipairs(mod.rows) do
+        local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
+        for _, row in ipairs(rows) do
             local rowIcon = GetRowIconInfo(mod, row)
             if rowIcon then
                 return rowIcon
@@ -3971,7 +3976,8 @@ BuildModuleStatsCache = function(self)
         local totalRows, doneRows, shownRows = 0, 0, 0
         local height = HEADER_HEIGHT + 1 + SECTION_GAP
 
-        for _, row in ipairs(mod.rows) do
+        local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
+        for _, row in ipairs(rows) do
             local rowVisible = not row.isVisible or row.isVisible()
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done = MR:GetProgress(mod.key, row.key)
@@ -4248,7 +4254,8 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
     if isOpen then
         localY = localY + 1
         local hideComplete = stats and stats.hideComplete
-        for _, row in ipairs(mod.rows) do
+        local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
+        for _, row in ipairs(rows) do
             local rowVisible = not row.isVisible or row.isVisible()
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done       = MR:GetProgress(mod.key, row.key)

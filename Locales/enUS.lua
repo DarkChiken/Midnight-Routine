@@ -28,6 +28,9 @@ L["UI_ModularHint"] = "Everything is fully modular"
 L["Expansion_Midnight"] = "Midnight"
 L["Expansion_WarWithin"] = "The War Within"
 L["Expansion_WarWithin_Short"] = "TWW"
+L["Patch_1200"] = "12.0.0 Launch"
+L["Patch_1205"] = "12.0.5"
+L["Patch_1207"] = "12.0.7 Revelations"
 
 -- UI Row Tooltips
 L["Tooltip_DonePrefix"] = "Done: "
@@ -106,6 +109,7 @@ L["Config_RowsCollapsed"] = "Completed rows collapsed — click to expand"
 L["Config_RowsShown"] = "Completed rows shown — click to collapse"
 L["Config_ExpandCollapseRows"] = "Expand/collapse rows"
 L["Config_Collapsed"] = "Collapsed"
+L["Config_PatchReleased"] = "Released content"
 L["%d / %d complete"] = "%d / %d complete"
 
 -- WelcomeScreen
@@ -145,6 +149,18 @@ L["Crest_Champion_Label"] = "|cfff1c232Champion Dawncrest:|r"
 L["Crest_Hero_Label"] = "|cff0070ddHero Dawncrest:|r"
 L["Crest_Myth_Label"] = "|cffff8000Myth Dawncrest:|r"
 L["Shard_Dundun_Label"] = "|cffdd9955Shard of Dun'dun:|r"
+
+-- Omnium Folio
+L["Omnium_Title"] = "Omnium Folio"
+L["Omnium_Progress_Label"] = "|cffc792ffOmnium Folio Progress:|r"
+L["Omnium_Progress_Note"] = "Complete the five Seeking Knowledge quests to unlock every Omnium Folio rune row. Missed weeks can be caught up until you are current."
+L["Omnium_Weekly_Note"] = "Seeking Knowledge quest from Grand Magister Rommath at the Sunstrider Omnium. If you are behind, missed quests can be completed back-to-back."
+L["Omnium_Week1_Label"] = "|cffc792ffWeek 1: The Omnium Folio:|r"
+L["Omnium_Week2_Label"] = "|cffc792ffWeek 2: Ritualized Arcana:|r"
+L["Omnium_Week3_Label"] = "|cffc792ffWeek 3: Leyline Assaults:|r"
+L["Omnium_Week4_Label"] = "|cffc792ffWeek 4: Magical Primessence:|r"
+L["Omnium_Week5_Label"] = "|cffc792ffWeek 5: Off-World Magic:|r"
+L["Omnium_QuestID_Format"] = "Quest ID: %d"
 
 -- Delves
 L["Delves"] = "Delves"

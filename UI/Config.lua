@@ -1293,8 +1293,133 @@ function MR:PopulateConfigFrame(f)
     dragLineTex:SetAllPoints()
     dragLineTex:SetColorTexture(0.2, 0.9, 0.65, 1)
 
-    local _allMods = MR:GetOrderedModules()
+    local orderedMods = MR:GetOrderedModules()
+    local orderIndex = {}
+    for index, mod in ipairs(orderedMods) do
+        orderIndex[mod.key] = index
+    end
+
+    local _allMods = {}
+    for _, mod in ipairs(orderedMods) do
+        _allMods[#_allMods + 1] = mod
+    end
+    table.sort(_allMods, function(a, b)
+        local ao = MR.GetPatchSortOrder and MR:GetPatchSortOrder(MR:GetModulePatchKey(a)) or 999999
+        local bo = MR.GetPatchSortOrder and MR:GetPatchSortOrder(MR:GetModulePatchKey(b)) or 999999
+        if ao ~= bo then
+            return ao < bo
+        end
+        return (orderIndex[a.key] or 9999) < (orderIndex[b.key] or 9999)
+    end)
+
     local _cfgRows = {}
+
+    local function FormatReleaseSuffix(patchKey)
+        if not patchKey then
+            return nil
+        end
+        local patchInfo = MR:GetPatchInfo(patchKey)
+        return "|cff667788(" .. (patchInfo.shortLabel or patchInfo.key or patchKey) .. ")|r"
+    end
+
+    local function FormatModuleConfigLabel(mod)
+        local suffix = FormatReleaseSuffix(MR:GetModulePatchKey(mod))
+        if suffix then
+            return string.format("%s  %s", mod.label or mod.key, suffix)
+        end
+        return mod.label or mod.key
+    end
+
+    local function FormatRowConfigLabel(mod, row)
+        local cleanLabel = (row.label or row.key):gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
+        local suffix = FormatReleaseSuffix(MR:GetRowPatchKey(mod, row))
+        if suffix then
+            return string.format("%s  %s", cleanLabel, suffix)
+        end
+        return cleanLabel
+    end
+
+    local function BuildPatchHeader(patchKey)
+        local patchInfo = MR:GetPatchInfo(patchKey)
+        local enabled = MR:IsPatchEnabled(patchKey)
+        local ROW_H = 22
+        local patchFr = CreateFrame("Frame", nil, body, "BackdropTemplate")
+        patchFr:SetPoint("TOPLEFT", body, "TOPLEFT", 4, yOff)
+        patchFr:SetSize(contentW, ROW_H)
+        patchFr:SetBackdrop(MakeBackdrop())
+        patchFr:SetBackdropColor(enabled and 0.07 or 0.08, enabled and 0.17 or 0.07, enabled and 0.22 or 0.08, 0.95)
+        patchFr:SetBackdropBorderColor(enabled and 0.20 or 0.35, enabled and 0.62 or 0.18, enabled and 0.70 or 0.18, 1)
+
+        local cb = CreateFrame("CheckButton", nil, patchFr, "UICheckButtonTemplate")
+        cb:SetSize(20, 20)
+        cb:SetPoint("LEFT", patchFr, "LEFT", 2, 0)
+        cb:SetChecked(enabled)
+        cb:SetScript("OnClick", function(s)
+            MR:SetPatchEnabled(patchKey, s:GetChecked(), true)
+            if MR.RequestConfigRefresh then
+                MR:RequestConfigRefresh()
+            else
+                MR:RefreshUI()
+            end
+        end)
+
+        local lbl = patchFr:CreateFontString(nil, "OVERLAY")
+        lbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+        lbl:SetPoint("RIGHT", patchFr, "RIGHT", -8, 0)
+        lbl:SetJustifyH("LEFT")
+        lbl:SetText((patchInfo.label or patchKey) .. "  |cff667788" .. (L["Config_PatchReleased"] or "Released content") .. "|r")
+        lbl:SetTextColor(enabled and 0.82 or 0.45, enabled and 0.98 or 0.48, enabled and 0.95 or 0.50)
+
+        yOff = yOff - ROW_H
+    end
+
+    local function GetConfigRowsForModule(mod)
+        local orderedRows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or (mod.rows or {})
+        local rows = {}
+        for _, row in ipairs(orderedRows) do
+            if not row.control then
+                rows[#rows + 1] = row
+            end
+        end
+
+        return rows
+    end
+
+    local function BuildRowPatchHeader(patchKey)
+        local patchInfo = MR:GetPatchInfo(patchKey)
+        local enabled = MR:IsPatchEnabled(patchKey)
+        local ROW_H = 18
+        local patchFr = CreateFrame("Frame", nil, body, "BackdropTemplate")
+        patchFr:SetPoint("TOPLEFT", body, "TOPLEFT", 18, yOff)
+        patchFr:SetSize(contentW - 20, ROW_H)
+        patchFr:SetBackdrop(MakeBackdrop())
+        patchFr:SetBackdropColor(enabled and 0.05 or 0.07, enabled and 0.13 or 0.06, enabled and 0.16 or 0.07, 0.88)
+        patchFr:SetBackdropBorderColor(enabled and 0.16 or 0.30, enabled and 0.42 or 0.16, enabled and 0.48 or 0.16, 0.9)
+
+        local cb = CreateFrame("CheckButton", nil, patchFr, "UICheckButtonTemplate")
+        cb:SetSize(18, 18)
+        cb:SetPoint("LEFT", patchFr, "LEFT", 0, 0)
+        cb:SetChecked(enabled)
+        cb:SetScript("OnClick", function(s)
+            MR:SetPatchEnabled(patchKey, s:GetChecked(), true)
+            if MR.RequestConfigRefresh then
+                MR:RequestConfigRefresh()
+            else
+                MR:RefreshUI()
+            end
+        end)
+
+        local lbl = patchFr:CreateFontString(nil, "OVERLAY")
+        lbl:SetFont(FONT_HEADERS, 9, GetFontFlags())
+        lbl:SetPoint("LEFT", cb, "RIGHT", 1, 0)
+        lbl:SetPoint("RIGHT", patchFr, "RIGHT", -6, 0)
+        lbl:SetJustifyH("LEFT")
+        lbl:SetText(patchInfo.label or patchKey)
+        lbl:SetTextColor(enabled and 0.72 or 0.42, enabled and 0.90 or 0.46, enabled and 0.88 or 0.48)
+
+        yOff = yOff - ROW_H
+    end
 
     local function DragOnUpdate()
         if not drag.active then return end
@@ -1415,9 +1540,16 @@ function MR:PopulateConfigFrame(f)
         MR:PopulateConfigFrame(f)
     end
 
+    local lastPatchKey
     for _, mod in ipairs(_allMods) do
         local key = mod.key
         local optVisible = not mod.isVisible or mod:isVisible()
+        local patchKey = MR:GetModulePatchKey(mod)
+
+        if optVisible and patchKey and patchKey ~= lastPatchKey then
+            BuildPatchHeader(patchKey)
+            lastPatchKey = patchKey
+        end
 
         if mod.profSkillLine then
             if MR.playerProfessions[mod.profSkillLine] then
@@ -1520,7 +1652,7 @@ function MR:PopulateConfigFrame(f)
                 lbl:SetFont(FONT_ROWS, 10, GetFontFlags())
                 lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
                 lbl:SetPoint("RIGHT", colorSwatch, "LEFT", -2, 0)
-                lbl:SetText(mod.label)
+                lbl:SetText(FormatModuleConfigLabel(mod))
                 lbl:SetJustifyH("LEFT")
                 local customColor = MR:GetHeaderColor(key)
                 if customColor or mod.labelColor then
@@ -1538,8 +1670,13 @@ function MR:PopulateConfigFrame(f)
 
                     local guideTopY = yOff
 
-                    for _, row in ipairs(mod.rows) do
-                        if not row.control then
+                    local lastRowPatchKey
+                    for _, row in ipairs(GetConfigRowsForModule(mod)) do
+                        local rowPatchKey = MR:GetRowPatchKey(mod, row)
+                        if rowPatchKey and rowPatchKey ~= lastRowPatchKey then
+                            BuildRowPatchHeader(rowPatchKey)
+                            lastRowPatchKey = rowPatchKey
+                        end
                         local rkey    = row.key
                         local enabled = MR:IsRowEnabled(key, rkey)
 
@@ -1553,13 +1690,12 @@ function MR:PopulateConfigFrame(f)
                         rdot:SetColorTexture(hex(MR:GetRowColor(key, rkey) or MR:GetHeaderColor(key)))
                         rdot:SetAlpha(enabled and 0.8 or 0.25)
 
-                        local cleanLabel = row.label:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
                         local rlbl = rowFr:CreateFontString(nil, "OVERLAY")
                         rlbl:SetFont(FONT_ROWS, 9, GetFontFlags())
                         rlbl:SetPoint("LEFT", rowFr, "LEFT", 10, 0)
                         rlbl:SetPoint("RIGHT", rowFr, "RIGHT", -32, 0)
                         rlbl:SetJustifyH("LEFT")
-                        rlbl:SetText(cleanLabel)
+                        rlbl:SetText(FormatRowConfigLabel(mod, row))
                         if not enabled then
                             rlbl:SetTextColor(0.35, 0.35, 0.35)
                         else
@@ -1655,7 +1791,6 @@ function MR:PopulateConfigFrame(f)
                         rowSwatch:SetPoint("RIGHT", eyeBtn, "LEFT", -2, 0)
 
                         yOff = yOff - 19
-                        end
                     end
 
                     if yOff == guideTopY then
@@ -1769,7 +1904,7 @@ function MR:PopulateConfigFrame(f)
             lbl:SetFont(FONT_ROWS, 10, GetFontFlags())
             lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
             lbl:SetPoint("RIGHT", colorSwatch, "LEFT", -2, 0)
-            lbl:SetText(mod.label)
+            lbl:SetText(FormatModuleConfigLabel(mod))
             lbl:SetJustifyH("LEFT")
             local customColor = MR:GetHeaderColor(key)
             if customColor or mod.labelColor then
@@ -1787,8 +1922,13 @@ function MR:PopulateConfigFrame(f)
 
                 local guideTopY = yOff
 
-                for _, row in ipairs(mod.rows) do
-                    if not row.control then
+                local lastRowPatchKey
+                for _, row in ipairs(GetConfigRowsForModule(mod)) do
+                    local rowPatchKey = MR:GetRowPatchKey(mod, row)
+                    if rowPatchKey and rowPatchKey ~= lastRowPatchKey then
+                        BuildRowPatchHeader(rowPatchKey)
+                        lastRowPatchKey = rowPatchKey
+                    end
                     local rkey    = row.key
                     local enabled = MR:IsRowEnabled(key, rkey)
 
@@ -1802,13 +1942,12 @@ function MR:PopulateConfigFrame(f)
                     rdot:SetColorTexture(hex(MR:GetRowColor(key, rkey) or MR:GetHeaderColor(key)))
                     rdot:SetAlpha(enabled and 0.8 or 0.25)
 
-                    local cleanLabel = row.label:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
                     local rlbl = rowFr:CreateFontString(nil, "OVERLAY")
                     rlbl:SetFont(FONT_ROWS, 9, GetFontFlags())
                     rlbl:SetPoint("LEFT", rowFr, "LEFT", 10, 0)
                     rlbl:SetPoint("RIGHT", rowFr, "RIGHT", -32, 0)
                     rlbl:SetJustifyH("LEFT")
-                    rlbl:SetText(cleanLabel)
+                    rlbl:SetText(FormatRowConfigLabel(mod, row))
                     if not enabled then
                         rlbl:SetTextColor(0.35, 0.35, 0.35)
                     else
@@ -1904,7 +2043,6 @@ function MR:PopulateConfigFrame(f)
                     rowSwatch:SetPoint("RIGHT", eyeBtn, "LEFT", -2, 0)
 
                     yOff = yOff - 19
-                    end
                 end
 
                 if yOff == guideTopY then

@@ -30,6 +30,7 @@ Core/Resets.lua
 Core/Warband.lua
 
 Modules/Activities.lua
+Modules/OmniumFolio.lua
 Modules/WeeklyTasks.lua
 Modules/PvP.lua
 Modules/GreatVault.lua
@@ -54,3 +55,4 @@ UI.lua
 UI/Config.lua
 WelcomeScreen.lua
 MinimapButton.lua
+
