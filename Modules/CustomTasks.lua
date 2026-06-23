@@ -931,10 +931,11 @@ function MR:ResetCustomTasksByType(resetType)
     local globalProgress = self.db and self.db.global and self.db.global.customTaskProgress and self.db.global.customTaskProgress[CUSTOM_MODULE_KEY]
     local globalOverrides = self.db and self.db.global and self.db.global.customTaskManualOverrides and self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY]
     local globalDiffProg = self.db and self.db.global and self.db.global.customTaskDiffProgress
-    if not tasks or (not progress and not overrides and not diffProg) then
-        if not globalProgress and not globalOverrides and not globalDiffProg then
-            return
-        end
+    if not tasks then
+        return
+    end
+    if not progress and not overrides and not diffProg and not globalProgress and not globalOverrides and not globalDiffProg then
+        return
     end
 
     for _, task in ipairs(tasks) do
