@@ -110,6 +110,7 @@ L["Config_RowsShown"] = "Completed rows shown — click to collapse"
 L["Config_ExpandCollapseRows"] = "Expand/collapse rows"
 L["Config_Collapsed"] = "Collapsed"
 L["Config_PatchReleased"] = "Released content"
+L["Config_PatchFilter"] = "Patch filter"
 L["%d / %d complete"] = "%d / %d complete"
 
 -- WelcomeScreen
@@ -549,6 +550,16 @@ L["Tooltip_No_Voidforge"] = "|cffaaaaaa? An Elementary Voidcore is not yet activ
 L["Tooltip_Visit_Voidforge"] = "  Visit Decimus in Voidstorm when the Voidforge construction quest is available."
 L["Tooltip_No_AbyssAnglers"] = "|cffaaaaaa? Abyss Anglers not yet detected this week.|r"
 L["Tooltip_Visit_AbyssAnglers"] = "  Visit Depthdiver Jeju off the coast of Zul'Aman to start a dive."
+
+-- 12.0.7
+L["Weekly_Showdown_Label"] = "|cff2ae7c6Void Invasion Showdown:|r"
+L["Weekly_Showdown_Note"] = "Complete the active Naigtal or Val Showdown. Normal or Heroic counts."
+L["Weekly_Showdown_Naigtal"] = "Showdown on Naigtal"
+L["Weekly_Showdown_Naigtal_Heroic"] = "Showdown on Naigtal (Heroic)"
+L["Weekly_Showdown_Val"] = "Showdown on Val"
+L["Weekly_Showdown_Val_Heroic"] = "Showdown on Val (Heroic)"
+L["Tooltip_No_Showdown"] = "|cffaaaaaa? Void Invasion Showdown not yet detected this week.|r"
+L["Tooltip_Visit_Showdown"] = "  Visit the active Void Invasion zone in Naigtal or Val."
 
 -- WorldEvents
 L["DMF_Title"] = "Darkmoon Faire"

@@ -1368,7 +1368,7 @@ function MR:PopulateConfigFrame(f)
         lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
         lbl:SetPoint("RIGHT", patchFr, "RIGHT", -8, 0)
         lbl:SetJustifyH("LEFT")
-        lbl:SetText((patchInfo.label or patchKey) .. "  |cff667788" .. (L["Config_PatchReleased"] or "Released content") .. "|r")
+        lbl:SetText((patchInfo.label or patchKey) .. "  |cff667788" .. (L["Config_PatchFilter"] or "Patch filter") .. "|r")
         lbl:SetTextColor(enabled and 0.82 or 0.45, enabled and 0.98 or 0.48, enabled and 0.95 or 0.50)
 
         yOff = yOff - ROW_H
@@ -1415,7 +1415,7 @@ function MR:PopulateConfigFrame(f)
         lbl:SetPoint("LEFT", cb, "RIGHT", 1, 0)
         lbl:SetPoint("RIGHT", patchFr, "RIGHT", -6, 0)
         lbl:SetJustifyH("LEFT")
-        lbl:SetText(patchInfo.label or patchKey)
+        lbl:SetText((patchInfo.label or patchKey) .. "  |cff667788" .. (L["Config_PatchFilter"] or "Patch filter") .. "|r")
         lbl:SetTextColor(enabled and 0.72 or 0.42, enabled and 0.90 or 0.46, enabled and 0.88 or 0.48)
 
         yOff = yOff - ROW_H

@@ -68,6 +68,13 @@ local RITUAL_SITE_WEEKLIES = {
     { quest = 94878, mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
 }
 
+local VOID_INVASION_SHOWDOWNS = {
+    { quest = 96717, mapId = 2600, name = L["Weekly_Showdown_Naigtal"] or "Showdown on Naigtal" },
+    { quest = 96718, mapId = 2600, name = L["Weekly_Showdown_Naigtal_Heroic"] or "Showdown on Naigtal (Heroic)" },
+    { quest = 96713, mapId = 2601, name = L["Weekly_Showdown_Val"] or "Showdown on Val" },
+    { quest = 96714, mapId = 2601, name = L["Weekly_Showdown_Val_Heroic"] or "Showdown on Val (Heroic)" },
+}
+
 local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
 local ABYSS_ANGLERS_INTRO_QUEST_ID = 96388
 
@@ -78,6 +85,8 @@ local MIDNIGHT_MAP_IDS = {
     [2413] = true,
     [2437] = true,
     [2576] = true,
+    [2600] = true,
+    [2601] = true,
 }
 
 local function IsPlayerInMidnightArea()
@@ -368,6 +377,8 @@ MR:RegisterModule({
         db[mod.key]["ritual_site_active_poi_name"] = nil
         db[mod.key]["ritual_site_completed_name"] = nil
         db[mod.key]["ritual_site_completed_map_id"] = nil
+        db[mod.key]["showdown_active_name"] = nil
+        db[mod.key]["showdown_completed_name"] = nil
 
         local completedAssignments, activeAssignments = CollectSpecialAssignments()
         local totalAssignments = math.max(#completedAssignments + #activeAssignments, 1)
@@ -659,6 +670,33 @@ MR:RegisterModule({
             end
         end
 
+        local completedShowdowns, activeShowdowns = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
+        if #activeShowdowns > 0 then
+            db[mod.key]["showdown_active_name"] = activeShowdowns[1].name
+        end
+        if #completedShowdowns > 0 then
+            db[mod.key]["void_invasion_showdown"] = 1
+            db[mod.key]["showdown_completed_name"] = completedShowdowns[1].name
+        else
+            db[mod.key]["void_invasion_showdown"] = db[mod.key]["void_invasion_showdown"] or 0
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "void_invasion_showdown" then
+                if db[mod.key]["showdown_completed_name"] or (tonumber(db[mod.key]["void_invasion_showdown"]) or 0) > 0 then
+                    row.countText = db[mod.key]["showdown_completed_name"] or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif db[mod.key]["showdown_active_name"] then
+                    row.countText = db[mod.key]["showdown_active_name"]
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
         local activeUATVBranch = FindActiveQuestVariant(UATV_BRANCHES)
         db[mod.key]["uatv_branch_name"] = activeUATVBranch and activeUATVBranch.name or nil
         db[mod.key]["uatv_branch_quest"] = activeUATVBranch and activeUATVBranch.quest or nil
@@ -853,6 +891,36 @@ MR:RegisterModule({
                 else
                     tip:AddLine(L["Tooltip_No_AbyssAnglers"] or "|cffaaaaaa? Abyss Anglers not yet detected this week.|r", 1, 1, 1)
                     tip:AddLine(L["Tooltip_Visit_AbyssAnglers"] or "  Visit Depthdiver Jeju off the coast of Zul'Aman to start a dive.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "void_invasion_showdown",
+            label    = L["Weekly_Showdown_Label"] or "|cff2ae7c6Void Invasion Showdown:|r",
+            max      = 1,
+            note     = L["Weekly_Showdown_Note"] or "Complete the active Naigtal or Val Showdown. Normal or Heroic counts.",
+            questIds = { 96717, 96718, 96713, 96714 },
+            patchKey = "12.0.7",
+            turnInTracked = true,
+            allowQuestFlagBackfill = true,
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
+                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local completedName = s1db["showdown_completed_name"]
+                local activeName = s1db["showdown_active_name"]
+                local rowDone = (tonumber(s1db["void_invasion_showdown"]) or 0) > 0
+                local fallbackName = L["Done"] or "Done"
+
+                tip:AddLine(" ")
+                if completedName or #completedVariants > 0 or rowDone then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
+                elseif activeName or #activeVariants > 0 then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (activeName or GetVariantName(activeVariants, 1, L["Weekly_Showdown_Label"] or "Void Invasion Showdown")), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_Showdown"] or "|cffaaaaaa? Void Invasion Showdown not yet detected this week.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_Showdown"] or "  Visit the active Void Invasion zone in Naigtal or Val.", 0.7, 0.7, 0.7)
                 end
             end,
         },
