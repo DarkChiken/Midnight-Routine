@@ -1723,6 +1723,14 @@ local function UpdateQuestProgressForRow(self, progress, mod, row)
     local value = math.min(done, row.max or done)
     local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
     local overridesBucket = (self.GetManualOverrideBucket and self:GetManualOverrideBucket(mod.key, row.key)) or self.db.char.manualOverrides
+
+    if row.accountWideComplete and value == 0 then
+        local existing = progressBucket[mod.key] and progressBucket[mod.key][row.key] or 0
+        if existing > 0 then
+            return false
+        end
+    end
+
     return WriteProgress(progressBucket, mod.key, row.key, value, overridesBucket)
 end
 

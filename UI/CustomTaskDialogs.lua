@@ -406,6 +406,23 @@ local function EnsureCustomTaskDialog()
     sharedTaskCheck._text = sharedTaskText
     sharedTaskCheck:SetScript("OnClick", function(selfBtn)
         frame.taskScope = selfBtn:GetChecked() and "shared" or "character"
+        if not selfBtn:GetChecked() then
+            frame.accountWideComplete = false
+            if frame.accountCompleteCheck then
+                frame.accountCompleteCheck:SetChecked(false)
+                frame.accountCompleteCheck:Disable()
+                if frame.accountCompleteCheck._text then
+                    frame.accountCompleteCheck._text:SetAlpha(0.40)
+                end
+            end
+        else
+            if frame.accountCompleteCheck then
+                frame.accountCompleteCheck:Enable()
+                if frame.accountCompleteCheck._text then
+                    frame.accountCompleteCheck._text:SetAlpha(1)
+                end
+            end
+        end
     end)
     frame.sharedTaskCheck = sharedTaskCheck
 
@@ -513,6 +530,20 @@ local function EnsureCustomTaskDialog()
             for _, cb in ipairs(self.difficultyChecks) do
                 cb:SetShown(showDiff)
                 if cb._text then cb._text:SetShown(showDiff) end
+            end
+        end
+
+        local isShared = self.taskScope == "shared"
+        if self.accountCompleteCheck then
+            if isShared then
+                self.accountCompleteCheck:Enable()
+            else
+                self.accountWideComplete = false
+                self.accountCompleteCheck:SetChecked(false)
+                self.accountCompleteCheck:Disable()
+            end
+            if self.accountCompleteCheck._text then
+                self.accountCompleteCheck._text:SetAlpha(isShared and 1 or 0.40)
             end
         end
     end

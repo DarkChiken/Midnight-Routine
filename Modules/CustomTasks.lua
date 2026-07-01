@@ -904,7 +904,7 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     task.accountWideComplete = accountWideComplete
     task.encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
     RefreshCustomTaskViews(self)
-    if self.RefreshQuestProgress then
+    if questIds and self.RefreshQuestProgress then
         self:RefreshQuestProgress(nil, true)
     end
     return true
@@ -918,7 +918,17 @@ function MR:ToggleCustomTask(taskId, scope)
 
     local rowKey = GetTaskRowKey(task.id, task.scope)
     local cur = tonumber(self:GetProgress(CUSTOM_MODULE_KEY, rowKey)) or 0
-    self:SetProgress(CUSTOM_MODULE_KEY, rowKey, cur >= 1 and 0 or 1, 1, task.autoUpdateInstances == true)
+    local newVal = cur >= 1 and 0 or 1
+    self:SetProgress(CUSTOM_MODULE_KEY, rowKey, newVal, 1, task.autoUpdateInstances == true)
+
+    if task.questIds then
+        if newVal >= 1 then
+            self:SetManualOverride(CUSTOM_MODULE_KEY, rowKey, 1, 1)
+        else
+            self:SetManualOverride(CUSTOM_MODULE_KEY, rowKey, 0, 1)
+        end
+    end
+
     return true
 end
 
