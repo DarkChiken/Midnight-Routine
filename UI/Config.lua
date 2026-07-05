@@ -2169,8 +2169,6 @@ function MR:PopulateConfigFrame(f)
         wanted:SetJustifyH("LEFT")
         wanted:SetWordWrap(true)
         wanted:SetText("|cffffd27a" .. (L["Config_TranslatorsWanted"] or "Always looking for translators \226\128\148 join our Discord!") .. "|r")
-        -- Reserve room for up to two lines; WordWrap is enabled so long text
-        -- flows to a second line instead of being truncated with "...".
         yOff = yOff - (2 * (math.max(8, cfgFs - 1) + 4)) - 4
     end
 
