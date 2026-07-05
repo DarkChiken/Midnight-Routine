@@ -136,7 +136,7 @@ end
 
 function MR:BuildConfigFrame()
     local f = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
-    f:SetWidth(292)
+    f:SetWidth(344)
     f:SetFrameStrata("HIGH")
     f:SetClampedToScreen(true)
     f:SetMovable(true)
@@ -188,10 +188,10 @@ function MR:PopulateConfigFrame(f)
 
     local yOff = -26
     local cfgFs = GetFontSize()
-    local contentW = (f:GetWidth() or 292) - 16
+    local contentW = (f:GetWidth() or 344) - 16
     local activePage = MR._cfgPage or "windows"
 
-    if activePage ~= "windows" and activePage ~= "layout" and activePage ~= "modules" and activePage ~= "reset" then
+    if activePage ~= "windows" and activePage ~= "layout" and activePage ~= "modules" and activePage ~= "reset" and activePage ~= "support" then
         activePage = "windows"
         MR._cfgPage = activePage
     end
@@ -651,22 +651,28 @@ function MR:PopulateConfigFrame(f)
             { key = "windows", label = L["Config_TabWindows"] or "Windows" },
             { key = "layout",  label = L["Config_TabLayout"]  or "Layout"  },
             { key = "modules", label = L["Config_TabModules"] or "Modules" },
+            { key = "support", label = L["Config_TabSupport"] or "Support" },
             { key = "reset",   label = L["Config_TabReset"]   or "Reset"   },
         }
         local tabW = math.floor((contentW - 6) / #tabs)
+        local tabFs = math.min(cfgFs, 10)
         local tabY = yOff
         for i, tab in ipairs(tabs) do
             local btn = CreateFrame("Button", nil, body, "BackdropTemplate")
             btn:SetSize(tabW, 18)
             btn:SetPoint("TOPLEFT", body, "TOPLEFT", 8 + (i - 1) * (tabW + 2), tabY)
             btn:SetBackdrop(MakeBackdrop())
+            if btn.SetClipsChildren then btn:SetClipsChildren(true) end
             local isActive = activePage == tab.key
             btn:SetBackdropColor(isActive and 0.11 or 0.05, isActive and 0.24 or 0.09, isActive and 0.23 or 0.15, 1)
             btn:SetBackdropBorderColor(isActive and 0.22 or 0.16, isActive and 0.82 or 0.28, isActive and 0.70 or 0.36, 1)
 
             local lbl = btn:CreateFontString(nil, "OVERLAY")
-            lbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
-            lbl:SetPoint("CENTER")
+            lbl:SetFont(FONT_ROWS, tabFs, GetFontFlags())
+            lbl:SetPoint("LEFT", btn, "LEFT", 2, 0)
+            lbl:SetPoint("RIGHT", btn, "RIGHT", -2, 0)
+            lbl:SetJustifyH("CENTER")
+            lbl:SetWordWrap(false)
             lbl:SetText(tab.label)
             lbl:SetTextColor(isActive and 0.85 or 0.62, isActive and 1.0 or 0.75, isActive and 0.92 or 0.70)
 
@@ -2056,6 +2062,116 @@ function MR:PopulateConfigFrame(f)
             end
         end
     end
+    end
+
+    if activePage == "support" then
+        local function CopyableLinkRow(label, url, accentHex)
+            local capLabel = body:CreateFontString(nil, "OVERLAY")
+            capLabel:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+            capLabel:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
+            capLabel:SetPoint("TOPRIGHT", body, "TOPRIGHT", -8, yOff)
+            capLabel:SetJustifyH("LEFT")
+            capLabel:SetWordWrap(false)
+            capLabel:SetText("|c" .. (accentHex or "ffcfe9e5") .. label .. "|r")
+
+            yOff = yOff - 14
+
+            local boxBg = CreateFrame("Frame", nil, body, "BackdropTemplate")
+            boxBg:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
+            boxBg:SetSize(math.max(192, contentW), 20)
+            boxBg:SetBackdrop(MakeBackdrop())
+            boxBg:SetBackdropColor(0.05, 0.12, 0.20, 0.95)
+            boxBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+            boxBg:EnableMouse(true)
+
+            local eb = CreateFrame("EditBox", nil, boxBg)
+            eb:SetAutoFocus(false)
+            eb:SetPoint("TOPLEFT", boxBg, "TOPLEFT", 6, -3)
+            eb:SetPoint("BOTTOMRIGHT", boxBg, "BOTTOMRIGHT", -6, 3)
+            eb:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+            eb:SetTextColor(0.76, 0.97, 0.94)
+            eb:SetText(url)
+            eb:SetCursorPosition(0)
+            eb:SetScript("OnEditFocusGained", function(selfEb)
+                selfEb:HighlightText(0, -1)
+            end)
+            eb:SetScript("OnEscapePressed", function(selfEb) selfEb:ClearFocus() end)
+            eb:SetScript("OnEnterPressed", function(selfEb) selfEb:ClearFocus() end)
+            eb:SetScript("OnEditFocusLost", function(selfEb)
+                selfEb:HighlightText(0, 0)
+                selfEb:SetText(url)
+                selfEb:SetCursorPosition(0)
+            end)
+
+            boxBg:SetScript("OnEnter", function(selfBg)
+                selfBg:SetBackdropBorderColor(0.26, 0.78, 0.72, 1)
+            end)
+            boxBg:SetScript("OnLeave", function(selfBg)
+                selfBg:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+            end)
+            boxBg:SetScript("OnMouseDown", function()
+                eb:SetFocus()
+            end)
+
+            yOff = yOff - 28
+        end
+
+        SectionLabel(L["Config_SupportUs"] or "Support Us")
+        Gap(2)
+
+        CopyableLinkRow(L["Config_SupportPayPal"] or "PayPal",
+            "https://www.paypal.com/donate/?business=Jhookftw1@hotmail.com", "ff5ea0e0")
+        CopyableLinkRow(L["Config_SupportBuyMeACoffee"] or "Buy Me a Coffee",
+            "https://www.buymeacoffee.com/azroaddons", "ffffc95c")
+        CopyableLinkRow(L["Config_SupportPatreon"] or "Patreon",
+            "https://www.patreon.com/join/AzroAddons", "ffff8a7a")
+        CopyableLinkRow(L["Config_SupportDiscord"] or "Discord",
+            "https://discord.gg/5jvvmr3bMB", "ff8a93ff")
+
+        Gap(4); Divider()
+        SectionLabel(L["Config_Translators"] or "Translators")
+
+        local translators = {
+            { lang = "Traditional Chinese",     name = "BlueNightSky" },
+            { lang = "Simplified Chinese",      name = "Nanjuekaien1" },
+            { lang = "Latin American Spanish",  name = "DarkChiken" },
+            { lang = "Russian",                 name = "Hubbotu" },
+            { lang = "German",                  name = "Papspatu" },
+            { lang = "Korean",                  name = "Crazyyoungs" },
+        }
+
+        for _, t in ipairs(translators) do
+            local row = CreateFrame("Frame", nil, body)
+            row:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
+            row:SetSize(contentW, 16)
+
+            local dot = row:CreateTexture(nil, "ARTWORK")
+            dot:SetSize(5, 5)
+            dot:SetPoint("LEFT", row, "LEFT", 0, 0)
+            dot:SetColorTexture(0.20, 0.66, 0.63, 0.9)
+
+            local rowFs = row:CreateFontString(nil, "OVERLAY")
+            rowFs:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
+            rowFs:SetPoint("LEFT", row, "LEFT", 10, 0)
+            rowFs:SetPoint("RIGHT", row, "RIGHT", 0, 0)
+            rowFs:SetJustifyH("LEFT")
+            rowFs:SetWordWrap(false)
+            rowFs:SetText("|cff9fb8c9" .. t.lang .. ":|r  |cff76f7ee" .. t.name .. "|r")
+
+            yOff = yOff - 18
+        end
+
+        Gap(6)
+        local wanted = body:CreateFontString(nil, "OVERLAY")
+        wanted:SetFont(FONT_ROWS, math.max(8, cfgFs - 1), GetFontFlags())
+        wanted:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
+        wanted:SetPoint("TOPRIGHT", body, "TOPRIGHT", -8, yOff)
+        wanted:SetJustifyH("LEFT")
+        wanted:SetWordWrap(true)
+        wanted:SetText("|cffffd27a" .. (L["Config_TranslatorsWanted"] or "Always looking for translators \226\128\148 join our Discord!") .. "|r")
+        -- Reserve room for up to two lines; WordWrap is enabled so long text
+        -- flows to a second line instead of being truncated with "...".
+        yOff = yOff - (2 * (math.max(8, cfgFs - 1) + 4)) - 4
     end
 
     if activePage == "reset" then
