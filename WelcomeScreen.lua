@@ -565,7 +565,7 @@ local function BuildWelcomeScreen()
             MR:RefreshUI()
             if anyEnabled and MR.frame then
                 MR.frame:Show()
-                MR.db.char.panelOpen = true
+                MR:SetMainPanelOpen(true, true)
                 if MR.ClearManagedWindowsBundleHidden then
                     MR:ClearManagedWindowsBundleHidden()
                 end

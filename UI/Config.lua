@@ -84,9 +84,41 @@ local function SetWindowLayoutValue(key, value)
     end
 end
 
+local function RefreshVisualSettings()
+    if MR and MR.RefreshMainPanelSectionsOnly and MR:RefreshMainPanelSectionsOnly() then
+        if MR.RefreshVisibleDetachedFrames then
+            MR:RefreshVisibleDetachedFrames()
+        end
+    elseif MR and MR.RefreshUI then
+        MR:RefreshUI()
+    end
+    if collectgarbage then collectgarbage("step", 80) end
+end
+
+local function ScheduleSettingsGarbageCollect()
+    if not (MR and MR.ScheduleTimer and collectgarbage) then
+        return
+    end
+
+    MR._settingsGCToken = (MR._settingsGCToken or 0) + 1
+    local token = MR._settingsGCToken
+    MR:ScheduleTimer(function()
+        if MR._settingsGCToken == token then
+            collectgarbage("collect")
+        end
+    end, 0.75)
+end
+
 local function ReleaseConfigWidgetTree(frame)
     if not frame then
         return
+    end
+
+    if frame._mrExternalFrames then
+        for _, external in ipairs(frame._mrExternalFrames) do
+            ReleaseConfigWidgetTree(external)
+        end
+        frame._mrExternalFrames = nil
     end
 
     local children = { frame:GetChildren() }
@@ -143,7 +175,7 @@ function MR:BuildConfigFrame()
     f:SetBackdrop(MakeBackdrop())
     if ns.HookBackdropFrame then ns.HookBackdropFrame(f) end
     f:SetBackdropColor(0.03, 0.06, 0.12, 0.98)
-    f:SetBackdropBorderColor(0.4, 0.28, 0, 1)
+    f:SetBackdropBorderColor(0.08, 0.18, 0.22, 0.78)
     f:Hide()
     if MR.frame then
         f:SetPoint("TOPLEFT", MR.frame, "TOPRIGHT", 4, 0)
@@ -302,6 +334,7 @@ function MR:PopulateConfigFrame(f)
             popup:Hide()
             dismiss:Hide()
         end)
+        row._mrExternalFrames = { popup, dismiss }
 
         local function ApplySelection(index, commit)
             currentIndex = index
@@ -634,7 +667,7 @@ function MR:PopulateConfigFrame(f)
             MR.gatheringLocationsFrame:ClearAllPoints()
             RestoreFramePos(MR.gatheringLocationsFrame, "gatheringLocPos", 860, 0)
         end
-        if MR.RebuildRaresFrame then
+        if MR.raresFrame and MR.raresFrame.IsShown and MR.raresFrame:IsShown() and MR.RebuildRaresFrame then
             MR:RebuildRaresFrame()
         end
         if MR.RebuildRenownFrame then
@@ -710,7 +743,7 @@ function MR:PopulateConfigFrame(f)
                     elseif not MR.frame:IsShown() then
                         MR.frame:Show()
                     end
-                    MR.db.char.panelOpen = true
+                    MR:SetMainPanelOpen(true, true)
                     if MR.ClearManagedWindowsBundleHidden then
                         MR:ClearManagedWindowsBundleHidden()
                     end
@@ -718,7 +751,7 @@ function MR:PopulateConfigFrame(f)
                     if MR.frame then
                         MR.frame:Hide()
                     end
-                    MR.db.char.panelOpen = false
+                    MR:SetMainPanelOpen(false, true)
                 end
             end, "#2ae7c6")
 
@@ -949,7 +982,7 @@ function MR:PopulateConfigFrame(f)
                 SetWindowLayoutValue("mainHeaderPosition", value)
                 ApplyMainFrameLayout(MR.frame, true)
                 MR:RefreshUI()
-                if MR.RebuildRaresFrame then
+                if MR.raresFrame and MR.raresFrame.IsShown and MR.raresFrame:IsShown() and MR.RebuildRaresFrame then
                     MR:RebuildRaresFrame()
                 end
                 if MR.RebuildRenownFrame then
@@ -1142,7 +1175,8 @@ function MR:PopulateConfigFrame(f)
             function() return MR.db.profile.keepIconsVisibleInTextMode ~= false end,
             function(v)
                 MR.db.profile.keepIconsVisibleInTextMode = v
-                MR:RefreshUI()
+                RefreshVisualSettings()
+                ScheduleSettingsGarbageCollect()
             end,
             0.40, 0.40, 0.40, 8, nil, cfgFs)
 
@@ -1152,7 +1186,8 @@ function MR:PopulateConfigFrame(f)
             function() return MR.db.profile.keepHeadersVisibleInTextMode ~= false end,
             function(v)
                 MR.db.profile.keepHeadersVisibleInTextMode = v
-                MR:RefreshUI()
+                RefreshVisualSettings()
+                ScheduleSettingsGarbageCollect()
             end,
             0.40, 0.40, 0.40, 8, nil, cfgFs)
     end

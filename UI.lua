@@ -823,6 +823,21 @@ local function EnsureDetachedSectionWidget(frame, modKey)
     return card
 end
 
+local function AddSectionRegistryEntry(self, frame, modKey, col, yOff, bottom)
+    self._sectionRegistryPool = self._sectionRegistryPool or {}
+    local index = (self._sectionRegistryCount or 0) + 1
+    self._sectionRegistryCount = index
+    local entry = self._sectionRegistryPool[index] or {}
+    self._sectionRegistryPool[index] = entry
+    entry.frame = frame
+    entry.modKey = modKey
+    entry.col = col or 1
+    entry.yOff = yOff or 0
+    entry.bottom = bottom
+    self.sectionRegistry[index] = entry
+    return entry
+end
+
 local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
     local transparent = IsMainTextOnlyMode()
     local frameAlpha = MR.db.profile.frameAlpha or 1.0
@@ -848,7 +863,6 @@ local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
     card:SetPoint("TOPLEFT", hostFrame.content, "TOPLEFT", 0, 0)
     card:SetSize(math.max(contentWidth, 1), sectionHeight)
     card:SetBackdrop(MakeBackdrop())
-    if ns.HookBackdropFrame then ns.HookBackdropFrame(card) end
     card._hdrFrame._mrDetachedHost = nil
     if transparent then
         card:SetBackdropColor(0, 0, 0, 0)
@@ -939,7 +953,11 @@ local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
     card._divider:SetHeight(1)
     card._divider:SetBackdropColor(1, 1, 1, dividerAlpha)
 
-    local usedRows = {}
+    local usedRows = card._usedRows or {}
+    card._usedRows = usedRows
+    for key in pairs(usedRows) do
+        usedRows[key] = nil
+    end
     if isOpen then
         localY = localY + 1
         local hideComplete = stats and stats.hideComplete
@@ -1438,11 +1456,15 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
 
     local hasEncounterDiffTracking = row.encounterIds and rowFrame._diffBadges and row.taskId
     if hasEncounterDiffTracking then
-        local diffState = {}
+        local diffState = nil
         if row.accountWideComplete and MR.db and MR.db.global and MR.db.global.customTaskDiffProgress then
-            diffState = MR.db.global.customTaskDiffProgress[row.key] or {}
+            diffState = MR.db.global.customTaskDiffProgress[row.key]
         elseif MR.db and MR.db.char and MR.db.char.customTaskDiffProgress then
-            diffState = MR.db.char.customTaskDiffProgress[row.key] or MR.db.char.customTaskDiffProgress[tostring(row.taskId)] or {}
+            diffState = MR.db.char.customTaskDiffProgress[row.key] or MR.db.char.customTaskDiffProgress[tostring(row.taskId)]
+        end
+        if not diffState then
+            diffState = rowFrame._emptyDiffState or {}
+            rowFrame._emptyDiffState = diffState
         end
 
 
@@ -1450,7 +1472,11 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
         local allDiffs = (effectiveDiffs == nil)
 
 
-        local visibleBadges = {}
+        local visibleBadges = rowFrame._visibleDiffBadges or {}
+        rowFrame._visibleDiffBadges = visibleBadges
+        for i = #visibleBadges, 1, -1 do
+            visibleBadges[i] = nil
+        end
         for _, diffId in ipairs(DIFF_BADGE_ORDER) do
             if allDiffs or (effectiveDiffs and effectiveDiffs[diffId]) then
                 for _, badge in ipairs(rowFrame._diffBadges) do
@@ -1573,7 +1599,6 @@ local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordR
     card:SetPoint("TOPLEFT", self.content, "TOPLEFT", xOff + 3, -yOff)
     card:SetSize(math.max(colW - 6, 1), sectionHeight)
     card:SetBackdrop(MakeBackdrop())
-    if ns.HookBackdropFrame then ns.HookBackdropFrame(card) end
     if transparent then
         card:SetBackdropColor(0, 0, 0, 0)
         card:SetBackdropBorderColor(0, 0, 0, 0)
@@ -1662,7 +1687,11 @@ local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordR
     card._divider:SetHeight(1)
     card._divider:SetBackdropColor(1, 1, 1, dividerAlpha)
 
-    local usedRows = {}
+    local usedRows = card._usedRows or {}
+    card._usedRows = usedRows
+    for key in pairs(usedRows) do
+        usedRows[key] = nil
+    end
     if isOpen then
         localY = localY + 1
         local hideComplete = stats and stats.hideComplete
@@ -1688,13 +1717,7 @@ local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordR
     end
 
     if recordRegistry ~= false then
-        table.insert(self.sectionRegistry, {
-            frame = card,
-            modKey = mod.key,
-            col = col or 1,
-            yOff = yOff,
-            bottom = yOff + (stats and stats.height or 0),
-        })
+        AddSectionRegistryEntry(self, card, mod.key, col or 1, yOff, yOff + (stats and stats.height or 0))
     end
     return card
 end
@@ -1733,6 +1756,7 @@ function MR:RefreshMainPanelSectionsOnly()
     ClearArrayContents(self.widgets)
     ClearArrayContents(self.sectionRegistry)
     ClearArrayContents(self._timerRows)
+    self._sectionRegistryCount = 0
 
     local allDone, allTotal = 0, 0
     local frameW = MR.db.profile.width or 260
@@ -1805,12 +1829,12 @@ function MR:RefreshMainPanelSectionsOnly()
     for i = 1, modColAssignCount do
         local assign = modColAssign[i]
         local xOff = (assign.col - 1) * colW
-            local section = UpdateMainSectionWidget(self, assign.mod, assign.yOff, xOff, colW, assign.col, true)
-            if section then
-                activeMainSections[assign.mod.key] = true
-                self.widgets[#self.widgets + 1] = section
-            end
+        local section = UpdateMainSectionWidget(self, assign.mod, assign.yOff, xOff, colW, assign.col, true)
+        if section then
+            activeMainSections[assign.mod.key] = true
+            self.widgets[#self.widgets + 1] = section
         end
+    end
 
     if self._mainSectionFrames then
         for key, section in pairs(self._mainSectionFrames) do
@@ -3544,7 +3568,11 @@ end
 
 function MR:RefreshVisibleDetachedFrames()
     self.detachedFrames = self.detachedFrames or {}
-    local seenDetached = {}
+    local seenDetached = self._seenDetachedBuffer or {}
+    self._seenDetachedBuffer = seenDetached
+    for key in pairs(seenDetached) do
+        seenDetached[key] = nil
+    end
     local allowShowing = not self._instanceFramesHidden and not self:IsManagedWindowsBundleHidden()
 
     for _, mod in ipairs(MR:GetOrderedModules()) do
@@ -3695,9 +3723,13 @@ function MR:RefreshUI()
             self.expansionDropdown:Update()
         end
         ApplyMainFrameLayout(self.frame)
-        self.widgets = {}
-        self.sectionRegistry = {}
-        self._timerRows = {}
+        self.widgets = self.widgets or {}
+        self.sectionRegistry = self.sectionRegistry or {}
+        self._timerRows = self._timerRows or {}
+        ClearArrayContents(self.widgets)
+        ClearArrayContents(self.sectionRegistry)
+        ClearArrayContents(self._timerRows)
+        self._sectionRegistryCount = 0
 
         local allDone, allTotal = 0, 0
 
@@ -3853,6 +3885,9 @@ function MR:RefreshUI()
         end, minRefreshInterval)
     end
 
+    if collectgarbage then
+        collectgarbage("step", 160)
+    end
 end
 
 function MR:ApplySharedMediaSettings()
@@ -3914,8 +3949,9 @@ function MR:ApplySharedMediaSettings()
         end
     end
     ApplyTheme()
-    local configFrame = self.GetConfigFrame and self:GetConfigFrame() or nil
-    local configWasShown = configFrame and configFrame:IsShown() or false
+    if ns.RefreshAllFrameBackgrounds then
+        ns.RefreshAllFrameBackgrounds()
+    end
     if self.frame and ns.RefreshFrameBackground then
         ns.RefreshFrameBackground(self.frame)
     end
@@ -3934,24 +3970,19 @@ function MR:ApplySharedMediaSettings()
         self:RefreshUI()
     end
 
-    if self.RebuildRaresFrame then self:RebuildRaresFrame() end
+    if self.raresFrame and self.raresFrame.IsShown and self.raresFrame:IsShown() and self.RebuildRaresFrame then
+        self:RebuildRaresFrame()
+    end
     if self.RebuildGatheringLocationsFrame then self:RebuildGatheringLocationsFrame() end
     if self.RebuildRenownFrame then self:RebuildRenownFrame() end
     if self.RepopulateRaresConfig then self:RepopulateRaresConfig() end
     if self.RepopulateGatheringConfig then self:RepopulateGatheringConfig() end
     if self.RepopulateRenownConfig then self:RepopulateRenownConfig() end
-    if configWasShown and configFrame then
-        if self.RequestConfigRepopulate then
-            self:RequestConfigRepopulate(configFrame, 0.08)
-        else
-            self:PopulateConfigFrame(configFrame)
-        end
-    elseif configFrame and configFrame:IsShown() then
-        if self.RequestConfigRepopulate then
-            self:RequestConfigRepopulate(configFrame, 0.08)
-        else
-            self:PopulateConfigFrame(configFrame)
-        end
+    if self.altBoardFrame and self.RefreshWarbandBoard then
+        self:RefreshWarbandBoard()
+    end
+    if collectgarbage then
+        collectgarbage("step", 200)
     end
 end
 
@@ -4074,7 +4105,6 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
     card:SetPoint("TOPLEFT", parent, "TOPLEFT", xOff + 3, -yOff)
     card:SetSize(math.max(colW - 6, 1), math.max((stats and stats.height or 0) - SECTION_GAP, HEADER_HEIGHT + 1))
     card:SetBackdrop(MakeBackdrop())
-    if ns.HookBackdropFrame then ns.HookBackdropFrame(card) end
     if transparent then
         card:SetBackdropColor(0, 0, 0, 0)
         card:SetBackdropBorderColor(0, 0, 0, 0)
@@ -4238,7 +4268,7 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
 
     table.insert(widgetBucket, hdrFrame)
     if widgetBucket == self.widgets then
-        table.insert(self.sectionRegistry, { frame = card, modKey = mod.key, col = col or 1, yOff = yOff })
+        AddSectionRegistryEntry(self, card, mod.key, col or 1, yOff)
     end
 
     local localY = HEADER_HEIGHT

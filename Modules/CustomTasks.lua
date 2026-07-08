@@ -33,7 +33,6 @@ local function GetTaskStorage(scope)
 
     scope = NormalizeTaskScope(scope)
     if scope == TASK_SCOPE_SHARED then
-        MR.db.global = MR.db.global or {}
         MR.db.global.customTasks = MR.db.global.customTasks or {}
         MR.db.global.customTaskNextId = tonumber(MR.db.global.customTaskNextId) or 1
         return MR.db.global.customTasks
@@ -426,7 +425,6 @@ local function GetAccountWideProgressStorage()
         return nil
     end
 
-    MR.db.global = MR.db.global or {}
     MR.db.global.customTaskProgress = MR.db.global.customTaskProgress or {}
     return MR.db.global.customTaskProgress
 end
@@ -436,14 +434,12 @@ local function GetAccountWideManualOverrideStorage()
         return nil
     end
 
-    MR.db.global = MR.db.global or {}
     MR.db.global.customTaskManualOverrides = MR.db.global.customTaskManualOverrides or {}
     return MR.db.global.customTaskManualOverrides
 end
 
 local function GetDiffProgressStorage(task)
     if task and task.accountWideComplete then
-        MR.db.global = MR.db.global or {}
         MR.db.global.customTaskDiffProgress = MR.db.global.customTaskDiffProgress or {}
         return MR.db.global.customTaskDiffProgress
     end
@@ -781,7 +777,6 @@ function MR:AddCustomTask(label, resetType, maxValue, questIds, allowManualQuest
 
     local taskId
     if scope == TASK_SCOPE_SHARED then
-        self.db.global = self.db.global or {}
         taskId = tonumber(self.db.global.customTaskNextId) or 1
         self.db.global.customTaskNextId = taskId + 1
     else
@@ -839,7 +834,6 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
         end
 
         if scope == TASK_SCOPE_SHARED then
-            self.db.global = self.db.global or {}
             task.id = tonumber(self.db.global.customTaskNextId) or 1
             self.db.global.customTaskNextId = task.id + 1
         else

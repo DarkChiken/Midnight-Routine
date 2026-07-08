@@ -312,16 +312,7 @@ function ns.ApplyBackgroundTexture(texture, r, g, b, a)
     texture:SetTexture(nil)
 end
 
-local function EnsureFrameBackgroundTexture(frame)
-    if not frame or frame._mrBackgroundTexture then
-        return frame and frame._mrBackgroundTexture
-    end
-
-    local texture = frame:CreateTexture(nil, "BACKGROUND", nil, -8)
-    texture:SetAllPoints()
-    frame._mrBackgroundTexture = texture
-    return texture
-end
+local backdropFrames = setmetatable({}, { __mode = "k" })
 
 function ns.RefreshFrameBackground(frame)
     if not frame then
@@ -333,18 +324,64 @@ function ns.RefreshFrameBackground(frame)
         return
     end
 
-    local texture = EnsureFrameBackgroundTexture(frame)
-    ns.ApplyBackgroundTexture(texture, color[1], color[2], color[3], color[4])
+    if type(frame.GetBackdrop) == "function" and type(frame.SetBackdrop) == "function" then
+        local backdrop = frame:GetBackdrop()
+        if type(backdrop) == "table" then
+            local bgFile = ns.BACKDROP_FILE or ResolveDefaultBackground()
+            if frame._mrAppliedBackdropFile ~= bgFile then
+                backdrop.bgFile = bgFile
+                frame._mrRefreshingBackground = true
+                frame:SetBackdrop(backdrop)
+                frame._mrAppliedBackdropFile = bgFile
+                if type(frame._mrOriginalSetBackdropColor) == "function" then
+                    local profile = GetActiveMediaProfile()
+                    if HasCustomBackground(profile) then
+                        frame._mrOriginalSetBackdropColor(frame, 1, 1, 1, color[4] or 1)
+                    else
+                        frame._mrOriginalSetBackdropColor(frame, color[1] or 1, color[2] or 1, color[3] or 1, color[4] or 1)
+                    end
+                end
+                if type(frame._mrOriginalSetBackdropBorderColor) == "function" and frame._mrBorderColor then
+                    local border = frame._mrBorderColor
+                    frame._mrOriginalSetBackdropBorderColor(frame, border[1] or 1, border[2] or 1, border[3] or 1, border[4] or 1)
+                end
+                frame._mrRefreshingBackground = nil
+            end
+        end
+    end
+
+end
+
+function ns.RefreshAllFrameBackgrounds()
+    for frame in pairs(backdropFrames) do
+        if frame and frame.GetParent and frame:GetParent() ~= nil then
+            ns.RefreshFrameBackground(frame)
+        else
+            backdropFrames[frame] = nil
+        end
+    end
 end
 
 local function HookFrameBackdrop(frame)
     if not frame or frame._mrBackdropHooked or type(frame.SetBackdropColor) ~= "function" then
+        if frame and frame._mrBackdropHooked then
+            backdropFrames[frame] = true
+        end
         return
     end
 
     frame._mrBackdropHooked = true
+    backdropFrames[frame] = true
     local originalSetBackdropColor = frame.SetBackdropColor
+    local originalSetBackdropBorderColor = frame.SetBackdropBorderColor
+    frame._mrOriginalSetBackdropColor = originalSetBackdropColor
+    frame._mrOriginalSetBackdropBorderColor = originalSetBackdropBorderColor
     frame.SetBackdropColor = function(self, r, g, b, a)
+        if self._mrRefreshingBackground then
+            originalSetBackdropColor(self, r, g, b, a)
+            return
+        end
+
         local profile = GetActiveMediaProfile()
         if HasCustomBackground(profile) then
             originalSetBackdropColor(self, 1, 1, 1, a)
@@ -353,6 +390,12 @@ local function HookFrameBackdrop(frame)
         end
         self._mrBackgroundColor = { r or 1, g or 1, b or 1, a or 1 }
         ns.RefreshFrameBackground(self)
+    end
+    if type(originalSetBackdropBorderColor) == "function" then
+        frame.SetBackdropBorderColor = function(self, r, g, b, a)
+            self._mrBorderColor = { r or 1, g or 1, b or 1, a or 1 }
+            originalSetBackdropBorderColor(self, r, g, b, a)
+        end
     end
 end
 

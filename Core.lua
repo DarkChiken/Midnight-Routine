@@ -1,13 +1,150 @@
 local addonName, ns = ...
 
-local LibStub  = LibStub
-local AceAddon = LibStub("AceAddon-3.0")
-local AceDB    = LibStub("AceDB-3.0")
-local L        = LibStub("AceLocale-3.0"):GetLocale(addonName)
+local Foundry = _G.Foundry_1_0
+if not Foundry then
+    error(addonName .. " requires Foundry-1.0 to be loaded before Core.lua", 0)
+end
 
-local MR = AceAddon:NewAddon(addonName, "AceEvent-3.0", "AceBucket-3.0", "AceTimer-3.0")
+local L = LibStub("AceLocale-3.0"):GetLocale(addonName)
+
+local MR = {
+    name = addonName,
+}
 ns.MR = MR
 MR.ns = ns
+MR._eventController = Foundry.Events:New(addonName)
+MR._timers = {}
+MR._buckets = {}
+
+local function ResolveCallback(owner, callback)
+    if type(callback) == "function" then
+        return callback, false
+    end
+    if type(callback) == "string" and type(owner[callback]) == "function" then
+        return owner[callback], true
+    end
+    return nil
+end
+
+function MR:RegisterEvent(event, callback)
+    local fn, bindSelf = ResolveCallback(self, callback or event)
+    if not fn then
+        error(("MidnightRoutine:RegisterEvent(%s) missing callback"):format(tostring(event)), 2)
+    end
+
+    if self._eventController:IsRegistered(event) then
+        self._eventController:Unregister(event)
+    end
+
+    self._eventController:Register(event, function(firedEvent, ...)
+        if bindSelf then
+            fn(self, firedEvent, ...)
+        else
+            fn(firedEvent, ...)
+        end
+    end)
+end
+
+function MR:UnregisterEvent(event)
+    self._eventController:Unregister(event)
+end
+
+function MR:UnregisterAllEvents()
+    self._eventController:UnregisterAll()
+end
+
+function MR:RegisterBucketEvent(events, interval, callback)
+    local fn, bindSelf = ResolveCallback(self, callback)
+    if not fn then
+        error("MidnightRoutine:RegisterBucketEvent missing callback", 2)
+    end
+
+    local bucket = self._eventController:RegisterBucket({
+        events = events,
+        interval = interval,
+        handler = function()
+            if bindSelf then
+                fn(self)
+            else
+                fn()
+            end
+        end,
+    })
+
+    self._buckets[bucket] = true
+    return bucket
+end
+
+function MR:UnregisterBucket(bucket)
+    if bucket and bucket.Cancel then
+        bucket:Cancel()
+        self._buckets[bucket] = nil
+    end
+end
+
+function MR:ScheduleTimer(callback, delay, ...)
+    local fn, bindSelf = ResolveCallback(self, callback)
+    if not fn then
+        error("MidnightRoutine:ScheduleTimer missing callback", 2)
+    end
+
+    local argc = select("#", ...)
+    local args = argc > 0 and { ... } or nil
+    local timer
+    timer = C_Timer.NewTimer(delay, function()
+        self._timers[timer] = nil
+        if bindSelf and args then
+            fn(self, unpack(args, 1, argc))
+        elseif bindSelf then
+            fn(self)
+        elseif args then
+            fn(unpack(args, 1, argc))
+        else
+            fn()
+        end
+    end)
+    self._timers[timer] = true
+    return timer
+end
+
+function MR:ScheduleRepeatingTimer(callback, delay, ...)
+    local fn, bindSelf = ResolveCallback(self, callback)
+    if not fn then
+        error("MidnightRoutine:ScheduleRepeatingTimer missing callback", 2)
+    end
+
+    local argc = select("#", ...)
+    local args = argc > 0 and { ... } or nil
+    local timer = C_Timer.NewTicker(delay, function()
+        if bindSelf and args then
+            fn(self, unpack(args, 1, argc))
+        elseif bindSelf then
+            fn(self)
+        elseif args then
+            fn(unpack(args, 1, argc))
+        else
+            fn()
+        end
+    end)
+    self._timers[timer] = true
+    return timer
+end
+
+function MR:CancelTimer(timer)
+    if timer and timer.Cancel then
+        timer:Cancel()
+        self._timers[timer] = nil
+    end
+end
+
+function MR:CancelAllTimers()
+    for timer in pairs(self._timers) do
+        if timer.Cancel then
+            timer:Cancel()
+        end
+        self._timers[timer] = nil
+    end
+end
 
 local MODULES_WITH_OPTIONAL_CURRENCY_COMPLETION = {
     currencies = true,
@@ -130,6 +267,7 @@ local DEFAULTS = {
         lastDailyAt = 0,
         hideComplete = true,
         panelOpen    = true,
+        panelOpenUserSet = false,
         modules      = {},
         moduleOrder  = {},
         settingsMigrated = false,
@@ -605,7 +743,6 @@ end
 
 function MR:GetProgressBucket(moduleKey, rowKey)
     if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
-        self.db.global = self.db.global or {}
         self.db.global.customTaskProgress = self.db.global.customTaskProgress or {}
         return self.db.global.customTaskProgress
     end
@@ -615,7 +752,6 @@ end
 
 function MR:GetManualOverrideBucket(moduleKey, rowKey)
     if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
-        self.db.global = self.db.global or {}
         self.db.global.customTaskManualOverrides = self.db.global.customTaskManualOverrides or {}
         return self.db.global.customTaskManualOverrides
     end
@@ -751,7 +887,9 @@ function MR:ApplyFontSizeToAll(v)
     self.db.profile.gatheringFontSize = v
     self.db.profile.renownFontSize    = v
     if self.ApplyFontSize then self.ApplyFontSize(v) end
-    if self.RebuildRaresFrame             then self:RebuildRaresFrame() end
+    if self.raresFrame and self.raresFrame.IsShown and self.raresFrame:IsShown() and self.RebuildRaresFrame then
+        self:RebuildRaresFrame()
+    end
     if self.RebuildGatheringLocationsFrame then self:RebuildGatheringLocationsFrame() end
     if self.RebuildRenownFrame            then self:RebuildRenownFrame() end
     if self.RepopulateRaresConfig     then self:RepopulateRaresConfig() end
@@ -1814,7 +1952,6 @@ function MR:ScanAutoUpdateInstanceRows(changedQuestId, changedEncounterId, diffi
                         if self.db then
                             local diffProgress
                             if row.accountWideComplete then
-                                self.db.global = self.db.global or {}
                                 self.db.global.customTaskDiffProgress = self.db.global.customTaskDiffProgress or {}
                                 diffProgress = self.db.global.customTaskDiffProgress
                             elseif self.db.char then
@@ -2175,7 +2312,12 @@ function MR:RebuildTurnInCompletions()
 end
 
 function MR:OnInitialize()
-    self.db = AceDB:New("MidnightRoutineDB", DEFAULTS, true)
+    self.db = Foundry.DB:New({
+        name = addonName,
+        sv = "MidnightRoutineDB",
+        defaults = DEFAULTS,
+        defaultProfile = true,
+    })
     self:MigrateLegacySettings()
     if self.RefreshCustomTasksModule then
         self:RefreshCustomTasksModule()
@@ -2307,10 +2449,18 @@ function MR:ManagedWindowStateHasVisibleFrames(state)
         or (state.detached and next(state.detached) ~= nil)
 end
 
+function MR:SetMainPanelOpen(open, userSet)
+    if not (self.db and self.db.char) then return end
+    self.db.char.panelOpen = open and true or false
+    if userSet then
+        self.db.char.panelOpenUserSet = true
+    end
+end
+
 function MR:PersistManagedWindowState(state)
     if not self.db or not state then return end
 
-    self.db.char.panelOpen = state.panel and true or false
+    self:SetMainPanelOpen(state.panel, true)
     self:SetManagedWindowOpen("renownOpen", state.renown)
     self:SetManagedWindowOpen("raresOpen", state.rares)
     self:SetManagedWindowOpen("gatheringLocOpen", state.gathering)
@@ -2429,7 +2579,7 @@ function MR:ToggleManagedWindows()
     if self.frame then
         self.frame:Show()
     end
-    self.db.char.panelOpen = true
+    self:SetMainPanelOpen(true, true)
     self:ClearManagedWindowsBundleHidden()
     return true
 end
@@ -2556,8 +2706,8 @@ function MR:OnEnteringWorld()
     self:BuildSpellIndex()
     local temporarilyHidden = self._toggleRestoreState ~= nil
 
-    if not self.db.profile.firstSeen then
-        self.db.char.panelOpen     = false
+    if not self.db.profile.firstSeen and not self.db.char.panelOpenUserSet then
+        self:SetMainPanelOpen(false, false)
         self:SetManagedWindowOpen("renownOpen", false)
     end
 
@@ -2835,10 +2985,10 @@ SlashCmdList["MIDROUTE"] = function(msg)
         print(L["Frame_Unlocked"])
     elseif msg == "hide" then
         if MR.frame then MR.frame:Hide() end
-        MR.db.char.panelOpen = false
+        MR:SetMainPanelOpen(false, true)
     elseif msg == "show" then
         if MR.frame then MR.frame:Show() end
-        MR.db.char.panelOpen = true
+        MR:SetMainPanelOpen(true, true)
         MR:ClearManagedWindowsBundleHidden()
     elseif msg == "toggle" then
         MR:ToggleManagedWindows()
@@ -2849,10 +2999,10 @@ SlashCmdList["MIDROUTE"] = function(msg)
         if MR.frame then
             if MR.frame:IsShown() then
                 MR.frame:Hide()
-                MR.db.char.panelOpen = false
+                MR:SetMainPanelOpen(false, true)
             else
                 MR.frame:Show()
-                MR.db.char.panelOpen = true
+                MR:SetMainPanelOpen(true, true)
                 MR:ClearManagedWindowsBundleHidden()
             end
         end
@@ -2861,11 +3011,11 @@ SlashCmdList["MIDROUTE"] = function(msg)
             MR:BuildUI()
         end
         if MR.frame then MR.frame:Show() end
-        MR.db.char.panelOpen = true
+        MR:SetMainPanelOpen(true, true)
         MR:ClearManagedWindowsBundleHidden()
     elseif msg == "main hide" then
         if MR.frame then MR.frame:Hide() end
-        MR.db.char.panelOpen = false
+        MR:SetMainPanelOpen(false, true)
     elseif msg == "minimap" then
         local newHide = not (MR.db.profile.minimap and MR.db.profile.minimap.hide)
         MR:SetMinimapHidden(newHide)

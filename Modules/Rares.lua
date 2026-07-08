@@ -1447,7 +1447,9 @@ function MR:RefreshRares()
 end
 
 function MR:RebuildRaresFrame()
-    RebuildRaresFrame()
+    if raresFrame and raresFrame:IsShown() then
+        RebuildRaresFrame()
+    end
 end
 
 function MR:RepopulateRaresConfig()

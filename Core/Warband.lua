@@ -79,8 +79,11 @@ end
 
 
 function MR:GetCurrentCharacterKey()
-    if self.db and self.db.keys and self.db.keys.char then
-        return self.db.keys.char
+    if self.db and self.db.GetNativeHandles then
+        local handles = self.db:GetNativeHandles()
+        if handles and handles.charKey then
+            return handles.charKey
+        end
     end
 
     local name, realm = UnitFullName and UnitFullName("player")

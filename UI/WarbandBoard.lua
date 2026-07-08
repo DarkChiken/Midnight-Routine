@@ -81,6 +81,10 @@ local function WBApplySurface(frame, variant, alpha)
         return
     end
 
+    if ns.HookBackdropFrame then
+        ns.HookBackdropFrame(frame)
+    end
+
     if variant == "panel" then
         frame:SetBackdropColor(0.018, 0.030, 0.050, alpha or 0.96)
         frame:SetBackdropBorderColor(0.10, 0.16, 0.24, 0.72)
