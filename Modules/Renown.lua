@@ -63,7 +63,6 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.85, 0.72, 0.18 },
         hex       = "d9b82e",
-        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\silvermoon",
     },
     {
         key       = "amani",
@@ -72,7 +71,6 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.82, 0.36, 0.14 },
         hex       = "d15c24",
-        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\amani",
     },
     {
         key       = "harati",
@@ -81,7 +79,6 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.16, 0.78, 0.55 },
         hex       = "29c78c",
-        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\harati",
     },
     {
         key       = "singularity",
@@ -90,7 +87,6 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.45, 0.22, 0.82 },
         hex       = "7238d1",
-        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\singularity",
     },
 }
 
@@ -128,16 +124,6 @@ local function GetJourneyStyle(key)
     return { 0.58, 0.48, 0.72 }, "947aba"
 end
 
-local function GetJourneyEmblem(key)
-    if key == "delvers_journey" then
-        return "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\delves"
-    end
-    if key == "preyseekers_journey" then
-        return "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\prey"
-    end
-    return nil
-end
-
 local function AddDynamicFaction(factions, seenFactionIds, key, label, factionId, fallbackMax)
     if not key or not factionId or seenFactionIds[factionId] then return end
     local color, hex = GetJourneyStyle(key)
@@ -148,7 +134,6 @@ local function AddDynamicFaction(factions, seenFactionIds, key, label, factionId
         maxRenown = GetFactionRenownCap(factionId, fallbackMax),
         color     = color,
         hex       = hex,
-        emblem    = GetJourneyEmblem(key),
     }
     seenFactionIds[factionId] = true
 end
@@ -237,32 +222,44 @@ end
 local function ApplyFactionEmblem(texture, fallbackLabel, faction, r, g, b)
     if not texture then return false end
 
-    if type(faction.emblem) == "string" and faction.emblem ~= "" then
-        texture:SetTexture(faction.emblem)
-        texture:SetVertexColor(1, 1, 1, 1)
-        texture:SetTexCoord(0, 1, 0, 1)
-        if fallbackLabel then fallbackLabel:Hide() end
-        return true
-    end
-
     local data = C_MajorFactions and C_MajorFactions.GetMajorFactionData and C_MajorFactions.GetMajorFactionData(faction.factionId)
     local textureKit = data and data.textureKit
-    local atlases
+    local atlases = {}
     if type(textureKit) == "string" and textureKit ~= "" then
         atlases = {
+            "majorfactions_icons_" .. textureKit .. "512",
             "MajorFactions_Icon_" .. textureKit,
             "MajorFactions_RenownIcon_" .. textureKit,
+            "MajorFactions_CircleIcon_" .. textureKit,
+            "MajorFactions_Logo_" .. textureKit,
+            "MajorFactions_FactionIcon_" .. textureKit,
             "majorfactions-icon-" .. textureKit,
             "majorfactions-renownicon-" .. textureKit,
         }
     end
 
-    if atlases and texture.SetAtlas then
+    if data then
+        local possibleAtlasFields = {
+            "atlas",
+            "iconAtlas",
+            "renownIconAtlas",
+            "factionIconAtlas",
+            "buttonAtlas",
+            "textureKit",
+        }
+        for _, field in ipairs(possibleAtlasFields) do
+            local value = data[field]
+            if type(value) == "string" and value ~= "" then
+                atlases[#atlases + 1] = value
+            end
+        end
+    end
+
+    if texture.SetAtlas and C_Texture and C_Texture.GetAtlasInfo then
         for _, atlas in ipairs(atlases) do
-            local ok = pcall(texture.SetAtlas, texture, atlas, true)
-            if ok then
+            if C_Texture.GetAtlasInfo(atlas) then
+                texture:SetAtlas(atlas, false)
                 texture:SetVertexColor(1, 1, 1, 1)
-                texture:SetTexCoord(0, 1, 0, 1)
                 if fallbackLabel then fallbackLabel:Hide() end
                 return true
             end
@@ -281,7 +278,34 @@ local function ApplyFactionEmblem(texture, fallbackLabel, faction, r, g, b)
         end
     end
 
-    texture:SetTexture("Interface\\AddOns\\MidnightRoutine\\Media\\Icon")
+    if data then
+        local possibleIconFields = {
+            "icon",
+            "iconFileID",
+            "renownIcon",
+            "renownIconFileID",
+            "factionIcon",
+            "factionIconFileID",
+        }
+        for _, field in ipairs(possibleIconFields) do
+            local value = data[field]
+            if type(value) == "number" then
+                texture:SetTexture(value)
+                texture:SetVertexColor(1, 1, 1, 1)
+                texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                if fallbackLabel then fallbackLabel:Hide() end
+                return true
+            elseif type(value) == "string" and value ~= "" then
+                texture:SetTexture(value)
+                texture:SetVertexColor(1, 1, 1, 1)
+                texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                if fallbackLabel then fallbackLabel:Hide() end
+                return true
+            end
+        end
+    end
+
+    texture:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
     texture:SetVertexColor(r, g, b, 0.96)
     texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     if fallbackLabel then
