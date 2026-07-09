@@ -63,6 +63,7 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.85, 0.72, 0.18 },
         hex       = "d9b82e",
+        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\silvermoon",
     },
     {
         key       = "amani",
@@ -71,6 +72,7 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.82, 0.36, 0.14 },
         hex       = "d15c24",
+        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\amani",
     },
     {
         key       = "harati",
@@ -79,6 +81,7 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.16, 0.78, 0.55 },
         hex       = "29c78c",
+        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\harati",
     },
     {
         key       = "singularity",
@@ -87,6 +90,7 @@ local BASE_FACTIONS = {
         maxRenown = 20,
         color     = { 0.45, 0.22, 0.82 },
         hex       = "7238d1",
+        emblem    = "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\singularity",
     },
 }
 
@@ -124,6 +128,16 @@ local function GetJourneyStyle(key)
     return { 0.58, 0.48, 0.72 }, "947aba"
 end
 
+local function GetJourneyEmblem(key)
+    if key == "delvers_journey" then
+        return "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\delves"
+    end
+    if key == "preyseekers_journey" then
+        return "Interface\\AddOns\\MidnightRoutine\\Media\\Renown\\prey"
+    end
+    return nil
+end
+
 local function AddDynamicFaction(factions, seenFactionIds, key, label, factionId, fallbackMax)
     if not key or not factionId or seenFactionIds[factionId] then return end
     local color, hex = GetJourneyStyle(key)
@@ -134,6 +148,7 @@ local function AddDynamicFaction(factions, seenFactionIds, key, label, factionId
         maxRenown = GetFactionRenownCap(factionId, fallbackMax),
         color     = color,
         hex       = hex,
+        emblem    = GetJourneyEmblem(key),
     }
     seenFactionIds[factionId] = true
 end
@@ -202,6 +217,80 @@ local function GetRenownData(faction)
     return renown, maxRenown, rep, needed
 end
 
+local function ShowRenownTooltip(owner, faction)
+    local renown, maxRenown, rep, needed = GetRenownData(faction)
+    local cr, cg, cb = GetFactionColor(faction)
+    local capped = C_MajorFactions.HasMaximumRenown(faction.factionId)
+
+    GameTooltip:SetOwner(owner, "ANCHOR_RIGHT")
+    GameTooltip:SetText(string.format("|cff%s%s|r", faction.hex, faction.label), 1, 1, 1)
+    GameTooltip:AddLine(string.format(L["Renown_Level"], renown, maxRenown), cr, cg, cb)
+    if capped then
+        GameTooltip:AddLine(L["Renown_MaxReached"], 0.2, 1, 0.5)
+    else
+        GameTooltip:AddLine(string.format(L["Renown_Progress"], rep, needed), 0.7, 0.7, 0.7)
+        GameTooltip:AddLine(string.format(L["Renown_RepToNext"], needed - rep), 0.5, 0.5, 0.5)
+    end
+    GameTooltip:Show()
+end
+
+local function ApplyFactionEmblem(texture, fallbackLabel, faction, r, g, b)
+    if not texture then return false end
+
+    if type(faction.emblem) == "string" and faction.emblem ~= "" then
+        texture:SetTexture(faction.emblem)
+        texture:SetVertexColor(1, 1, 1, 1)
+        texture:SetTexCoord(0, 1, 0, 1)
+        if fallbackLabel then fallbackLabel:Hide() end
+        return true
+    end
+
+    local data = C_MajorFactions and C_MajorFactions.GetMajorFactionData and C_MajorFactions.GetMajorFactionData(faction.factionId)
+    local textureKit = data and data.textureKit
+    local atlases
+    if type(textureKit) == "string" and textureKit ~= "" then
+        atlases = {
+            "MajorFactions_Icon_" .. textureKit,
+            "MajorFactions_RenownIcon_" .. textureKit,
+            "majorfactions-icon-" .. textureKit,
+            "majorfactions-renownicon-" .. textureKit,
+        }
+    end
+
+    if atlases and texture.SetAtlas then
+        for _, atlas in ipairs(atlases) do
+            local ok = pcall(texture.SetAtlas, texture, atlas, true)
+            if ok then
+                texture:SetVertexColor(1, 1, 1, 1)
+                texture:SetTexCoord(0, 1, 0, 1)
+                if fallbackLabel then fallbackLabel:Hide() end
+                return true
+            end
+        end
+    end
+
+    local currencyID = data and (data.renownCurrencyID or data.currencyID)
+    if currencyID and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo then
+        local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+        if info and info.iconFileID then
+            texture:SetTexture(info.iconFileID)
+            texture:SetVertexColor(1, 1, 1, 1)
+            texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            if fallbackLabel then fallbackLabel:Hide() end
+            return true
+        end
+    end
+
+    texture:SetTexture("Interface\\AddOns\\MidnightRoutine\\Media\\Icon")
+    texture:SetVertexColor(r, g, b, 0.96)
+    texture:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    if fallbackLabel then
+        fallbackLabel:SetText((faction.label or "?"):sub(1, 1))
+        fallbackLabel:Show()
+    end
+    return false
+end
+
 local function TryCall(object, methodName, ...)
     if object and object[methodName] then
         return pcall(object[methodName], object, ...)
@@ -254,6 +343,7 @@ local function BuildRenownFrame()
     RefreshFonts()
     local db        = MR.db and MR.db.profile or {}
     local compact   = db.renownCompact
+    local emblemMode = db.renownEmblemMode == true
     local showLevel = db.renownShowLevel ~= false
     local FRAME_W   = db.renownWidth or 280
     local BAR_H     = db.renownBarH or 18
@@ -267,7 +357,12 @@ local function BuildRenownFrame()
     for _, fac in ipairs(GetOrderedFactions()) do
         if not hidden[fac.key] then visCount = visCount + 1 end
     end
-    local totalH    = HEADER_H + PAD + (visCount * ROW_SPACE) + PAD
+    local EMBLEM_SIZE = 34
+    local EMBLEM_GAP = 7
+    local emblemCols = math.max(1, math.floor(((FRAME_W - (PAD * 2)) + EMBLEM_GAP) / (EMBLEM_SIZE + EMBLEM_GAP)))
+    local emblemRows = math.ceil(visCount / emblemCols)
+    local emblemContentH = (emblemRows > 0) and ((emblemRows * EMBLEM_SIZE) + ((emblemRows - 1) * EMBLEM_GAP)) or 0
+    local totalH    = emblemMode and (HEADER_H + PAD + emblemContentH + PAD) or (HEADER_H + PAD + (visCount * ROW_SPACE) + PAD)
 
     local f = StyledFrame(UIParent, nil, "MEDIUM", 10)
     f:SetSize(FRAME_W, minimized and HEADER_H or totalH)
@@ -277,10 +372,28 @@ local function BuildRenownFrame()
     f.layoutPad = PAD
     f.headerHeight = HEADER_H
     f.headerBottom = headerBottom
+    f.emblemMode = emblemMode
+    f.emblemSize = EMBLEM_SIZE
+    f.emblemGap = EMBLEM_GAP
+    f.emblemCols = emblemCols
+
+    local function StartRenownDrag()
+        if MR.db and MR.db.profile and MR.db.profile.renownLocked then return end
+        f:StartMoving()
+    end
+
+    local function StopRenownDrag()
+        f:StopMovingOrSizing()
+        SaveManagedFramePos(f, "renownPos", headerBottom and "bottom" or "top")
+    end
 
     RestoreManagedFramePos(f, "renownPos", 300, 0)
     f.topAccent = TopAccent(f)
     f.leftAccent = nil
+    f:EnableMouse(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", StartRenownDrag)
+    f:SetScript("OnDragStop", StopRenownDrag)
 
     local titleBar = TitleBar(f, HEADER_H)
     f.titleBar = titleBar
@@ -293,12 +406,13 @@ local function BuildRenownFrame()
         titleBar:SetPoint("TOPLEFT", f, "TOPLEFT", 0, 0)
         titleBar:SetPoint("TOPRIGHT", f, "TOPRIGHT", 0, 0)
     end
-    titleBar:SetScript("OnDragStart", function() f:StartMoving() end)
-    titleBar:SetScript("OnDragStop", function()
-        f:StopMovingOrSizing()
-        SaveManagedFramePos(f, "renownPos", headerBottom and "bottom" or "top")
-    end)
-    if MR.ApplyPanelHeaderAutoHide then MR:ApplyPanelHeaderAutoHide(f, titleBar) end
+    titleBar:SetScript("OnDragStart", StartRenownDrag)
+    titleBar:SetScript("OnDragStop", StopRenownDrag)
+    if MR.ApplyPanelHeaderAutoHide then
+        MR:ApplyPanelHeaderAutoHide(f, titleBar, function()
+            return MR.db and MR.db.profile and MR.db.profile.renownAutoHideHeader == true
+        end)
+    end
 
     local titleIcon = titleBar:CreateTexture(nil, "ARTWORK")
     titleIcon:SetSize(20, 20)
@@ -343,12 +457,89 @@ local function BuildRenownFrame()
 
     f.factionRows = {}
 
-    local yOff = HEADER_H + PAD
+    local yOff = emblemMode and 1 or (HEADER_H + PAD)
 
     for i, faction in ipairs(GetOrderedFactions()) do
         if not hidden[faction.key] then
         local cr, cg, cb = GetFactionColor(faction)
+        local rowAlpha = db.renownAlpha or 1.0
+        if compact or emblemMode then rowAlpha = 1.0 end
 
+        if emblemMode then
+        local emblem = CreateFrame("Button", nil, f, "BackdropTemplate")
+        local idx = yOff
+        local col = (idx - 1) % emblemCols
+        local row = math.floor((idx - 1) / emblemCols)
+        local x = PAD + (col * (EMBLEM_SIZE + EMBLEM_GAP))
+        local y = HEADER_H + PAD + (row * (EMBLEM_SIZE + EMBLEM_GAP))
+        if headerBottom then
+            emblem:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", x, y)
+        else
+            emblem:SetPoint("TOPLEFT", f, "TOPLEFT", x, -y)
+        end
+        emblem:SetSize(EMBLEM_SIZE, EMBLEM_SIZE)
+        emblem:RegisterForClicks("LeftButtonUp")
+        emblem:RegisterForDrag("LeftButton")
+        emblem:SetScript("OnDragStart", StartRenownDrag)
+        emblem:SetScript("OnDragStop", StopRenownDrag)
+        emblem:SetBackdrop(MakeBackdrop())
+        emblem:SetBackdropColor(0.018 + cr * 0.03, 0.022 + cg * 0.03, 0.032 + cb * 0.03, 0.94 * rowAlpha)
+        emblem:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.85 * rowAlpha)
+
+        local glow = emblem:CreateTexture(nil, "BACKGROUND")
+        glow:SetPoint("TOPLEFT", emblem, "TOPLEFT", 1, -1)
+        glow:SetPoint("BOTTOMRIGHT", emblem, "BOTTOMRIGHT", -1, 1)
+        glow:SetColorTexture(cr, cg, cb, 0.10)
+
+        local icon = emblem:CreateTexture(nil, "ARTWORK")
+        icon:SetPoint("TOPLEFT", emblem, "TOPLEFT", 4, -4)
+        icon:SetPoint("BOTTOMRIGHT", emblem, "BOTTOMRIGHT", -4, 4)
+
+        local fallbackLabel = emblem:CreateFontString(nil, "OVERLAY")
+        fallbackLabel:SetFont(FONT_HEADERS, 14, GetFontFlags())
+        fallbackLabel:SetPoint("CENTER", emblem, "CENTER", 0, 0)
+        fallbackLabel:SetTextColor(0.04, 0.04, 0.05)
+
+        local levelLabel = emblem:CreateFontString(nil, "OVERLAY")
+        levelLabel:SetFont(FONT_ROWS, 8, GetFontFlags())
+        levelLabel:SetPoint("BOTTOMRIGHT", emblem, "BOTTOMRIGHT", -3, 2)
+        levelLabel:SetJustifyH("RIGHT")
+        levelLabel:SetTextColor(0.95, 0.95, 0.95)
+
+        ApplyFactionEmblem(icon, fallbackLabel, faction, cr, cg, cb)
+
+        emblem:SetScript("OnEnter", function()
+            local v = (renownFrame and renownFrame.bgAlpha) or 1.0
+            emblem:SetBackdropColor(0.03 + cr * 0.06, 0.035 + cg * 0.06, 0.045 + cb * 0.06, 0.98 * v)
+            emblem:SetBackdropBorderColor(cr * 0.85, cg * 0.85, cb * 0.85, v)
+            glow:SetColorTexture(cr, cg, cb, 0.18)
+            ShowRenownTooltip(emblem, faction)
+        end)
+        emblem:SetScript("OnLeave", function()
+            local v = (renownFrame and renownFrame.bgAlpha) or 1.0
+            emblem:SetBackdropColor(0.018 + cr * 0.03, 0.022 + cg * 0.03, 0.032 + cb * 0.03, 0.94 * v)
+            emblem:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.85 * v)
+            glow:SetColorTexture(cr, cg, cb, 0.10)
+            GameTooltip:Hide()
+        end)
+        emblem:SetScript("OnClick", function(_, button)
+            if button == "LeftButton" then
+                OpenMajorFactionRenown(faction.factionId)
+            end
+        end)
+
+        f.factionRows[faction.key] = {
+            emblem      = emblem,
+            emblemIcon  = icon,
+            emblemGlow  = glow,
+            emblemFallbackLabel = fallbackLabel,
+            compactLevelLabel = levelLabel,
+            faction     = faction,
+            rowFrame    = emblem,
+        }
+
+        yOff = yOff + 1
+        else
         local rowFrame = CreateFrame("Button", nil, f, "BackdropTemplate")
         if headerBottom then
             rowFrame:SetPoint("BOTTOMLEFT",  f, "BOTTOMLEFT",  PAD,  yOff)
@@ -359,50 +550,83 @@ local function BuildRenownFrame()
         end
         rowFrame:SetHeight(ROW_SPACE - 8)
         rowFrame:RegisterForClicks("LeftButtonUp")
+        rowFrame:RegisterForDrag("LeftButton")
+        rowFrame:SetScript("OnDragStart", StartRenownDrag)
+        rowFrame:SetScript("OnDragStop", StopRenownDrag)
         rowFrame:SetBackdrop(MakeBackdrop())
-        local rowAlpha = db.renownAlpha or 1.0
-        if compact then rowAlpha = 1.0 end
-        rowFrame:SetBackdropColor(cr * 0.08, cg * 0.08, cb * 0.08, 0.85 * rowAlpha)
-        rowFrame:SetBackdropBorderColor(cr * 0.4, cg * 0.4, cb * 0.4, 0.8 * rowAlpha)
+        rowFrame:SetBackdropColor(0.018 + cr * 0.035, 0.022 + cg * 0.035, 0.032 + cb * 0.035, 0.92 * rowAlpha)
+        rowFrame:SetBackdropBorderColor(cr * 0.28, cg * 0.28, cb * 0.28, 0.65 * rowAlpha)
+
+        local rowGlow = rowFrame:CreateTexture(nil, "BORDER")
+        rowGlow:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 1, -1)
+        rowGlow:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", -1, 1)
+        rowGlow:SetColorTexture(cr, cg, cb, compact and 0.09 or 0.055)
+
+        local accentRail = rowFrame:CreateTexture(nil, "ARTWORK")
+        accentRail:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 1, -1)
+        accentRail:SetPoint("BOTTOMLEFT", rowFrame, "BOTTOMLEFT", 1, 1)
+        accentRail:SetWidth(1)
+        accentRail:SetColorTexture(cr, cg, cb, 0)
 
         local nameLabel = rowFrame:CreateFontString(nil, "OVERLAY")
-        nameLabel:SetFont(FONT_HEADERS, 10, GetFontFlags())
-        nameLabel:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 8, -5)
-        nameLabel:SetPoint("RIGHT", rowFrame, "RIGHT", -58, -5)
-        nameLabel:SetTextColor(cr, cg, cb)
+        nameLabel:SetFont(FONT_HEADERS, 11, GetFontFlags())
+        nameLabel:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 11, -6)
+        nameLabel:SetPoint("RIGHT", rowFrame, "RIGHT", -70, -6)
+        nameLabel:SetTextColor(0.92, 0.92, 0.90)
         nameLabel:SetText(faction.label)
         nameLabel:SetJustifyH("LEFT")
+        nameLabel:SetWordWrap(false)
         if compact then nameLabel:Hide() end
 
-        local renownLabel = rowFrame:CreateFontString(nil, "OVERLAY")
+        local renownBadge = CreateFrame("Frame", nil, rowFrame, "BackdropTemplate")
+        renownBadge:SetSize(54, 18)
+        renownBadge:SetPoint("TOPRIGHT", rowFrame, "TOPRIGHT", -7, -5)
+        renownBadge:SetBackdrop(MakeBackdrop())
+        renownBadge:SetBackdropColor(0.02, 0.025, 0.035, 0.9)
+        renownBadge:SetBackdropBorderColor(cr * 0.45, cg * 0.45, cb * 0.45, 0.9)
+        if compact or not showLevel then renownBadge:Hide() end
+
+        local renownLabel = renownBadge:CreateFontString(nil, "OVERLAY")
         renownLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, GetFontFlags())
-        renownLabel:SetPoint("TOPRIGHT", rowFrame, "TOPRIGHT", -6, -5)
-        renownLabel:SetTextColor(0.65, 0.65, 0.65)
+        renownLabel:SetPoint("CENTER", renownBadge, "CENTER", 0, 0)
+        renownLabel:SetTextColor(0.92, 0.92, 0.92)
         if compact or not showLevel then renownLabel:Hide() end
 
         local barBg = CreateFrame("Frame", nil, rowFrame, "BackdropTemplate")
         if compact then
-            barBg:SetPoint("TOPLEFT",     rowFrame, "TOPLEFT",     6, -4)
-            barBg:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", -6,  4)
+            barBg:SetPoint("TOPLEFT",     rowFrame, "TOPLEFT",     8, -5)
+            barBg:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", -8,  5)
         else
-            barBg:SetPoint("BOTTOMLEFT",  rowFrame, "BOTTOMLEFT",   6,  6)
-            barBg:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", -6,  6)
+            barBg:SetPoint("BOTTOMLEFT",  rowFrame, "BOTTOMLEFT",  11,  7)
+            barBg:SetPoint("BOTTOMRIGHT", rowFrame, "BOTTOMRIGHT", -11,  7)
         end
-        barBg:SetHeight(BAR_H)
+        barBg:SetHeight(compact and BAR_H or math.max(8, math.min(BAR_H, 12)))
         barBg:SetBackdrop(MakeBackdrop())
         local barAlpha = db.renownAlpha or 1.0
         if compact then barAlpha = 1.0 end
-        barBg:SetBackdropColor(0.04, 0.04, 0.04, barAlpha)
-        barBg:SetBackdropBorderColor(cr * 0.25, cg * 0.25, cb * 0.25, barAlpha)
+        barBg:SetBackdropColor(0.015, 0.017, 0.022, 0.95 * barAlpha)
+        barBg:SetBackdropBorderColor(0.18 + cr * 0.18, 0.18 + cg * 0.18, 0.20 + cb * 0.18, 0.75 * barAlpha)
 
         local barFill = barBg:CreateTexture(nil, "ARTWORK")
         barFill:SetPoint("TOPLEFT",     barBg, "TOPLEFT",     1, -1)
         barFill:SetPoint("BOTTOMLEFT",  barBg, "BOTTOMLEFT",  1,  1)
-        barFill:SetColorTexture(cr, cg, cb, 0.85)
+        barFill:SetColorTexture(cr, cg, cb, 0.88)
+
+        local barEdge = barBg:CreateTexture(nil, "OVERLAY")
+        barEdge:SetPoint("TOPLEFT", barFill, "TOPRIGHT", -1, 0)
+        barEdge:SetPoint("BOTTOMLEFT", barFill, "BOTTOMRIGHT", -1, 0)
+        barEdge:SetWidth(2)
+        barEdge:SetColorTexture(1, 1, 1, 0.22)
 
         local barLabel = barBg:CreateFontString(nil, "OVERLAY")
         barLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, GetFontFlags())
-        barLabel:SetPoint("CENTER", barBg, "CENTER", 0, 0)
+        if compact then
+            barLabel:SetPoint("LEFT", barBg, "LEFT", 5, 0)
+            barLabel:SetPoint("RIGHT", barBg, "RIGHT", -48, 0)
+            barLabel:SetJustifyH("LEFT")
+        else
+            barLabel:SetPoint("CENTER", barBg, "CENTER", 0, 0)
+        end
         barLabel:SetTextColor(1, 1, 1)
 
         local compactLevelLabel = barBg:CreateFontString(nil, "OVERLAY")
@@ -422,8 +646,9 @@ local function BuildRenownFrame()
         rowFrame:EnableMouse(true)
         rowFrame:SetScript("OnEnter", function()
             local v = db.renownCompact and 1.0 or ((renownFrame and renownFrame.bgAlpha) or 1.0)
-            rowFrame:SetBackdropColor(cr * 0.14, cg * 0.14, cb * 0.14, 0.95 * v)
-            rowFrame:SetBackdropBorderColor(cr * 0.7, cg * 0.7, cb * 0.7, v)
+            rowFrame:SetBackdropColor(0.025 + cr * 0.055, 0.030 + cg * 0.055, 0.040 + cb * 0.055, 0.98 * v)
+            rowFrame:SetBackdropBorderColor(cr * 0.75, cg * 0.75, cb * 0.75, v)
+            rowGlow:SetColorTexture(cr, cg, cb, db.renownCompact and 0.16 or 0.10)
             local renown, maxRenown, rep, needed = GetRenownData(faction)
             local capped = C_MajorFactions.HasMaximumRenown(faction.factionId)
             GameTooltip:SetOwner(rowFrame, "ANCHOR_RIGHT")
@@ -439,8 +664,9 @@ local function BuildRenownFrame()
         end)
         rowFrame:SetScript("OnLeave", function()
             local v = db.renownCompact and 1.0 or ((renownFrame and renownFrame.bgAlpha) or 1.0)
-            rowFrame:SetBackdropColor(cr * 0.08, cg * 0.08, cb * 0.08, 0.85 * v)
-            rowFrame:SetBackdropBorderColor(cr * 0.4, cg * 0.4, cb * 0.4, 0.8 * v)
+            rowFrame:SetBackdropColor(0.018 + cr * 0.035, 0.022 + cg * 0.035, 0.032 + cb * 0.035, 0.92 * v)
+            rowFrame:SetBackdropBorderColor(cr * 0.28, cg * 0.28, cb * 0.28, 0.65 * v)
+            rowGlow:SetColorTexture(cr, cg, cb, db.renownCompact and 0.09 or 0.055)
             GameTooltip:Hide()
         end)
         rowFrame:SetScript("OnClick", function(_, button)
@@ -453,15 +679,20 @@ local function BuildRenownFrame()
             renownLabel = renownLabel,
             barFill     = barFill,
             barLabel    = barLabel,
+            barEdge     = barEdge,
             compactLevelLabel = compactLevelLabel,
             shimmer     = shimmer,
             barBg       = barBg,
+            renownBadge = renownBadge,
+            accentRail  = accentRail,
+            rowGlow     = rowGlow,
             faction     = faction,
             rowFrame    = rowFrame,
             nameLabel   = nameLabel,
         }
 
         yOff = yOff + ROW_SPACE
+        end
         end
     end
 
@@ -496,7 +727,7 @@ local function BuildRenownFrame()
                 selfFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(selfFrame))
             end
             for _, row in pairs(selfFrame.factionRows) do
-                row.shimmer:SetAlpha(pulse)
+                if row.shimmer then row.shimmer:SetAlpha(pulse) end
             end
         end or function(selfFrame)
             if selfFrame.UpdatePanelHeaderVisibility then
@@ -582,6 +813,69 @@ RefreshRenownFrame = function()
         local renown, maxRenown, rep, needed = GetRenownData(faction)
         local cr, cg, cb = GetFactionColor(faction)
         local capped = C_MajorFactions.HasMaximumRenown(faction.factionId)
+        local visualAlpha = db.renownCompact and 1.0 or ((renownFrame and renownFrame.bgAlpha) or 1.0)
+
+        if renownFrame.emblemMode then
+            if hideMaxed and capped then
+                row.rowFrame:Hide()
+            else
+                visibleRows = visibleRows + 1
+                local iconSize = renownFrame.emblemSize or 34
+                local iconGap = renownFrame.emblemGap or 7
+                local cols = math.max(1, renownFrame.emblemCols or 1)
+                local idx = visibleRows - 1
+                local col = idx % cols
+                local gridRow = math.floor(idx / cols)
+                local x = pad + (col * (iconSize + iconGap))
+                local yOff = headerH + pad + (gridRow * (iconSize + iconGap))
+                row.rowFrame:ClearAllPoints()
+                if headerBottom then
+                    row.rowFrame:SetPoint("BOTTOMLEFT", renownFrame, "BOTTOMLEFT", x, yOff)
+                else
+                    row.rowFrame:SetPoint("TOPLEFT", renownFrame, "TOPLEFT", x, -yOff)
+                end
+                row.rowFrame:SetSize(iconSize, iconSize)
+                row.rowFrame:SetBackdropColor(0.018 + cr * 0.03, 0.022 + cg * 0.03, 0.032 + cb * 0.03, 0.94 * visualAlpha)
+                row.rowFrame:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.85 * visualAlpha)
+                row.rowFrame:Show()
+            end
+
+            if row.emblemGlow then
+                row.emblemGlow:SetColorTexture(cr, cg, cb, 0.10)
+            end
+            if row.emblemIcon then
+                ApplyFactionEmblem(row.emblemIcon, row.emblemFallbackLabel, faction, cr, cg, cb)
+            end
+            if row.compactLevelLabel then
+                if showLevel then
+                    row.compactLevelLabel:SetText(string.format("|cff%s%d|r", faction.hex, renown))
+                    row.compactLevelLabel:Show()
+                else
+                    row.compactLevelLabel:Hide()
+                end
+            end
+        else
+        if row.rowFrame then
+            row.rowFrame:SetBackdropColor(0.018 + cr * 0.035, 0.022 + cg * 0.035, 0.032 + cb * 0.035, 0.92 * visualAlpha)
+            row.rowFrame:SetBackdropBorderColor(cr * 0.28, cg * 0.28, cb * 0.28, 0.65 * visualAlpha)
+        end
+        if row.rowGlow then
+            row.rowGlow:SetColorTexture(cr, cg, cb, db.renownCompact and 0.09 or 0.055)
+        end
+        if row.accentRail then
+            row.accentRail:SetWidth(1)
+            row.accentRail:SetColorTexture(cr, cg, cb, 0)
+        end
+        if row.barBg then
+            row.barBg:SetHeight(db.renownCompact and (db.renownBarH or 18) or math.max(8, math.min(db.renownBarH or 18, 12)))
+            row.barBg:SetBackdropBorderColor(0.18 + cr * 0.18, 0.18 + cg * 0.18, 0.20 + cb * 0.18, 0.75 * visualAlpha)
+        end
+        if row.barFill then
+            row.barFill:SetColorTexture(cr, cg, cb, capped and 1 or 0.88)
+        end
+        if row.renownBadge then
+            row.renownBadge:SetBackdropBorderColor(cr * 0.45, cg * 0.45, cb * 0.45, 0.9)
+        end
 
         if hideMaxed and capped then
             row.rowFrame:Hide()
@@ -606,14 +900,21 @@ RefreshRenownFrame = function()
             if db.renownCompact then
                 row.nameLabel:Hide()
             else
-                row.nameLabel:SetPoint("RIGHT", row.rowFrame, "RIGHT", showLevel and -58 or -8, -5)
+                row.nameLabel:ClearAllPoints()
+                row.nameLabel:SetPoint("TOPLEFT", row.rowFrame, "TOPLEFT", 11, -6)
+                row.nameLabel:SetPoint("RIGHT", row.rowFrame, "RIGHT", showLevel and -70 or -12, -6)
+                row.nameLabel:SetTextColor(0.92, 0.92, 0.90)
                 row.nameLabel:Show()
             end
         end
 
+        if row.renownBadge then
+            row.renownBadge:SetShown(not db.renownCompact and showLevel)
+        end
+
         if row.renownLabel then
             if not db.renownCompact and showLevel then
-                row.renownLabel:SetText(string.format("|cff%s%d|r |cff444444/|r |cff888888%d|r", faction.hex, renown, maxRenown))
+                row.renownLabel:SetText(string.format("|cff%s%d|r |cff666666/|r |cffbbbbbb%d|r", faction.hex, renown, maxRenown))
                 row.renownLabel:Show()
             else
                 row.renownLabel:Hide()
@@ -645,7 +946,7 @@ RefreshRenownFrame = function()
 
             if capped then
                 row.barLabel:SetText(L["MAX"])
-                row.barLabel:SetTextColor(cr, cg, cb)
+                row.barLabel:SetTextColor(0.25, 1.0, 0.58)
             elseif showRep then
                 row.barLabel:SetText(string.format("%d / %d", rep, needed))
                 row.barLabel:SetTextColor(0.85, 0.85, 0.85)
@@ -655,6 +956,7 @@ RefreshRenownFrame = function()
             end
         end
         end
+        end
     end
 
     if renownFrame.divider then
@@ -662,7 +964,14 @@ RefreshRenownFrame = function()
     end
 
     SyncManagedFramePos(renownFrame, "renownPos", headerBottom and "bottom" or "top")
-    if visibleRows > 0 then
+    if renownFrame.emblemMode then
+        local iconSize = renownFrame.emblemSize or 34
+        local iconGap = renownFrame.emblemGap or 7
+        local cols = math.max(1, renownFrame.emblemCols or 1)
+        local rows = math.ceil(visibleRows / cols)
+        local contentH = (rows > 0) and ((rows * iconSize) + ((rows - 1) * iconGap)) or 0
+        renownFrame:SetHeight((rows > 0) and (headerH + pad + contentH + pad) or headerH)
+    elseif visibleRows > 0 then
         renownFrame:SetHeight(headerH + pad + (visibleRows * rowSpace) + pad)
     else
         renownFrame:SetHeight(headerH)
@@ -867,10 +1176,14 @@ PopulateRenownConfig = function(f)
                     renownFrame:SetScript("OnUpdate", v and function(self, dt)
                         self.shimmerElapsed = (self.shimmerElapsed or 0) + dt
                         local pulse = 0.06 + 0.04 * math.sin(self.shimmerElapsed * 2)
-                        for _, row in pairs(self.factionRows) do row.shimmer:SetAlpha(pulse) end
+                        for _, row in pairs(self.factionRows) do
+                            if row.shimmer then row.shimmer:SetAlpha(pulse) end
+                        end
                     end or nil)
                     if not v then
-                        for _, row in pairs(renownFrame.factionRows) do row.shimmer:SetAlpha(0) end
+                        for _, row in pairs(renownFrame.factionRows) do
+                            if row.shimmer then row.shimmer:SetAlpha(0) end
+                        end
                     end
                 end
             end)
@@ -880,6 +1193,17 @@ PopulateRenownConfig = function(f)
         Check(L["Config_CompactMode"],
             function() return db.renownCompact end,
             function(v) db.renownCompact = v; RebuildRenownFrame() end)
+        Check(L["Config_EmblemMode"],
+            function() return db.renownEmblemMode == true end,
+            function(v) db.renownEmblemMode = v; RebuildRenownFrame() end)
+        Check(L["Config_AutoHideRenownHeader"],
+            function() return db.renownAutoHideHeader == true end,
+            function(v)
+                db.renownAutoHideHeader = v and true or false
+                if renownFrame and renownFrame.UpdatePanelHeaderVisibility then
+                    renownFrame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(renownFrame))
+                end
+            end)
         Check(L["Config_ShowRenownLevel"],
             function() return db.renownShowLevel ~= false end,
             function(v) db.renownShowLevel = v; RefreshRenownFrame() end)
@@ -889,7 +1213,13 @@ PopulateRenownConfig = function(f)
             function() return db.renownWidth or 280 end,
             function(v)
                 db.renownWidth = math.floor(v/10)*10
-                if renownFrame then renownFrame:SetWidth(db.renownWidth) end
+                if renownFrame then
+                    if db.renownEmblemMode then
+                        RebuildRenownFrame()
+                    else
+                        renownFrame:SetWidth(db.renownWidth)
+                    end
+                end
             end,
             0.16, 0.78, 0.75)
         Slider(L["Config_BarHeight"], 10, 30, 1,
@@ -907,14 +1237,8 @@ PopulateRenownConfig = function(f)
                     if renownFrame.leftAccent then renownFrame.leftAccent:SetAlpha(v) end
                     if renownFrame.topAccent  then renownFrame.topAccent:SetAlpha(v)  end
                     if renownFrame.divider    then renownFrame.divider:SetAlpha(v)    end
-                    for _, row in pairs(renownFrame.factionRows) do
-                        local fac = row.faction
-                        local cr, cg, cb = GetFactionColor(fac)
-                        local rowV = db.renownCompact and 1.0 or v
-                        row.rowFrame:SetBackdropColor(cr*0.08, cg*0.08, cb*0.08, 0.85*rowV)
-                        row.rowFrame:SetBackdropBorderColor(cr*0.4, cg*0.4, cb*0.4, 0.8*rowV)
-                        row.barBg:SetBackdropColor(0.04, 0.04, 0.04, rowV)
-                    end
+                    renownFrame.bgAlpha = v
+                    RefreshRenownFrame()
                 end
             end,
             0.40, 0.40, 0.40)
@@ -1088,30 +1412,24 @@ PopulateRenownConfig = function(f)
         end)
         table.insert(_facRows, { key = faction.key, frame = rowFr, label = faction.label })
 
+        local nameLbl
         local swatch = OptionsColorSwatch(rowFr, cr, cg, cb,
             function(r, g, b)
                 SetFactionColor(faction, r, g, b)
-                nameLbl:SetTextColor(r, g, b)
-                if renownFrame and renownFrame.factionRows[faction.key] then
-                    local row = renownFrame.factionRows[faction.key]
-                    row.nameLabel:SetTextColor(r, g, b)
-                    row.barFill:SetColorTexture(r, g, b, 0.85)
-                    local rowV = db.renownCompact and 1.0 or ((renownFrame and renownFrame.bgAlpha) or 1.0)
-                    row.rowFrame:SetBackdropColor(r*0.08, g*0.08, b*0.08, 0.85 * rowV)
-                    row.rowFrame:SetBackdropBorderColor(r*0.4, g*0.4, b*0.4, 0.8 * rowV)
-                end
+                if nameLbl then nameLbl:SetTextColor(r, g, b) end
+                RefreshRenownFrame()
             end,
             function()
                 ResetFactionColor(faction)
                 local dr, dg, db2 = faction.color[1], faction.color[2], faction.color[3]
-                nameLbl:SetTextColor(dr, dg, db2)
+                if nameLbl then nameLbl:SetTextColor(dr, dg, db2) end
                 RebuildRenownFrame()
                 return dr, dg, db2
             end,
             faction.label .. L["Color_Reset_Hint"])
         swatch:SetPoint("RIGHT", rowFr, "RIGHT", 0, 0)
 
-        local nameLbl = rowFr:CreateFontString(nil, "OVERLAY")
+        nameLbl = rowFr:CreateFontString(nil, "OVERLAY")
         nameLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
         nameLbl:SetPoint("LEFT",  visCheck, "RIGHT", 2, 0)
         nameLbl:SetPoint("RIGHT", swatch,   "LEFT",  -4, 0)

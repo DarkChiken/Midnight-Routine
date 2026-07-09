@@ -208,6 +208,8 @@ local DEFAULTS = {
         renownColors         = {},
         renownOrder          = {},
         renownCompact        = false,
+        renownEmblemMode     = false,
+        renownAutoHideHeader = false,
         renownMinimized      = false,
         renownScale          = 1.0,
         renownShowLevel      = true,
@@ -1480,7 +1482,7 @@ function MR:IsCursorWithinBounds(target)
     return cursorX >= left and cursorX <= right and cursorY >= bottom and cursorY <= top
 end
 
-function MR:ApplyPanelHeaderAutoHide(frame, titleBar)
+function MR:ApplyPanelHeaderAutoHide(frame, titleBar, shouldHideFunc)
     if not frame or not titleBar then return end
 
     if not frame._mrPanelHeaderAutoHideHooked then
@@ -1507,6 +1509,9 @@ function MR:ApplyPanelHeaderAutoHide(frame, titleBar)
 
     frame.UpdatePanelHeaderVisibility = function(self, isHovering)
         local hideHeaders = MR.db and MR.db.profile and MR.db.profile.autoHidePanelHeaders
+        if shouldHideFunc then
+            hideHeaders = hideHeaders or shouldHideFunc(self)
+        end
         titleBar:SetAlpha((hideHeaders and not isHovering) and 0 or 1)
         self._mrHeaderHovering = isHovering
     end
