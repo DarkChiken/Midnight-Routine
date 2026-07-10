@@ -315,6 +315,31 @@ local function ApplyFactionEmblem(texture, fallbackLabel, faction, r, g, b)
     return false
 end
 
+local function SetEmblemChrome(emblem, plate, glow, r, g, b, alpha, hovered)
+    alpha = alpha or 1
+    if emblem then
+        emblem:SetBackdrop(MakeBackdrop())
+        emblem:SetBackdropColor(0, 0, 0, 0)
+        if hovered then
+            emblem:SetBackdropBorderColor(r * 0.85, g * 0.85, b * 0.85, alpha)
+        else
+            emblem:SetBackdropBorderColor(r * 0.42, g * 0.42, b * 0.42, 0.85 * alpha)
+        end
+    end
+    if plate then
+        if hovered then
+            plate:SetColorTexture(0.03 + r * 0.06, 0.035 + g * 0.06, 0.045 + b * 0.06, 0.98 * alpha)
+        else
+            plate:SetColorTexture(0.018 + r * 0.03, 0.022 + g * 0.03, 0.032 + b * 0.03, 0.94 * alpha)
+        end
+        plate:Show()
+    end
+    if glow then
+        glow:SetColorTexture(r, g, b, (hovered and 0.18 or 0.10) * alpha)
+        glow:Show()
+    end
+end
+
 local function TryCall(object, methodName, ...)
     if object and object[methodName] then
         return pcall(object[methodName], object, ...)
@@ -487,7 +512,7 @@ local function BuildRenownFrame()
         if not hidden[faction.key] then
         local cr, cg, cb = GetFactionColor(faction)
         local rowAlpha = db.renownAlpha or 1.0
-        if compact or emblemMode then rowAlpha = 1.0 end
+        if compact and not emblemMode then rowAlpha = 1.0 end
 
         if emblemMode then
         local emblem = CreateFrame("Button", nil, f, "BackdropTemplate")
@@ -503,17 +528,19 @@ local function BuildRenownFrame()
         end
         emblem:SetSize(EMBLEM_SIZE, EMBLEM_SIZE)
         emblem:RegisterForClicks("LeftButtonUp")
-        emblem:RegisterForDrag("LeftButton")
+        emblem:RegisterForDrag("RightButton")
         emblem:SetScript("OnDragStart", StartRenownDrag)
         emblem:SetScript("OnDragStop", StopRenownDrag)
         emblem:SetBackdrop(MakeBackdrop())
-        emblem:SetBackdropColor(0.018 + cr * 0.03, 0.022 + cg * 0.03, 0.032 + cb * 0.03, 0.94 * rowAlpha)
-        emblem:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.85 * rowAlpha)
 
-        local glow = emblem:CreateTexture(nil, "BACKGROUND")
+        local plate = emblem:CreateTexture(nil, "BACKGROUND")
+        plate:SetPoint("TOPLEFT", emblem, "TOPLEFT", 1, -1)
+        plate:SetPoint("BOTTOMRIGHT", emblem, "BOTTOMRIGHT", -1, 1)
+
+        local glow = emblem:CreateTexture(nil, "BORDER")
         glow:SetPoint("TOPLEFT", emblem, "TOPLEFT", 1, -1)
         glow:SetPoint("BOTTOMRIGHT", emblem, "BOTTOMRIGHT", -1, 1)
-        glow:SetColorTexture(cr, cg, cb, 0.10)
+        SetEmblemChrome(emblem, plate, glow, cr, cg, cb, rowAlpha, false)
 
         local icon = emblem:CreateTexture(nil, "ARTWORK")
         icon:SetPoint("TOPLEFT", emblem, "TOPLEFT", 4, -4)
@@ -534,16 +561,12 @@ local function BuildRenownFrame()
 
         emblem:SetScript("OnEnter", function()
             local v = (renownFrame and renownFrame.bgAlpha) or 1.0
-            emblem:SetBackdropColor(0.03 + cr * 0.06, 0.035 + cg * 0.06, 0.045 + cb * 0.06, 0.98 * v)
-            emblem:SetBackdropBorderColor(cr * 0.85, cg * 0.85, cb * 0.85, v)
-            glow:SetColorTexture(cr, cg, cb, 0.18)
+            SetEmblemChrome(emblem, plate, glow, cr, cg, cb, v, true)
             ShowRenownTooltip(emblem, faction)
         end)
         emblem:SetScript("OnLeave", function()
             local v = (renownFrame and renownFrame.bgAlpha) or 1.0
-            emblem:SetBackdropColor(0.018 + cr * 0.03, 0.022 + cg * 0.03, 0.032 + cb * 0.03, 0.94 * v)
-            emblem:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.85 * v)
-            glow:SetColorTexture(cr, cg, cb, 0.10)
+            SetEmblemChrome(emblem, plate, glow, cr, cg, cb, v, false)
             GameTooltip:Hide()
         end)
         emblem:SetScript("OnClick", function(_, button)
@@ -555,6 +578,7 @@ local function BuildRenownFrame()
         f.factionRows[faction.key] = {
             emblem      = emblem,
             emblemIcon  = icon,
+            emblemPlate = plate,
             emblemGlow  = glow,
             emblemFallbackLabel = fallbackLabel,
             compactLevelLabel = levelLabel,
@@ -574,7 +598,7 @@ local function BuildRenownFrame()
         end
         rowFrame:SetHeight(ROW_SPACE - 8)
         rowFrame:RegisterForClicks("LeftButtonUp")
-        rowFrame:RegisterForDrag("LeftButton")
+        rowFrame:RegisterForDrag("RightButton")
         rowFrame:SetScript("OnDragStart", StartRenownDrag)
         rowFrame:SetScript("OnDragStop", StopRenownDrag)
         rowFrame:SetBackdrop(MakeBackdrop())
@@ -837,7 +861,7 @@ RefreshRenownFrame = function()
         local renown, maxRenown, rep, needed = GetRenownData(faction)
         local cr, cg, cb = GetFactionColor(faction)
         local capped = C_MajorFactions.HasMaximumRenown(faction.factionId)
-        local visualAlpha = db.renownCompact and 1.0 or ((renownFrame and renownFrame.bgAlpha) or 1.0)
+        local visualAlpha = (db.renownCompact and not renownFrame.emblemMode) and 1.0 or ((renownFrame and renownFrame.bgAlpha) or 1.0)
 
         if renownFrame.emblemMode then
             if hideMaxed and capped then
@@ -859,14 +883,10 @@ RefreshRenownFrame = function()
                     row.rowFrame:SetPoint("TOPLEFT", renownFrame, "TOPLEFT", x, -yOff)
                 end
                 row.rowFrame:SetSize(iconSize, iconSize)
-                row.rowFrame:SetBackdropColor(0.018 + cr * 0.03, 0.022 + cg * 0.03, 0.032 + cb * 0.03, 0.94 * visualAlpha)
-                row.rowFrame:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.85 * visualAlpha)
+                SetEmblemChrome(row.rowFrame, row.emblemPlate, row.emblemGlow, cr, cg, cb, visualAlpha, false)
                 row.rowFrame:Show()
             end
 
-            if row.emblemGlow then
-                row.emblemGlow:SetColorTexture(cr, cg, cb, 0.10)
-            end
             if row.emblemIcon then
                 ApplyFactionEmblem(row.emblemIcon, row.emblemFallbackLabel, faction, cr, cg, cb)
             end
