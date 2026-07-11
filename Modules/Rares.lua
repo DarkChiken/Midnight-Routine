@@ -367,16 +367,49 @@ local MAX_W      = 600
 local MIN_H      = 60
 local MAX_H      = 800
 local TITLE_H    = 26
-local ZONE_HDR_H = 26
+local ZONE_HDR_H = 28
 local BAR_H      = 4
-local DOT_SIZE   = 7
+local DOT_SIZE   = 8
 local COLS       = 2
-local ROW_PAD    = 4
+local ROW_PAD    = 5
 
 local function GetRowH()
     local db = MR.db and MR.db.profile or {}
     local fs = db.raresFontSize or 9
-    return math.max(14, fs + 7)
+    return math.max(17, fs + 8)
+end
+
+local function SetRareRowVisual(row, dot, lbl, status, ever, cr, cg, cb, alpha, hover)
+    alpha = alpha or 1
+    if row then
+        if hover then
+            row:SetBackdropColor(0.035 + cr * 0.075, 0.040 + cg * 0.075, 0.050 + cb * 0.075, 0.98 * alpha)
+            row:SetBackdropBorderColor(cr * 0.55, cg * 0.55, cb * 0.55, 0.82 * alpha)
+        else
+            row:SetBackdropColor(0, 0, 0, 0)
+            row:SetBackdropBorderColor(0, 0, 0, 0)
+        end
+    end
+
+    if not (dot and lbl) then return end
+
+    if status == "today" then
+        dot:SetBackdropColor(0.10, 0.55, 0.28, 1)
+        dot:SetBackdropBorderColor(0.22, 0.95, 0.55, 1)
+        lbl:SetTextColor(0.58, 0.92, 0.66)
+    elseif status == "week" then
+        dot:SetBackdropColor(0.62, 0.38, 0.08, 1)
+        dot:SetBackdropBorderColor(0.95, 0.70, 0.18, 1)
+        lbl:SetTextColor(0.86, 0.68, 0.30)
+    elseif ever then
+        dot:SetBackdropColor(0.43, 0.34, 0.08, 1)
+        dot:SetBackdropBorderColor(0.82, 0.64, 0.18, 1)
+        lbl:SetTextColor(0.72, 0.64, 0.42)
+    else
+        dot:SetBackdropColor(0.12, 0.13, 0.15, 1)
+        dot:SetBackdropBorderColor(0.32, 0.35, 0.40, 1)
+        lbl:SetTextColor(0.70, 0.72, 0.76)
+    end
 end
 
 local raresFrame
@@ -497,12 +530,12 @@ BuildRaresFrame = function()
 
     local f = StyledFrame(UIParent, nil, "MEDIUM", 10)
     f:SetSize(W, minimized and TITLE_H or H)
-    f:SetBackdropColor(0.03, 0.02, 0.09, 0.97 * alpha)
-    f:SetBackdropBorderColor(0.18, 0.10, 0.30, alpha)
+    f:SetBackdropColor(0.018, 0.024, 0.034, 0.97 * alpha)
+    f:SetBackdropBorderColor(0.13, 0.28, 0.34, alpha)
     RestoreManagedFramePos(f, "raresPos", 580, 0)
 
     f.leftAccent = nil
-    f.topAccent  = TopAccent(f, 0.55, 0.28, 0.95)
+    f.topAccent  = TopAccent(f, 0.25, 0.78, 0.68)
     if f.leftAccent then f.leftAccent:SetAlpha(alpha) end
     if f.topAccent  then f.topAccent:SetAlpha(alpha)  end
 
@@ -526,10 +559,10 @@ BuildRaresFrame = function()
     if MR.ApplyPanelHeaderAutoHide then MR:ApplyPanelHeaderAutoHide(f, titleBar) end
 
     local titleIcon = titleBar:CreateTexture(nil, "ARTWORK")
-    titleIcon:SetSize(14, 14)
-    titleIcon:SetPoint("LEFT", titleBar, "LEFT", 8, 0)
+    titleIcon:SetSize(16, 16)
+    titleIcon:SetPoint("LEFT", titleBar, "LEFT", 9, 0)
     titleIcon:SetTexture("Interface\\AddOns\\MidnightRoutine\\Media\\Icon")
-    titleIcon:SetVertexColor(0.65, 0.38, 1.0, 1)
+    titleIcon:SetVertexColor(0.25, 0.85, 0.72, 1)
 
     local closeBtn = CloseButton(titleBar, function()
         f:Hide()
@@ -570,9 +603,9 @@ BuildRaresFrame = function()
         local hex = string.format("%02x%02x%02x",
             math.floor(cr*255), math.floor(cg*255), math.floor(cb*255))
         titleTxt:SetText(string.format(
-            "|cffaa66ffRares|r  |cff333344-|r  |cff%s%s|r", hex, visible[1].label))
+            "|cffd8e6e2Rares|r  |cff56636a-|r  |cff%s%s|r", hex, visible[1].label))
     else
-        titleTxt:SetText(L["Rares_Title"])
+        titleTxt:SetText("|cffd8e6e2Rares|r  |cff56636a-|r  |cff9da8adMidnight|r")
     end
 
     ApplyMinimized = function(isMin)
@@ -580,14 +613,18 @@ BuildRaresFrame = function()
         if minBtn.RefreshLabel then minBtn:RefreshLabel() end
         if isMin then
             if f._scroll      then f._scroll:Hide()   end
+            if f._track       then f._track:Hide()    end
+            if f._thumb       then f._thumb:Hide()    end
             if f._dragger     then f._dragger:Hide()   end
             SyncManagedFramePos(f, "raresPos", headerBottom and "bottom" or "top")
             ApplyFrameHeight(f, TITLE_H)
         else
             SyncManagedFramePos(f, "raresPos", headerBottom and "bottom" or "top")
             if f._scroll  then f._scroll:Show()  end
+            if f._track   then f._track:Show()   end
             if f._dragger then f._dragger:Show()  end
             ApplyFrameHeight(f, MR.db and MR.db.profile.raresHeight or DEFAULT_H)
+            if f.UpdateScrollBar then f.UpdateScrollBar() end
         end
     end
     f.ApplyMinimized = ApplyMinimized
@@ -615,21 +652,26 @@ BuildRaresFrame = function()
     track:SetWidth(5)
     local trackBg = track:CreateTexture(nil, "BACKGROUND")
     trackBg:SetAllPoints()
-    trackBg:SetColorTexture(0, 0, 0, 0.3)
+    trackBg:SetColorTexture(0, 0, 0, 0.22)
     local thumb = CreateFrame("Button", nil, track)
     thumb:SetWidth(5)
     thumb:EnableMouse(true)
     thumb:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
     local thumbTex = thumb:CreateTexture(nil, "OVERLAY")
     thumbTex:SetAllPoints()
-    thumbTex:SetColorTexture(0.55, 0.28, 0.95, 0.6)
+    thumbTex:SetColorTexture(0.25, 0.78, 0.68, 0.62)
     f._track = track
     f._thumb = thumb
 
     local function UpdateScrollBar()
         local viewH    = scroll:GetHeight()
         local contentH = content:GetHeight()
-        if contentH <= viewH or viewH <= 0 then thumb:Hide(); return end
+        if contentH <= viewH or viewH <= 0 then
+            track:Hide()
+            thumb:Hide()
+            return
+        end
+        if not (MR.db and MR.db.profile and MR.db.profile.raresMinimized) then track:Show() end
         thumb:Show()
         local trackH = math.max(track:GetHeight(), 1)
         local thumbH = math.max(trackH * (viewH / contentH), 14)
@@ -731,25 +773,30 @@ BuildRaresFrame = function()
             zHdr:SetPoint("TOPRIGHT", content, "TOPRIGHT", -OUTER_PAD, -yOff)
             zHdr:SetHeight(ZONE_HDR_H)
             zHdr:SetBackdrop(MakeBackdrop())
-            zHdr:SetBackdropColor(cr*0.10, cg*0.10, cb*0.10, 0.98 * alpha)
-            zHdr:SetBackdropBorderColor(cr*0.45, cg*0.45, cb*0.45, alpha)
-
-            local stripe = zHdr:CreateTexture(nil, "ARTWORK")
-            stripe:SetPoint("TOPLEFT",    zHdr, "TOPLEFT",    0, 0)
-            stripe:SetPoint("BOTTOMLEFT", zHdr, "BOTTOMLEFT", 0, 0)
-            stripe:SetWidth(3)
-            stripe:SetColorTexture(cr, cg, cb, 1)
+            zHdr:SetBackdropColor(0.020 + cr * 0.040, 0.025 + cg * 0.040, 0.032 + cb * 0.040, 0.94 * alpha)
+            zHdr:SetBackdropBorderColor(cr*0.34, cg*0.34, cb*0.34, 0.76 * alpha)
 
             local arrow = zHdr:CreateFontString(nil, "OVERLAY")
             arrow:SetFont(FONT_ROWS, 9, GetFontFlags())
-            arrow:SetPoint("LEFT", zHdr, "LEFT", 10, 1)
-            arrow:SetText(isCollapsed and "|cff555555+|r" or "|cff777777-|r")
+            arrow:SetPoint("LEFT", zHdr, "LEFT", 9, 1)
+            arrow:SetText(isCollapsed and "|cff889095+|r" or "|cff889095-|r")
 
             local zName = zHdr:CreateFontString(nil, "OVERLAY")
             zName:SetFont(FONT_HEADERS, 10, GetFontFlags())
             zName:SetPoint("LEFT", arrow, "RIGHT", 5, 0)
-            zName:SetTextColor(cr, cg, cb)
+            zName:SetTextColor(0.90, 0.92, 0.90)
             zName:SetText(zone.label)
+            zName:SetPoint("RIGHT", zHdr, "RIGHT", -50, 0)
+            zName:SetJustifyH("LEFT")
+            zName:SetWordWrap(false)
+
+            local zDone, zTotal = GetZoneStatus(zone)
+            local zCount = zHdr:CreateFontString(nil, "OVERLAY")
+            zCount:SetFont(FONT_ROWS, 9, GetFontFlags())
+            zCount:SetPoint("RIGHT", zHdr, "RIGHT", -9, 0)
+            zCount:SetJustifyH("RIGHT")
+            zCount:SetTextColor(cr, cg, cb)
+            zCount:SetText(string.format("%d/%d", zDone, zTotal))
 
             yOff = yOff + ZONE_HDR_H
 
@@ -762,12 +809,12 @@ BuildRaresFrame = function()
                 RebuildRaresFrame()
             end)
             zHdr:SetScript("OnEnter", function()
-                zHdr:SetBackdropColor(cr*0.18, cg*0.18, cb*0.18, 0.98)
-                zHdr:SetBackdropBorderColor(cr*0.75, cg*0.75, cb*0.75, 1)
+                zHdr:SetBackdropColor(0.030 + cr * 0.070, 0.035 + cg * 0.070, 0.045 + cb * 0.070, 0.98)
+                zHdr:SetBackdropBorderColor(cr*0.68, cg*0.68, cb*0.68, 0.95)
             end)
             zHdr:SetScript("OnLeave", function()
-                zHdr:SetBackdropColor(cr*0.10, cg*0.10, cb*0.10, 0.98 * alpha)
-                zHdr:SetBackdropBorderColor(cr*0.45, cg*0.45, cb*0.45, alpha)
+                zHdr:SetBackdropColor(0.020 + cr * 0.040, 0.025 + cg * 0.040, 0.032 + cb * 0.040, 0.94 * alpha)
+                zHdr:SetBackdropBorderColor(cr*0.34, cg*0.34, cb*0.34, 0.76 * alpha)
             end)
         end
 
@@ -776,7 +823,7 @@ BuildRaresFrame = function()
         barBg:SetPoint("TOPRIGHT", content, "TOPRIGHT", -OUTER_PAD, -yOff)
         barBg:SetHeight(BAR_H)
         barBg:SetBackdrop(MakeBackdrop(false))
-        barBg:SetBackdropColor(0.04, 0.04, 0.04, alpha)
+        barBg:SetBackdropColor(0.010, 0.012, 0.016, 0.82 * alpha)
 
         local barFill = barBg:CreateTexture(nil, "ARTWORK")
         barFill:SetPoint("TOPLEFT",    barBg, "TOPLEFT",    0, 0)
@@ -816,12 +863,13 @@ BuildRaresFrame = function()
         body:SetPoint("TOPRIGHT", content, "TOPRIGHT", -OUTER_PAD, -yOff)
         body:SetHeight(math.max(bodyH, 1))
         body:SetBackdrop(MakeBackdrop())
-        body:SetBackdropColor(cr*0.04, cg*0.04, cb*0.04, 0.85 * alpha)
-        body:SetBackdropBorderColor(cr*0.20, cg*0.20, cb*0.20, 0.65 * alpha)
+        body:SetBackdropColor(0.012 + cr * 0.020, 0.016 + cg * 0.020, 0.022 + cb * 0.020, 0.66 * alpha)
+        body:SetBackdropBorderColor(cr*0.18, cg*0.18, cb*0.18, 0.42 * alpha)
         if isCollapsed then body:Hide() end
 
         body.dotList      = {}
         body.nameLbls     = {}
+        body.rowBtns      = {}
         body.visibleRares = visibleRares
         body.zoneIdxList  = zoneIdxList
 
@@ -832,33 +880,44 @@ BuildRaresFrame = function()
             local yPos     = -(row * ROW_H) - 5
             local zoneIdx  = zoneIdxList[i]
 
-            local dot = body:CreateTexture(nil, "ARTWORK")
-            dot:SetSize(DOT_SIZE, DOT_SIZE)
-            dot:SetPoint("TOPLEFT", body, "TOPLEFT", xPos + 2, yPos - (ROW_H - DOT_SIZE) * 0.5)
-            dot:SetColorTexture(0.28, 0.28, 0.28, 1)
+            local hit = CreateFrame("Button", nil, body, "BackdropTemplate")
+            hit:SetPoint("TOPLEFT",  body, "TOPLEFT",  xPos, yPos)
+            hit:SetWidth(colW - 5)
+            hit:SetHeight(ROW_H)
+            hit:SetBackdrop(MakeBackdrop())
+            hit:EnableMouse(true)
 
-            local lbl = body:CreateFontString(nil, "OVERLAY")
+            local dot = CreateFrame("Frame", nil, hit, "BackdropTemplate")
+            dot:SetSize(DOT_SIZE, DOT_SIZE)
+            dot:SetPoint("LEFT", hit, "LEFT", 4, 0)
+            dot:SetBackdrop(MakeBackdrop())
+
+            local lbl = hit:CreateFontString(nil, "OVERLAY")
             lbl:SetFont(FONT_ROWS, db.raresFontSize or 9, GetFontFlags())
-            lbl:SetPoint("TOPLEFT", body, "TOPLEFT", xPos + DOT_SIZE + 5, yPos)
-            lbl:SetWidth(colW - DOT_SIZE - 10)
+            lbl:SetPoint("LEFT", dot, "RIGHT", 5, 0)
+            lbl:SetPoint("RIGHT", hit, "RIGHT", -4, 0)
             lbl:SetHeight(ROW_H)
             lbl:SetJustifyH("LEFT")
             lbl:SetJustifyV("MIDDLE")
             lbl:SetText(rare[1])
-            lbl:SetTextColor(0.58, 0.58, 0.58)
 
-            local hit = CreateFrame("Frame", nil, body)
-            hit:SetPoint("TOPLEFT",  body, "TOPLEFT",  xPos, yPos)
-            hit:SetWidth(colW - 4)
-            hit:SetHeight(ROW_H)
-            hit:EnableMouse(true)
+            local questId = rare[2]
+            local flagged = questId and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
+            if flagged then SyncRareKillRecord(questId) end
+            local killStat = (questId and GetRareKillStatus(questId))
+                             or (flagged and "today") or nil
+            local achieved = IsAchievementCriteriaCompleted(zone.achievId, zoneIdx)
+            SetRareRowVisual(hit, dot, lbl, killStat, achieved, cr, cg, cb, alpha, false)
+
             hit:SetScript("OnEnter", function()
+                hit._mrHover = true
                 local questId = rare[2]
                 local flagged = questId and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
                 if flagged then SyncRareKillRecord(questId) end
                 local killStat = (questId and GetRareKillStatus(questId))
                                  or (flagged and "today") or nil
                 local achieved = IsAchievementCriteriaCompleted(zone.achievId, zoneIdx)
+                SetRareRowVisual(hit, dot, lbl, killStat, achieved, cr, cg, cb, alpha, true)
                 GameTooltip:SetOwner(hit, "ANCHOR_RIGHT")
                 GameTooltip:ClearLines()
                 GameTooltip:AddLine(rare[1], 1, 1, 1)
@@ -878,7 +937,17 @@ BuildRaresFrame = function()
                 end
                 GameTooltip:Show()
             end)
-            hit:SetScript("OnLeave", function() GameTooltip:Hide() end)
+            hit:SetScript("OnLeave", function()
+                hit._mrHover = nil
+                local questId = rare[2]
+                local flagged = questId and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
+                if flagged then SyncRareKillRecord(questId) end
+                local killStat = (questId and GetRareKillStatus(questId))
+                                 or (flagged and "today") or nil
+                local achieved = IsAchievementCriteriaCompleted(zone.achievId, zoneIdx)
+                SetRareRowVisual(hit, dot, lbl, killStat, achieved, cr, cg, cb, alpha, false)
+                GameTooltip:Hide()
+            end)
             hit:SetScript("OnMouseUp", function(_, button)
                 if button ~= "LeftButton" or not (rare[3] and rare[4] and rare[5]) then return end
 
@@ -898,6 +967,7 @@ BuildRaresFrame = function()
 
             body.dotList[i]  = dot
             body.nameLbls[i] = lbl
+            body.rowBtns[i]  = hit
         end
 
         f.zoneData[zone.key] = {
@@ -976,6 +1046,8 @@ BuildRaresFrame = function()
 
     if minimized then
         scroll:Hide()
+        track:Hide()
+        thumb:Hide()
         dragger:Hide()
         f:SetHeight(TITLE_H)
     end
@@ -1032,6 +1104,7 @@ RefreshRaresFrame = function()
                 for i, rare in ipairs(body.visibleRares or {}) do
                     local dot      = body.dotList[i]
                     local lbl      = body.nameLbls[i]
+                    local rowBtn   = body.rowBtns and body.rowBtns[i]
                     local zoneIdx  = body.zoneIdxList and body.zoneIdxList[i] or i
                     if dot and lbl then
                         local questId = rare[2]
@@ -1040,19 +1113,7 @@ RefreshRaresFrame = function()
                         local killStat = (questId and GetRareKillStatus(questId))
                                          or (flagged and "today") or nil
                         local ever = IsAchievementCriteriaCompleted(zone.achievId, zoneIdx)
-                        if killStat == "today" then
-                            dot:SetColorTexture(0.12, 0.88, 0.50, 1)
-                            lbl:SetTextColor(0.30, 0.72, 0.40)
-                        elseif killStat == "week" then
-                            dot:SetColorTexture(0.90, 0.65, 0.10, 1)
-                            lbl:SetTextColor(0.75, 0.55, 0.15)
-                        elseif ever then
-                            dot:SetColorTexture(0.88, 0.70, 0.12, 1)
-                            lbl:SetTextColor(0.75, 0.60, 0.20)
-                        else
-                            dot:SetColorTexture(0.28, 0.28, 0.28, 1)
-                            lbl:SetTextColor(0.58, 0.58, 0.58)
-                        end
+                        SetRareRowVisual(rowBtn, dot, lbl, killStat, ever, cr, cg, cb, db.raresAlpha or 1.0, rowBtn and rowBtn._mrHover)
                     end
                 end
             end
@@ -1071,20 +1132,20 @@ local function BuildRaresConfigFrame()
     f:SetMovable(true)
     f:SetBackdrop(MakeBackdrop())
     if ns.HookBackdropFrame then ns.HookBackdropFrame(f) end
-    f:SetBackdropColor(0.03, 0.02, 0.10, 0.98)
-    f:SetBackdropBorderColor(0.30, 0.16, 0.55, 1)
+    f:SetBackdropColor(0.018, 0.024, 0.034, 0.98)
+    f:SetBackdropBorderColor(0.13, 0.28, 0.34, 1)
     f:Hide()
 
-    TopAccent(f, 0.55, 0.28, 0.95)
+    TopAccent(f, 0.25, 0.78, 0.68)
 
     local tbar = TitleBar(f, 22)
-    tbar:SetBackdropColor(0.07, 0.04, 0.14, 1)
+    tbar:SetBackdropColor(0.026, 0.040, 0.052, 1)
     tbar:SetScript("OnDragStart", function() f:StartMoving() end)
     tbar:SetScript("OnDragStop",  function() f:StopMovingOrSizing() end)
 
     local ttitle = tbar:CreateFontString(nil, "OVERLAY")
     ttitle:SetFont(FONT_HEADERS, 10, GetFontFlags())
-    ttitle:SetText(L["Rares_Config_Title"])
+    ttitle:SetText("|cffd8e6e2Rares Options|r")
     ttitle:SetPoint("LEFT", tbar, "LEFT", 8, 0)
 
     CloseButton(tbar, function() f:Hide() end)
@@ -1212,7 +1273,7 @@ PopulateRaresConfig = function(f)
                 db.raresWidth = math.floor(v / 10) * 10
                 RebuildRaresFrame()
             end,
-            0.55, 0.28, 0.95)
+            0.25, 0.78, 0.68)
         Slider(L["HEIGHT"], MIN_H, MAX_H, 10,
             function() return db.raresHeight or DEFAULT_H end,
             function(v)
@@ -1267,17 +1328,17 @@ PopulateRaresConfig = function(f)
             function(v)
                 db.raresAlpha = v
                 if raresFrame then
-                    raresFrame:SetBackdropColor(0.03, 0.02, 0.09, 0.97 * v)
-                    raresFrame:SetBackdropBorderColor(0.18, 0.10, 0.30, v)
+                    raresFrame:SetBackdropColor(0.018, 0.024, 0.034, 0.97 * v)
+                    raresFrame:SetBackdropBorderColor(0.13, 0.28, 0.34, v)
                     if raresFrame.leftAccent then raresFrame.leftAccent:SetAlpha(v) end
                     if raresFrame.topAccent  then raresFrame.topAccent:SetAlpha(v)  end
                     if raresFrame.zoneData then
                         for _, zd in pairs(raresFrame.zoneData) do
                             local zone = zd.zone
                             local cr, cg, cb = GetZoneColor(zone)
-                            zd.barBg:SetBackdropColor(0.04, 0.04, 0.04, v)
-                            zd.body:SetBackdropColor(cr*0.04, cg*0.04, cb*0.04, 0.85 * v)
-                            zd.body:SetBackdropBorderColor(cr*0.20, cg*0.20, cb*0.20, 0.65 * v)
+                            zd.barBg:SetBackdropColor(0.010, 0.012, 0.016, 0.82 * v)
+                            zd.body:SetBackdropColor(0.012 + cr * 0.020, 0.016 + cg * 0.020, 0.022 + cb * 0.020, 0.66 * v)
+                            zd.body:SetBackdropBorderColor(cr*0.18, cg*0.18, cb*0.18, 0.42 * v)
                         end
                     end
                 end
