@@ -24,7 +24,7 @@ MR:RegisterModule({
         { key = "alch_drops",    questIds = { 93528, 93529 }, label = L["Alch_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "alch_treatise", questIds = { 95127 }, label = L["Alch_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "alch_dmf",      questIds = { 29506 }, label = L["DMF_Alch_Label"], note = L["DMF_Alch_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3189, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3189, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
 	},
 })
 
@@ -40,7 +40,7 @@ MR:RegisterModule({
         { key = "bs_drops",    questIds = { 93530, 93531 }, label = L["BS_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "bs_treatise", questIds = { 95128 }, label = L["BS_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "bs_dmf",      questIds = { 29508 }, label = L["DMF_BS_Label"], note = L["DMF_BS_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3199, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3199, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -58,7 +58,7 @@ MR:RegisterModule({
         { key = "ench_de_shard",   questIds = { 95053 }, label = L["Ench_DE_Shard"], max = 1, note = L["Prof_Note_EnchantingBonus"] },
         { key = "ench_treatise",   questIds = { 95129 }, label = L["Ench_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "ench_dmf",        questIds = { 29510 }, label = L["DMF_Ench_Label"], note = L["DMF_Ench_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup",    currencyId = 3198, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup",    currencyId = 3198, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -74,7 +74,7 @@ MR:RegisterModule({
         { key = "eng_drops",    questIds = { 93534, 93535 }, label = L["Eng_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "eng_treatise", questIds = { 95138 }, label = L["Eng_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "eng_dmf",      questIds = { 29511 }, label = L["DMF_Eng_Label"], note = L["DMF_Eng_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3197, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3197, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -91,7 +91,7 @@ MR:RegisterModule({
         { key = "herb_tail",     questIds = { 81430 }, label = L["Herb_Tail"], max = 1, note = L["Prof_Note_HerbalismBonus"] },
         { key = "herb_treatise", questIds = { 95130 }, label = L["Herb_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "herb_dmf",      questIds = { 29514 }, label = L["DMF_Herb_Label"], note = L["DMF_Herb_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3196, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3196, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -107,7 +107,7 @@ MR:RegisterModule({
         { key = "insc_drops",    questIds = { 93536, 93537 }, label = L["Insc_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "insc_treatise", questIds = { 95131 }, label = L["Insc_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "insc_dmf",      questIds = { 29515 }, label = L["DMF_Insc_Label"], note = L["DMF_Insc_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3195, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3195, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -123,7 +123,7 @@ MR:RegisterModule({
         { key = "jc_drops",    questIds = { 93538, 93539 }, label = L["JC_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "jc_treatise", questIds = { 95133 }, label = L["JC_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "jc_dmf",      questIds = { 29516 }, label = L["DMF_JC_Label"], note = L["DMF_JC_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3194, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3194, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -139,7 +139,7 @@ MR:RegisterModule({
         { key = "lw_drops",    questIds = { 93540, 93541 }, label = L["LW_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "lw_treatise", questIds = { 95134 }, label = L["LW_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "lw_dmf",      questIds = { 29517 }, label = L["DMF_LW_Label"], note = L["DMF_LW_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3193, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3193, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -156,7 +156,7 @@ MR:RegisterModule({
         { key = "mine_nodule",   questIds = { 88678 }, label = L["Mine_Nodule"], max = 1, note = L["Prof_Note_MiningBonus"] },
         { key = "mine_treatise", questIds = { 95135 }, label = L["Mine_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "mine_dmf",      questIds = { 29518 }, label = L["DMF_Mine_Label"], note = L["DMF_Mine_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3192, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3192, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -173,7 +173,7 @@ MR:RegisterModule({
         { key = "skin_bone",     questIds = { 88529 }, label = L["Skin_Bone"], max = 1, note = L["Prof_Note_SkinningBonus"] },
         { key = "skin_treatise", questIds = { 95136 }, label = L["Skin_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "skin_dmf",      questIds = { 29519 }, label = L["DMF_Skin_Label"], note = L["DMF_Skin_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3191, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3191, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })
 
@@ -277,6 +277,6 @@ MR:RegisterModule({
         { key = "tail_drops",    questIds = { 93542, 93543 }, label = L["Tail_Drops"], max = 2, note = L["Prof_Note_CraftingDrops"] },
         { key = "tail_treatise", questIds = { 95137 }, label = L["Tail_Treatise"], max = 1, note = L["Prof_Note_Treatise"], zone = PROF_HUB.treatise.zone, x = PROF_HUB.treatise.x, y = PROF_HUB.treatise.y },
         { key = "tail_dmf",      questIds = { 29520 }, label = L["DMF_Tail_Label"], note = L["DMF_Tail_Note"], max = 1, isVisible = function() return MR.IsDarkmoonVisible and MR.IsDarkmoonVisible() end },
-        { key = "prof_catchup", currencyId = 3190, noBlizzardTooltip = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
+        { key = "prof_catchup", currencyId = 3190, noBlizzardTooltip = true, hideWallet = true, label = L["Prof_Catchup"], note = L["Prof_Catchup_Note"], max = 0 },
     },
 })

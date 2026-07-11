@@ -1393,19 +1393,23 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
         local wallet = (mdb and mdb[row.key .. "_wallet"]) or done
         rowFrame._count:SetText(string.format("%d/%d", done, row.max))
         rowFrame._count:SetTextColor(countColor(done, row.max))
-        rowFrame._wallet:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
-        rowFrame._wallet:ClearAllPoints()
-        rowFrame._wallet:SetPoint("RIGHT", rowFrame._count, "LEFT", -5, 0)
-        rowFrame._wallet:SetJustifyH("RIGHT")
-        rowFrame._wallet:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
-        rowFrame._wallet:Show()
+        rowFrame._wallet:SetShown(not row.hideWallet)
         rowFrame._label:ClearAllPoints()
         if hasRowIcon then
             rowFrame._label:SetPoint("LEFT", rowFrame._rowIcon, "RIGHT", 8, 0)
         else
             rowFrame._label:SetPoint("LEFT", rowFrame._statusBtn, "RIGHT", 8, 0)
         end
-        rowFrame._label:SetPoint("RIGHT", rowFrame._wallet, "LEFT", -8, 0)
+        if row.hideWallet then
+            rowFrame._label:SetPoint("RIGHT", rowFrame._count, "LEFT", -8, 0)
+        else
+            rowFrame._wallet:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+            rowFrame._wallet:ClearAllPoints()
+            rowFrame._wallet:SetPoint("RIGHT", rowFrame._count, "LEFT", -5, 0)
+            rowFrame._wallet:SetJustifyH("RIGHT")
+            rowFrame._wallet:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
+            rowFrame._label:SetPoint("RIGHT", rowFrame._wallet, "LEFT", -8, 0)
+        end
     else
         rowFrame._count:SetText((row.noMax or not hasNumericMax) and tostring(done) or string.format("%d / %d", done, row.max))
         if row.noMax or not hasNumericMax then
@@ -4753,14 +4757,18 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         countFS:SetText(string.format("%d/%d", done, row.max))
         countFS:SetTextColor(countColor(done, row.max))
 
-        local walletFS = rowFrame:CreateFontString(nil, "OVERLAY")
-        walletFS:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
-        walletFS:SetPoint("RIGHT", countFS, "LEFT", -5, 0)
-        walletFS:SetJustifyH("RIGHT")
-        walletFS:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
         lbl:ClearAllPoints()
         lbl:SetPoint("LEFT", statusBtn, "RIGHT", 8, 0)
-        lbl:SetPoint("RIGHT", walletFS, "LEFT", -8, 0)
+        if row.hideWallet then
+            lbl:SetPoint("RIGHT", countFS, "LEFT", -8, 0)
+        else
+            local walletFS = rowFrame:CreateFontString(nil, "OVERLAY")
+            walletFS:SetFont(FONT_ROWS, GetFontSize(), GetFontFlags())
+            walletFS:SetPoint("RIGHT", countFS, "LEFT", -5, 0)
+            walletFS:SetJustifyH("RIGHT")
+            walletFS:SetText(string.format("|cffaaaaaa(%d)|r", wallet))
+            lbl:SetPoint("RIGHT", walletFS, "LEFT", -8, 0)
+        end
     else
         countFS:SetText((row.noMax or not hasNumericMax) and tostring(done) or string.format("%d / %d", done, row.max))
         if row.noMax or not hasNumericMax then
