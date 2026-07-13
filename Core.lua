@@ -1141,9 +1141,6 @@ function MR:IsModuleEnabled(key)
             return false
         end
     end
-    if mod and mod.profSkillLine then
-        return not (s and s.enabled == false and s.professionDisabled == true)
-    end
     return not (s and s.enabled == false)
 end
 
@@ -1236,7 +1233,6 @@ function MR:SetModuleEnabled(key, enabled, skipRefresh)
     local mod = self.moduleByKey and self.moduleByKey[key]
     if mod and mod.profSkillLine then
         storage[key].professionManual = enabled and true or nil
-        storage[key].professionDisabled = enabled and nil or true
     end
     if not skipRefresh then
         self:RefreshUI()
@@ -1286,24 +1282,6 @@ function MR:SetModuleHideComplete(modKey, value, skipRefresh)
         return
     end
     storage[modKey].hideComplete = value
-    if not skipRefresh then
-        self:RefreshUI()
-    end
-end
-
-function MR:IsModuleShownInProfessionKnowledge(modKey)
-    local storage = self:GetActiveModuleStorage()
-    local s = storage and storage[modKey]
-    return s and s.showInProfessionKnowledge == true or false
-end
-
-function MR:SetModuleShownInProfessionKnowledge(modKey, value, skipRefresh)
-    local storage = self:GetActiveModuleStorage()
-    if not storage[modKey] then storage[modKey] = {} end
-    storage[modKey].showInProfessionKnowledge = value and true or nil
-    if self.RebuildGatheringLocationsFrame then
-        self:RebuildGatheringLocationsFrame()
-    end
     if not skipRefresh then
         self:RefreshUI()
     end

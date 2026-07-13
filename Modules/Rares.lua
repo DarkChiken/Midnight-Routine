@@ -37,7 +37,7 @@ end
 
 local function GetFontFlags()
     if ns.GetFontFlags then
-        local flags = ns.GetFontFlags()
+        local flags = ns.GetFontFlags(MR.GetActiveMediaSettings and MR:GetActiveMediaSettings() or (MR.db and MR.db.profile))
         if flags ~= nil then
             return flags
         end

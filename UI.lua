@@ -63,7 +63,7 @@ end
 
 local function GetFontFlags()
     if type(ns.GetFontFlags) == "function" then
-        local flags = ns.GetFontFlags()
+        local flags = ns.GetFontFlags(MR.GetActiveMediaSettings and MR:GetActiveMediaSettings() or (MR.db and MR.db.profile))
         if flags ~= nil then
             return flags
         end
@@ -1072,7 +1072,7 @@ EnsureMainRowWidget = function(section, rowKey)
             edgeSize = 1,
         })
         local lbl = btn:CreateFontString(nil, "OVERLAY")
-        lbl:SetFont(FONT_ROWS, math.max(6, GetFontSize() - 3), "OUTLINE")
+        lbl:SetFont(FONT_ROWS, math.max(6, GetFontSize() - 3), GetFontFlags())
         lbl:SetPoint("CENTER", btn, "CENTER", 0, 0)
         lbl:SetText(def.label)
         btn._lbl = lbl

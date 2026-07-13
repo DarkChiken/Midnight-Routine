@@ -25,7 +25,7 @@ local function GetFontSize()
 end
 
 local function GetFontFlags()
-    return (ns.GetFontFlags and ns.GetFontFlags()) or "OUTLINE"
+    return (ns.GetFontFlags and ns.GetFontFlags(MR.GetActiveMediaSettings and MR:GetActiveMediaSettings() or (MR.db and MR.db.profile))) or "OUTLINE"
 end
 
 local function RefreshFonts()
