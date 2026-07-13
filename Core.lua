@@ -255,6 +255,7 @@ local DEFAULTS = {
         professions = {},
         professionsScanned = false,
         professionConcentration = {},
+        professionModuleStates = {},
         customTasks = {},
         customTaskNextId = 1,
         customTaskDiffProgress = {},
@@ -1074,6 +1075,20 @@ function MR:GetActiveModuleStorage(expansionKey)
     return self.db.profile.expansionModuleStates[expansionKey]
 end
 
+function MR:GetActiveProfessionModuleStorage(charData)
+    if not self then
+        return nil
+    end
+
+    charData = charData or (self.GetMainFrameProgressSource and self:GetMainFrameProgressSource()) or (self.db and self.db.char)
+    if type(charData) ~= "table" then
+        return nil
+    end
+
+    charData.professionModuleStates = charData.professionModuleStates or {}
+    return charData.professionModuleStates
+end
+
 function MR:GetActiveModuleOrderStorage(expansionKey)
     if not (self and self.db) then
         return nil
@@ -1123,9 +1138,9 @@ end
 
 function MR:IsModuleEnabled(key)
     local mod = self.moduleByKey[key]
-    local storage = self:GetActiveModuleStorage()
-    local s = storage and storage[key]
     local professionSource = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or nil
+    local storage = (mod and mod.profSkillLine) and self:GetActiveProfessionModuleStorage(professionSource) or self:GetActiveModuleStorage()
+    local s = storage and storage[key]
     if mod and mod.profSkillLine and self.HasProfessionForModule and not self:HasProfessionForModule(mod.profSkillLine, professionSource) then
         return s and s.enabled == true and s.professionManual == true
     end
@@ -1140,6 +1155,9 @@ function MR:IsModuleEnabled(key)
         if not hasEnabledPatchRows then
             return false
         end
+    end
+    if mod and mod.profSkillLine then
+        return not (s and s.enabled == false and s.professionDisabled == true)
     end
     return not (s and s.enabled == false)
 end
@@ -1227,12 +1245,14 @@ function MR:SetDetachedModuleSize(key, width, height)
 end
 
 function MR:SetModuleEnabled(key, enabled, skipRefresh)
-    local storage = self:GetActiveModuleStorage()
+    local mod = self.moduleByKey and self.moduleByKey[key]
+    local professionSource = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or nil
+    local storage = (mod and mod.profSkillLine) and self:GetActiveProfessionModuleStorage(professionSource) or self:GetActiveModuleStorage()
     if not storage[key] then storage[key] = {} end
     storage[key].enabled = enabled
-    local mod = self.moduleByKey and self.moduleByKey[key]
     if mod and mod.profSkillLine then
         storage[key].professionManual = enabled and true or nil
+        storage[key].professionDisabled = enabled and nil or true
     end
     if not skipRefresh then
         self:RefreshUI()

@@ -224,9 +224,12 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
             for _, mod in ipairs(self.modules) do
                 if IsAltBoardModule(mod) and self:GetModuleExpansionKey(mod) == selectedExpansion then
                     local moduleSettings = type(moduleStates) == "table" and moduleStates[mod.key] or nil
-                    local moduleEnabled = not (moduleSettings and moduleSettings.enabled == false)
+                    local professionModuleStates = type(charData.professionModuleStates) == "table" and charData.professionModuleStates or nil
+                    local professionSettings = mod.profSkillLine and professionModuleStates and professionModuleStates[mod.key] or nil
+                    local effectiveSettings = professionSettings or moduleSettings
+                    local moduleEnabled = not (effectiveSettings and effectiveSettings.enabled == false)
                     if mod.profSkillLine then
-                        moduleEnabled = not (moduleSettings and moduleSettings.enabled == false and moduleSettings.professionDisabled == true)
+                        moduleEnabled = not (effectiveSettings and effectiveSettings.enabled == false and effectiveSettings.professionDisabled == true)
                     end
                     local moduleVisible = moduleEnabled and (not mod.isVisible or mod:isVisible())
                     local modProgress = charData.progress[mod.key] or {}
@@ -234,7 +237,7 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                         or (snapshot.isCurrent and self.HasProfessionForModule and self:HasProfessionForModule(mod.profSkillLine))
                         or (savedProfessions and savedProfessions[mod.profSkillLine])
                         or ((not charData.professionsScanned) and (not HasAnyProfessionRecord(savedProfessions)) and savedConcentration and savedConcentration[mod.profSkillLine] ~= nil)
-                        or (moduleSettings and moduleSettings.enabled == true and moduleSettings.professionManual == true)
+                        or (effectiveSettings and effectiveSettings.enabled == true and effectiveSettings.professionManual == true)
 
                     if moduleVisible and knowsProfession then
                         local moduleEntry = {
@@ -248,7 +251,7 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
 
                         for _, row in ipairs(mod.rows) do
                             local rowVisible = (not row.isVisible or row.isVisible())
-                            local rowEnabled = not (moduleSettings and moduleSettings.hiddenRows and moduleSettings.hiddenRows[row.key] == false)
+                            local rowEnabled = not (effectiveSettings and effectiveSettings.hiddenRows and effectiveSettings.hiddenRows[row.key] == false)
 
                             if rowVisible and rowEnabled then
                                 local accountProgress = row.accountWideComplete
