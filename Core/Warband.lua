@@ -77,6 +77,20 @@ local function IsAltBoardModule(mod)
     return mod.key:match("^story_campaign_") ~= nil
 end
 
+local function HasAnyProfessionRecord(source)
+    if type(source) ~= "table" then
+        return false
+    end
+
+    for _, learned in pairs(source) do
+        if learned then
+            return true
+        end
+    end
+
+    return false
+end
+
 
 function MR:GetCurrentCharacterKey()
     if self.db and self.db.GetNativeHandles then
@@ -124,6 +138,9 @@ function MR:SetMainAltViewCharacter(charKey)
     end
     if self.RefreshMainAltPicker then
         self:RefreshMainAltPicker()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.04)
     end
 end
 
@@ -176,6 +193,7 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
             local hidden = hiddenChars[charKey] == true
             local note = self:GetAltBoardCharacterNote(charKey)
             local savedProfessions = type(charData.professions) == "table" and charData.professions or nil
+            local savedConcentration = type(charData.professionConcentration) == "table" and charData.professionConcentration or nil
             local snapshot = {
                 key = charKey,
                 name = name,
@@ -207,11 +225,16 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                 if IsAltBoardModule(mod) and self:GetModuleExpansionKey(mod) == selectedExpansion then
                     local moduleSettings = type(moduleStates) == "table" and moduleStates[mod.key] or nil
                     local moduleEnabled = not (moduleSettings and moduleSettings.enabled == false)
+                    if mod.profSkillLine then
+                        moduleEnabled = not (moduleSettings and moduleSettings.enabled == false and moduleSettings.professionDisabled == true)
+                    end
                     local moduleVisible = moduleEnabled and (not mod.isVisible or mod:isVisible())
                     local modProgress = charData.progress[mod.key] or {}
                     local knowsProfession = (not mod.profSkillLine)
-                        or (snapshot.isCurrent and self.playerProfessions and self.playerProfessions[mod.profSkillLine])
+                        or (snapshot.isCurrent and self.HasProfessionForModule and self:HasProfessionForModule(mod.profSkillLine))
                         or (savedProfessions and savedProfessions[mod.profSkillLine])
+                        or ((not charData.professionsScanned) and (not HasAnyProfessionRecord(savedProfessions)) and savedConcentration and savedConcentration[mod.profSkillLine] ~= nil)
+                        or (moduleSettings and moduleSettings.enabled == true and moduleSettings.professionManual == true)
 
                     if moduleVisible and knowsProfession then
                         local moduleEntry = {
@@ -292,7 +315,6 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                 end
             end
 
-            local savedConcentration = type(charData.professionConcentration) == "table" and charData.professionConcentration or nil
             if savedConcentration then
                 snapshot.concentration = {}
                 for skillLineID, currencyInfo in pairs(savedConcentration) do
