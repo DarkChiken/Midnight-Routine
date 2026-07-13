@@ -1,31 +1,190 @@
-local addonName = "MidnightRoutine"
+local addonName, ns = ...
 
-local LibStub  = LibStub
-local AceAddon = LibStub("AceAddon-3.0")
-local AceDB    = LibStub("AceDB-3.0")
-local L        = LibStub("AceLocale-3.0"):GetLocale(addonName)
+local Foundry = _G.Foundry_1_0
+if not Foundry then
+    error(addonName .. " requires Foundry-1.0 to be loaded before Core.lua", 0)
+end
 
-MR = AceAddon:NewAddon(addonName, "AceEvent-3.0", "AceBucket-3.0", "AceTimer-3.0")
+local L = LibStub("AceLocale-3.0"):GetLocale(addonName)
+
+local MR = {
+    name = addonName,
+}
+ns.MR = MR
+MR.ns = ns
+MR._eventController = Foundry.Events:New(addonName)
+MR._timers = {}
+MR._buckets = {}
+
+local function ResolveCallback(owner, callback)
+    if type(callback) == "function" then
+        return callback, false
+    end
+    if type(callback) == "string" and type(owner[callback]) == "function" then
+        return owner[callback], true
+    end
+    return nil
+end
+
+function MR:RegisterEvent(event, callback)
+    local fn, bindSelf = ResolveCallback(self, callback or event)
+    if not fn then
+        error(("MidnightRoutine:RegisterEvent(%s) missing callback"):format(tostring(event)), 2)
+    end
+
+    if self._eventController:IsRegistered(event) then
+        self._eventController:Unregister(event)
+    end
+
+    self._eventController:Register(event, function(firedEvent, ...)
+        if bindSelf then
+            fn(self, firedEvent, ...)
+        else
+            fn(firedEvent, ...)
+        end
+    end)
+end
+
+function MR:UnregisterEvent(event)
+    self._eventController:Unregister(event)
+end
+
+function MR:UnregisterAllEvents()
+    self._eventController:UnregisterAll()
+end
+
+function MR:RegisterBucketEvent(events, interval, callback)
+    local fn, bindSelf = ResolveCallback(self, callback)
+    if not fn then
+        error("MidnightRoutine:RegisterBucketEvent missing callback", 2)
+    end
+
+    local bucket = self._eventController:RegisterBucket({
+        events = events,
+        interval = interval,
+        handler = function()
+            if bindSelf then
+                fn(self)
+            else
+                fn()
+            end
+        end,
+    })
+
+    self._buckets[bucket] = true
+    return bucket
+end
+
+function MR:UnregisterBucket(bucket)
+    if bucket and bucket.Cancel then
+        bucket:Cancel()
+        self._buckets[bucket] = nil
+    end
+end
+
+function MR:ScheduleTimer(callback, delay, ...)
+    local fn, bindSelf = ResolveCallback(self, callback)
+    if not fn then
+        error("MidnightRoutine:ScheduleTimer missing callback", 2)
+    end
+
+    local argc = select("#", ...)
+    local args = argc > 0 and { ... } or nil
+    local timer
+    timer = C_Timer.NewTimer(delay, function()
+        self._timers[timer] = nil
+        if bindSelf and args then
+            fn(self, unpack(args, 1, argc))
+        elseif bindSelf then
+            fn(self)
+        elseif args then
+            fn(unpack(args, 1, argc))
+        else
+            fn()
+        end
+    end)
+    self._timers[timer] = true
+    return timer
+end
+
+function MR:ScheduleRepeatingTimer(callback, delay, ...)
+    local fn, bindSelf = ResolveCallback(self, callback)
+    if not fn then
+        error("MidnightRoutine:ScheduleRepeatingTimer missing callback", 2)
+    end
+
+    local argc = select("#", ...)
+    local args = argc > 0 and { ... } or nil
+    local timer = C_Timer.NewTicker(delay, function()
+        if bindSelf and args then
+            fn(self, unpack(args, 1, argc))
+        elseif bindSelf then
+            fn(self)
+        elseif args then
+            fn(unpack(args, 1, argc))
+        else
+            fn()
+        end
+    end)
+    self._timers[timer] = true
+    return timer
+end
+
+function MR:CancelTimer(timer)
+    if timer and timer.Cancel then
+        timer:Cancel()
+        self._timers[timer] = nil
+    end
+end
+
+function MR:CancelAllTimers()
+    for timer in pairs(self._timers) do
+        if timer.Cancel then
+            timer:Cancel()
+        end
+        self._timers[timer] = nil
+    end
+end
+
+local MODULES_WITH_OPTIONAL_CURRENCY_COMPLETION = {
+    currencies = true,
+    pvp_currencies = true,
+}
 
 local DEFAULTS = {
     profile = {
         locked          = false,
         scale           = 1.0,
+        minimized       = false,
         frameAlpha      = 1.0,
         hideFramesInInstances = false,
+        rememberManagedWindowsVisibility = false,
+        managedWindowsBundleHidden       = false,
         transparentMode = false,
+        keepIconsVisibleInTextMode = true,
+        keepHeadersVisibleInTextMode = true,
+        autoHidePanelHeaders = false,
         width           = 260,
         height          = 400,
         fontSize        = 11,
+        fontMedia       = nil,
+        fontFlags       = "OUTLINE",
+        backgroundMedia = nil,
         minimap         = { hide = false },
+        managedWindowRestoreState = nil,
         firstSeen       = false,
+        welcomeSuppressed = false,
         position        = { point = "CENTER", x = 0, y = 0 },
+        collapsedPosition = nil,
         renownOpen          = false,
         raresOpen           = false,
+        concentrationTrackerOpen = false,
         raresPos            = nil,
         raresLocked         = false,
         raresWidth          = 300,
         raresHeight         = 360,
+        currencyBrowserWidth = 360,
+        currencyBrowserHeight = 460,
         raresFontSize       = 9,
         raresShimmer        = true,
         raresHiddenZones    = {},
@@ -34,6 +193,7 @@ local DEFAULTS = {
         raresScale          = 1.0,
         raresAlpha          = 1.0,
         raresHideKilled     = false,
+        raresShowAllZones   = false,
         raresColors         = {},
         renownPos           = nil,
         renownLocked        = false,
@@ -48,6 +208,9 @@ local DEFAULTS = {
         renownColors         = {},
         renownOrder          = {},
         renownCompact        = false,
+        renownEmblemMode     = false,
+        renownAutoHideHeader = false,
+        renownMinimized      = false,
         renownScale          = 1.0,
         renownShowLevel      = true,
         renownFontSize       = 9,
@@ -61,19 +224,44 @@ local DEFAULTS = {
         gatheringFontSize    = 9,
         gatheringScale       = 1.0,
         gatheringProfColors  = {},
-            gatheringHideCompleted = false,
+        gatheringCollapsedProfessions = {},
+        gatheringHideCompleted = false,
         headerColors    = {},
+        headerBackgroundColors = {},
         rowColors       = {},
         syncWindowScale     = false,
         syncWindowFontSize  = false,
         peekOnHover         = false,
+        animatedMinimize    = false,
+        mainHeaderPosition  = "top",
+        showMainCharacterBar = true,
         characterWindowLayout = false,
+        selectedExpansion   = "midnight",
+        altBoardSelectedExpansion = "midnight",
         altBoardHiddenCharacters = {},
+        altBoardCharacterNotes = {},
         altBoardShowHidden = false,
+        altBoardView = "character",
         altBoardCollapsedModules = {},
+        concentrationTrackerAlpha = 1.0,
+        concentrationTrackerCompact = false,
+        concentrationTrackerHiddenCharacters = {},
+        expansionModuleStates = {},
+        expansionModuleOrder = {},
+        patchStates = {},
     },
     char = {
         progress = {},
+        professions = {},
+        professionsScanned = false,
+        professionConcentration = {},
+        customTasks = {},
+        customTaskNextId = 1,
+        customTaskDiffProgress = {},
+        currencyBrowserHiddenDefaults = {},
+        currencyBrowserCustom = {},
+        currencyBrowserCustomOrder = {},
+        currencyBrowserCollapsedHeaders = {},
         lastWeek = 0,
         lastSyncAt = 0,
         manualOverrides = {},
@@ -82,15 +270,57 @@ local DEFAULTS = {
         lastDailyAt = 0,
         hideComplete = true,
         panelOpen    = true,
+        panelOpenUserSet = false,
         modules      = {},
         moduleOrder  = {},
         settingsMigrated = false,
         windowLayout = {},
+        mediaSettings = {},
+        expansionModuleStates = {},
+        expansionModuleOrder = {},
+    },
+    global = {
+        customTasks = {},
+        customTaskNextId = 1,
+        customTaskProgress = {},
+        customTaskManualOverrides = {},
+        customTaskDiffProgress = {},
     },
 }
 
 MR.modules     = {}
 MR.moduleByKey = {}
+MR.pinnedModuleOrder = {
+    midnight_activities = 1,
+    s1_weekly = 2,
+}
+MR.expansions  = {
+    midnight = {
+        key = "midnight",
+        label = L["Expansion_Midnight"] or "Midnight",
+        shortLabel = L["Expansion_Midnight"] or "Midnight",
+    },
+}
+MR.patches = {
+    ["12.0.0"] = {
+        key = "12.0.0",
+        label = L["Patch_1200"] or "12.0.0 Launch",
+        shortLabel = "12.0.0",
+        order = 120000,
+    },
+    ["12.0.5"] = {
+        key = "12.0.5",
+        label = L["Patch_1205"] or "12.0.5",
+        shortLabel = "12.0.5",
+        order = 120005,
+    },
+    ["12.0.7"] = {
+        key = "12.0.7",
+        label = L["Patch_1207"] or "12.0.7 Revelations",
+        shortLabel = "12.0.7",
+        order = 120007,
+    },
+}
 
 local function DeepCopy(value)
     if type(value) ~= "table" then
@@ -120,54 +350,348 @@ local function MergeMissing(dst, src)
     return dst
 end
 
+local function RestoreDefaults(dst, src)
+    if type(dst) ~= "table" or type(src) ~= "table" then
+        return dst
+    end
+
+    wipe(dst)
+    for k, v in pairs(src) do
+        dst[k] = DeepCopy(v)
+    end
+
+    return dst
+end
+
 local function IsTableEmpty(t)
     return type(t) ~= "table" or next(t) == nil
 end
 
-local function ParseCharacterKey(charKey)
-    if type(charKey) ~= "string" then
-        return "Unknown", ""
-    end
-
-    local name, realm = charKey:match("^(.-)%s%-%s(.+)$")
-    if name and realm then
-        return name, realm
-    end
-
-    return charKey, ""
+local function IsInRestrictedCombat()
+    return InCombatLockdown and InCombatLockdown()
 end
 
-local function CleanAccountLabel(text)
-    if type(text) ~= "string" then
-        return tostring(text or "")
+function MR:RegisterExpansion(def)
+    assert(type(def) == "table", "MR expansion registration requires a table")
+    assert(def.key, "MR expansion missing .key")
+
+    local existing = self.expansions[def.key] or {}
+    self.expansions[def.key] = {
+        key = def.key,
+        label = def.label or existing.label or def.key,
+        shortLabel = def.shortLabel or existing.shortLabel or def.label or def.key,
+        order = def.order or existing.order or 100,
+    }
+end
+
+function MR:QueueCombatDeferredUpdate(flag)
+    if not flag then
+        return
     end
 
-    return text:gsub("|c%x%x%x%x%x%x%x%x(.-)%|r", "%1"):gsub("|[cCrR]%x*", "")
+    self._combatDeferred = self._combatDeferred or {}
+    self._combatDeferred[flag] = true
+
+    if self.RegisterEvent then
+        self:RegisterEvent("PLAYER_REGEN_ENABLED", "OnCombatEnded")
+    end
 end
 
-local function HasAnyTableValue(t)
-    return type(t) == "table" and next(t) ~= nil
-end
-
-local function IsAltBoardModule(mod)
-    if not mod or not mod.key then
+function MR:ShouldDeferForCombat(flag)
+    if not IsInRestrictedCombat() then
         return false
     end
 
-    if mod.resetType == "weekly" then
-        return true
+    self:QueueCombatDeferredUpdate(flag)
+    return true
+end
+
+function MR:QueueDeferredProgressUpdate(moduleKey, rowKey, value, maxVal)
+    self._combatDeferredProgress = self._combatDeferredProgress or {}
+    self._combatDeferredProgress[#self._combatDeferredProgress + 1] = {
+        moduleKey = moduleKey,
+        rowKey = rowKey,
+        value = value,
+        maxVal = maxVal,
+    }
+    self:QueueCombatDeferredUpdate("refreshUI")
+end
+
+function MR:FlushCombatDeferredUpdates()
+    if IsInRestrictedCombat() then
+        return
     end
 
-    return mod.key:match("^story_campaign_") ~= nil
+    local pending = self._combatDeferred
+    local deferredProgress = self._combatDeferredProgress
+
+    self._combatDeferred = nil
+    self._combatDeferredProgress = nil
+
+    if pending and pending.weeklyReset and self.DoWeeklyReset then
+        self:DoWeeklyReset()
+        pending.weeklyReset = nil
+    end
+
+    if pending and pending.dailyReset and self.DoDailyReset then
+        self:DoDailyReset()
+        pending.dailyReset = nil
+    end
+
+    if pending and pending.instanceVisibility and self.UpdateInstanceFrameVisibility then
+        self:UpdateInstanceFrameVisibility()
+        pending.instanceVisibility = nil
+    end
+
+    if pending and pending.playerProfessions and self.RefreshPlayerProfessions then
+        self:RefreshPlayerProfessions()
+        pending.playerProfessions = nil
+    end
+
+    if pending and pending.professionConcentration and self.RefreshProfessionConcentration then
+        self:RefreshProfessionConcentration()
+        pending.professionConcentration = nil
+    end
+
+    if deferredProgress then
+        for _, entry in ipairs(deferredProgress) do
+            local progressBucket = self.GetProgressBucket and self:GetProgressBucket(entry.moduleKey, entry.rowKey) or self.db.char.progress
+            if not progressBucket[entry.moduleKey] then
+                progressBucket[entry.moduleKey] = {}
+            end
+            progressBucket[entry.moduleKey][entry.rowKey] = math.max(0, math.min(entry.value, entry.maxVal))
+        end
+    end
+
+    if pending and pending.scan and self.Scan then
+        self:Scan()
+        pending.scan = nil
+    end
+
+    if pending and pending.refreshUI and self.RefreshUI then
+        self:RefreshUI()
+    end
+
+    if pending and pending.gatheringFrame and self.RefreshGatheringLocationsFrame then
+        self:RefreshGatheringLocationsFrame()
+    end
+
+    if pending and pending.rares and self.RefreshRares then
+        self:RefreshRares()
+    end
+
+    if pending and pending.renown and self.RefreshRenown then
+        self:RefreshRenown()
+    end
+end
+
+function MR:OnCombatEnded()
+    if self.UnregisterEvent then
+        self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+    end
+
+    self:FlushCombatDeferredUpdates()
+end
+
+function MR:GetModuleExpansionKey(modOrKey)
+    local mod = modOrKey
+    if type(modOrKey) == "string" then
+        mod = self.moduleByKey[modOrKey]
+    end
+
+    return (mod and mod.expansionKey) or "midnight"
+end
+
+function MR:GetModulePatchKey(modOrKey)
+    local mod = modOrKey
+    if type(modOrKey) == "string" then
+        mod = self.moduleByKey[modOrKey]
+    end
+
+    return mod and mod.patchKey or nil
+end
+
+function MR:GetRowPatchKey(modOrKey, row)
+    if row and row.patchKey then
+        return row.patchKey
+    end
+    return self:GetModulePatchKey(modOrKey)
+end
+
+function MR:GetExpansionInfo(key)
+    key = key or "midnight"
+    return self.expansions[key] or {
+        key = key,
+        label = key,
+        shortLabel = key,
+        order = 999,
+    }
+end
+
+local _questNameCache = {}
+local _questNamePending = {}
+
+function MR:GetQuestName(questId, fallback)
+    if not questId then
+        return fallback
+    end
+
+    if _questNameCache[questId] then
+        return _questNameCache[questId]
+    end
+
+    if C_QuestLog and C_QuestLog.GetTitleForQuestID then
+        local title = C_QuestLog.GetTitleForQuestID(questId)
+        if title and title ~= "" then
+            _questNameCache[questId] = title
+            _questNamePending[questId] = nil
+            return title
+        end
+    end
+
+    if not _questNamePending[questId] then
+        if C_QuestLog and C_QuestLog.RequestLoadQuestByID then
+            C_QuestLog.RequestLoadQuestByID(questId)
+        end
+        _questNamePending[questId] = true
+    end
+
+    return fallback
+end
+
+function MR:GetAvailableExpansions()
+    local seen = {}
+    local result = {}
+
+    for key, info in pairs(self.expansions or {}) do
+        seen[key] = true
+        result[#result + 1] = self:GetExpansionInfo(key)
+    end
+
+    for _, mod in ipairs(self.modules) do
+        local key = self:GetModuleExpansionKey(mod)
+        if not seen[key] then
+            seen[key] = true
+            result[#result + 1] = self:GetExpansionInfo(key)
+        end
+    end
+
+    table.sort(result, function(a, b)
+        local ao = a.order or 999
+        local bo = b.order or 999
+        if ao ~= bo then
+            return ao < bo
+        end
+        return (a.label or a.key) < (b.label or b.key)
+    end)
+
+    return result
+end
+
+function MR:GetSelectableExpansions()
+    local counts = {}
+    for _, mod in ipairs(self.modules) do
+        local key = self:GetModuleExpansionKey(mod)
+        counts[key] = (counts[key] or 0) + 1
+    end
+
+    local result = {}
+    for key, count in pairs(counts) do
+        if count > 0 then
+            result[#result + 1] = self:GetExpansionInfo(key)
+        end
+    end
+
+    table.sort(result, function(a, b)
+        local ao = a.order or 999
+        local bo = b.order or 999
+        if ao ~= bo then
+            return ao < bo
+        end
+        return (a.label or a.key) < (b.label or b.key)
+    end)
+
+    return result
+end
+
+function MR:GetSelectedExpansionKey(forAltBoard)
+    if not (self and self.db and self.db.profile) then
+        return "midnight"
+    end
+
+    local key = forAltBoard and self.db.profile.altBoardSelectedExpansion or self.db.profile.selectedExpansion
+    if key and self.expansions[key] then
+        return key
+    end
+
+    return "midnight"
+end
+
+function MR:SetSelectedExpansionKey(key, forAltBoard)
+    key = key or "midnight"
+    if not self.expansions[key] then
+        key = "midnight"
+    end
+
+    if forAltBoard then
+        self.db.profile.altBoardSelectedExpansion = key
+        if self.altBoardFrame and self.altBoardFrame:IsShown() then
+            if self.RequestWarbandBoardRefresh then
+                self:RequestWarbandBoardRefresh(true)
+            elseif self.RefreshWarbandBoard then
+                self:RefreshWarbandBoard()
+            end
+        end
+        return
+    end
+
+    self.db.profile.selectedExpansion = key
+    self._orderedModulesCache = nil
+    if self.RefreshUI then
+        self:RefreshUI()
+    end
+end
+
+function MR:GetVisibleExpansionModules(expansionKey)
+    expansionKey = expansionKey or self:GetSelectedExpansionKey()
+    local result = {}
+    for _, mod in ipairs(self.modules) do
+        if self:GetModuleExpansionKey(mod) == expansionKey then
+            result[#result + 1] = mod
+        end
+    end
+    return result
 end
 
 function MR:RegisterModule(def)
     assert(def.key,   "MR module missing .key")
     assert(def.label, "MR module missing .label")
     assert(def.rows,  "MR module missing .rows")
+    def.expansionKey = def.expansionKey or "midnight"
+
+    if self.moduleByKey[def.key] then
+        error(("MR duplicate module key: %s"):format(tostring(def.key)))
+    end
+
     table.insert(self.modules, def)
     self.moduleByKey[def.key] = def
     self._orderedModulesCache = nil
+
+    if self.RebuildTurnInCompletions then
+        self:RebuildTurnInCompletions()
+    end
+
+    if self.BuildSpellIndex then
+        self:BuildSpellIndex()
+    end
+
+    if self.db then
+        if self.Scan then
+            self:Scan()
+        elseif self.RefreshUI then
+            self:RefreshUI()
+        end
+    end
 end
 
 function MR:GetWeeklyRewardActivityBuckets()
@@ -194,7 +718,6 @@ function MR:GetWeeklyRewardActivityBuckets()
         elseif activity.type == 6 then
             table.insert(buckets.world, activity)
         elseif activity.type == 4 and #buckets.world == 0 then
-            -- Fallback for older clients/builds where delves/world vault data used type 4.
             table.insert(buckets.world, activity)
         end
     end
@@ -203,186 +726,139 @@ function MR:GetWeeklyRewardActivityBuckets()
 end
 
 function MR:GetProgress(moduleKey, rowKey)
-    local m = self.db.char.progress[moduleKey]
+    if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        local progress = self.db and self.db.global and self.db.global.customTaskProgress
+        local m = progress and progress[moduleKey]
+        if m and m[rowKey] ~= nil then
+            return m[rowKey]
+        end
+
+        local taskId = type(rowKey) == "string" and rowKey:match("^shared_task_(%d+)")
+        local legacyKey = taskId and ("task_" .. taskId) or nil
+        return (legacyKey and m and m[legacyKey]) or 0
+    end
+
+    local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
+    local progress = source and source.progress or self.db.char.progress
+    local m = progress and progress[moduleKey]
     return m and m[rowKey] or 0
 end
 
-function MR:GetCurrentCharacterKey()
-    if self.db and self.db.keys and self.db.keys.char then
-        return self.db.keys.char
+function MR:GetProgressBucket(moduleKey, rowKey)
+    if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        self.db.global.customTaskProgress = self.db.global.customTaskProgress or {}
+        return self.db.global.customTaskProgress
     end
 
-    local name, realm = UnitFullName and UnitFullName("player")
-    if name and realm and realm ~= "" then
-        return string.format("%s - %s", name, realm)
-    end
-
-    return UnitName and UnitName("player") or "Unknown"
+    return self.db.char.progress
 end
 
-function MR:GetWarbandWeeklyData()
-    if not (self and self.db and self.db.sv and self.db.sv.char) then
-        return {}
+function MR:GetManualOverrideBucket(moduleKey, rowKey)
+    if moduleKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        self.db.global.customTaskManualOverrides = self.db.global.customTaskManualOverrides or {}
+        return self.db.global.customTaskManualOverrides
     end
 
-    local results = {}
-    local currentKey = self:GetCurrentCharacterKey()
-    local resetAt = self.GetLastResetTimestamp and self:GetLastResetTimestamp() or 0
-    local hiddenChars = (self.db and self.db.profile and self.db.profile.altBoardHiddenCharacters) or {}
-    local showHidden = self.db and self.db.profile and self.db.profile.altBoardShowHidden == true
+    return self.db.char.manualOverrides
+end
 
-    for charKey, charData in pairs(self.db.sv.char) do
-        if type(charData) == "table" and type(charData.progress) == "table" then
-            local name, realm = ParseCharacterKey(charKey)
-            local lastSyncAt = charData.lastSyncAt or 0
-            local stale = resetAt > 0 and lastSyncAt > 0 and lastSyncAt < resetAt
-            local hidden = hiddenChars[charKey] == true
-            local snapshot = {
-                key = charKey,
-                name = name,
-                realm = realm,
-                classFile = charData.classFile,
-                isCurrent = (charKey == currentKey),
-                stale = stale,
-                hidden = hidden,
-                lastSyncAt = lastSyncAt,
-                lastResetAt = charData.lastResetAt or 0,
-                modules = {},
-                totalRows = 0,
-                doneRows = 0,
-                activeRows = 0,
-            }
-
-            for _, mod in ipairs(self.modules) do
-                if IsAltBoardModule(mod) then
-                    local moduleSettings = type(charData.modules) == "table" and charData.modules[mod.key] or nil
-                    local moduleEnabled = not (moduleSettings and moduleSettings.enabled == false)
-                    local moduleVisible = moduleEnabled and (not mod.isVisible or mod:isVisible())
-                    local modProgress = charData.progress[mod.key] or {}
-                    local hasLiveProfession = snapshot.isCurrent and mod.profSkillLine and self.playerProfessions and self.playerProfessions[mod.profSkillLine]
-                    local hasProfessionData = (not mod.profSkillLine)
-                        or hasLiveProfession
-                        or HasAnyTableValue(modProgress)
-                        or (type(charData.manualOverrides) == "table" and HasAnyTableValue(charData.manualOverrides[mod.key]))
-                        or (moduleSettings ~= nil)
-
-                    if moduleVisible and hasProfessionData then
-                        local moduleEntry = {
-                            key = mod.key,
-                            label = CleanAccountLabel(mod.label),
-                            color = mod.labelColor or "#ffffff",
-                            rows = {},
-                            totalRows = 0,
-                            doneRows = 0,
-                        }
-
-                        for _, row in ipairs(mod.rows) do
-                            local rowVisible = (not row.isVisible or row.isVisible())
-                            local rowEnabled = not (moduleSettings and moduleSettings.hiddenRows and moduleSettings.hiddenRows[row.key] == false)
-
-                            if rowVisible and rowEnabled then
-                                local value = stale and 0 or tonumber(modProgress[row.key]) or 0
-                                local maxValue = tonumber(row.max) or 0
-                                local complete = (not row.noMax) and maxValue > 0 and value >= maxValue
-                                local rowLabel = CleanAccountLabel(row.label)
-                                local displayValue
-
-                                if row.countText and not stale then
-                                    displayValue = row.countText
-                                elseif row.noMax then
-                                    displayValue = tostring(value)
-                                else
-                                    displayValue = string.format("%d / %d", value, maxValue)
-                                end
-
-                                table.insert(moduleEntry.rows, {
-                                    key = row.key,
-                                    label = rowLabel,
-                                    value = value,
-                                    max = maxValue,
-                                    noMax = row.noMax and true or false,
-                                    complete = complete,
-                                    displayValue = displayValue,
-                                    accentLabel = (not stale and (modProgress[row.liveTierLabelKey or ""] or row.vaultLabel)) or nil,
-                                    accentColor = (not stale and (modProgress[row.liveTierColorKey or ""] or row.vaultColor)) or nil,
-                                })
-
-                                moduleEntry.totalRows = moduleEntry.totalRows + 1
-                                snapshot.totalRows = snapshot.totalRows + 1
-
-                                if complete then
-                                    moduleEntry.doneRows = moduleEntry.doneRows + 1
-                                    snapshot.doneRows = snapshot.doneRows + 1
-                                elseif value > 0 then
-                                    snapshot.activeRows = snapshot.activeRows + 1
-                                end
-                            end
-                        end
-
-                        if moduleEntry.totalRows > 0 and (mod.resetType == "weekly" or moduleEntry.doneRows < moduleEntry.totalRows) then
-                            table.insert(snapshot.modules, moduleEntry)
-                        end
-                    end
-                end
-            end
-
-            if snapshot.totalRows > 0 and ((showHidden and hidden) or ((not showHidden) and (not hidden))) then
-                table.insert(results, snapshot)
+function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
+    local progressBucket = self.GetProgressBucket and self:GetProgressBucket(moduleKey, rowKey) or self.db.char.progress
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() and not bypassInstanceSuspend then
+        if not progressBucket[moduleKey] then
+            progressBucket[moduleKey] = {}
+        end
+        if moduleKey == "custom_tasks" and type(rowKey) == "string" and rowKey:match("^shared_task_") then
+            local taskId = rowKey:match("^shared_task_(%d+)")
+            if taskId then
+                progressBucket[moduleKey]["task_" .. taskId] = nil
             end
         end
-    end
-
-    table.sort(results, function(a, b)
-        if a.isCurrent ~= b.isCurrent then
-            return a.isCurrent
-        end
-        if a.stale ~= b.stale then
-            return not a.stale
-        end
-        if a.doneRows ~= b.doneRows then
-            return a.doneRows > b.doneRows
-        end
-        if a.realm ~= b.realm then
-            return a.realm < b.realm
-        end
-        return a.name < b.name
-    end)
-
-    return results
-end
-
-function MR:IsAltBoardCharacterHidden(charKey)
-    if not (self and self.db and self.db.profile and charKey) then
-        return false
-    end
-
-    return self.db.profile.altBoardHiddenCharacters
-        and self.db.profile.altBoardHiddenCharacters[charKey] == true
-        or false
-end
-
-function MR:SetAltBoardCharacterHidden(charKey, hidden)
-    if not (self and self.db and self.db.profile and charKey) then
+        progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
         return
     end
 
-    if not self.db.profile.altBoardHiddenCharacters then
-        self.db.profile.altBoardHiddenCharacters = {}
+    if self:ShouldDeferForCombat("refreshUI") then
+        self:QueueDeferredProgressUpdate(moduleKey, rowKey, value, maxVal)
+        return
     end
 
-    if hidden then
-        self.db.profile.altBoardHiddenCharacters[charKey] = true
-    else
-        self.db.profile.altBoardHiddenCharacters[charKey] = nil
+    if not progressBucket[moduleKey] then
+        progressBucket[moduleKey] = {}
     end
+    if moduleKey == "custom_tasks" and type(rowKey) == "string" and rowKey:match("^shared_task_") then
+        local taskId = rowKey:match("^shared_task_(%d+)")
+        if taskId then
+            progressBucket[moduleKey]["task_" .. taskId] = nil
+        end
+    end
+    progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
+    self:RefreshUI()
 end
 
-function MR:SetProgress(moduleKey, rowKey, value, maxVal)
-    if not self.db.char.progress[moduleKey] then
-        self.db.char.progress[moduleKey] = {}
+function MR:GetPatchInfo(key)
+    key = key or "general"
+    if key == "general" then
+        return {
+            key = "general",
+            label = L["Patch_General"] or "General",
+            shortLabel = L["Patch_GeneralShort"] or "General",
+            order = 0,
+        }
     end
-    self.db.char.progress[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
-    self:RefreshUI()
+    return self.patches[key] or {
+        key = key,
+        label = key,
+        shortLabel = key,
+        order = 999999,
+    }
+end
+
+function MR:GetPatchSortOrder(key)
+    if not key then
+        return 0
+    end
+    local info = self:GetPatchInfo(key)
+    return info.order or 999999
+end
+
+function MR:GetOrderedRows(mod)
+    if not mod or type(mod.rows) ~= "table" then
+        return {}
+    end
+
+    local ordered = {}
+    for index, row in ipairs(mod.rows) do
+        ordered[#ordered + 1] = { row = row, index = index }
+    end
+
+    table.sort(ordered, function(a, b)
+        local ao = self:GetPatchSortOrder(self:GetRowPatchKey(mod, a.row))
+        local bo = self:GetPatchSortOrder(self:GetRowPatchKey(mod, b.row))
+        if ao ~= bo then
+            return ao < bo
+        end
+        return a.index < b.index
+    end)
+
+    local rows = {}
+    for _, entry in ipairs(ordered) do
+        rows[#rows + 1] = entry.row
+    end
+    return rows
+end
+
+function MR:RegisterPatch(def)
+    assert(type(def) == "table", "MR patch registration requires a table")
+    assert(def.key, "MR patch missing .key")
+
+    local existing = self.patches[def.key] or {}
+    self.patches[def.key] = {
+        key = def.key,
+        label = def.label or existing.label or def.key,
+        shortLabel = def.shortLabel or existing.shortLabel or def.label or def.key,
+        order = def.order or existing.order or 999999,
+    }
 end
 
 function MR:ApplyScaleToAll(v)
@@ -414,7 +890,9 @@ function MR:ApplyFontSizeToAll(v)
     self.db.profile.gatheringFontSize = v
     self.db.profile.renownFontSize    = v
     if self.ApplyFontSize then self.ApplyFontSize(v) end
-    if self.RebuildRaresFrame             then self:RebuildRaresFrame() end
+    if self.raresFrame and self.raresFrame.IsShown and self.raresFrame:IsShown() and self.RebuildRaresFrame then
+        self:RebuildRaresFrame()
+    end
     if self.RebuildGatheringLocationsFrame then self:RebuildGatheringLocationsFrame() end
     if self.RebuildRenownFrame            then self:RebuildRenownFrame() end
     if self.RepopulateRaresConfig     then self:RepopulateRaresConfig() end
@@ -423,8 +901,9 @@ function MR:ApplyFontSizeToAll(v)
     if self.RepopulateConfigFrame     then self:RepopulateConfigFrame() end
 end
 
-function MR:BumpProgress(moduleKey, rowKey, delta, maxVal)
-    self:SetProgress(moduleKey, rowKey, self:GetProgress(moduleKey, rowKey) + delta, maxVal)
+function MR:BumpProgress(moduleKey, rowKey, delta, maxVal, bypassInstanceSuspend)
+    local current = self:GetProgress(moduleKey, rowKey)
+    self:SetProgress(moduleKey, rowKey, current + delta, maxVal, bypassInstanceSuspend)
 end
 
 local function CleanDisplayLabel(text)
@@ -472,58 +951,224 @@ function MR:SetWaypoint(target)
 end
 
 function MR:GetManualOverride(modKey, rowKey)
-    local m = self.db.char.manualOverrides
+    if modKey == "custom_tasks" and self.IsCustomTaskAccountWideCompletion and self:IsCustomTaskAccountWideCompletion(rowKey) then
+        local m = self.db and self.db.global and self.db.global.customTaskManualOverrides
+        local modOverrides = m and m[modKey]
+        if modOverrides and modOverrides[rowKey] ~= nil then
+            return modOverrides[rowKey]
+        end
+
+        local taskId = type(rowKey) == "string" and rowKey:match("^shared_task_(%d+)")
+        local legacyKey = taskId and ("task_" .. taskId) or nil
+        return (legacyKey and modOverrides and modOverrides[legacyKey]) or 0
+    end
+
+    local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
+    local m = source and source.manualOverrides or self.db.char.manualOverrides
     return (m and m[modKey] and m[modKey][rowKey]) or 0
 end
 
 function MR:SetManualOverride(modKey, rowKey, val, maxVal)
-    if not self.db.char.manualOverrides then self.db.char.manualOverrides = {} end
-    if not self.db.char.manualOverrides[modKey] then self.db.char.manualOverrides[modKey] = {} end
+    local overrides = self.GetManualOverrideBucket and self:GetManualOverrideBucket(modKey, rowKey) or self.db.char.manualOverrides
+    if not overrides then return end
+    if not overrides[modKey] then overrides[modKey] = {} end
+    if modKey == "custom_tasks" and type(rowKey) == "string" and rowKey:match("^shared_task_") then
+        local taskId = rowKey:match("^shared_task_(%d+)")
+        if taskId then
+            overrides[modKey]["task_" .. taskId] = nil
+        end
+    end
     if val <= 0 then
-        self.db.char.manualOverrides[modKey][rowKey] = nil
+        overrides[modKey][rowKey] = nil
         self:SetProgress(modKey, rowKey, 0, maxVal or 1)
         self:Scan()
     else
-        self.db.char.manualOverrides[modKey][rowKey] = maxVal and math.min(val, maxVal) or val
-        self:SetProgress(modKey, rowKey, self.db.char.manualOverrides[modKey][rowKey], maxVal)
+        overrides[modKey][rowKey] = maxVal and math.min(val, maxVal) or val
+        self:SetProgress(modKey, rowKey, overrides[modKey][rowKey], maxVal)
     end
 end
 
-function MR:GetOrderedModules()
-    if self._orderedModulesCache then return self._orderedModulesCache end
-    local saved = self.db.char.moduleOrder
+function MR:GetOrderedModules(expansionKey)
+    expansionKey = expansionKey or self:GetSelectedExpansionKey()
+    if expansionKey == self:GetSelectedExpansionKey() and self._orderedModulesCache then
+        return self._orderedModulesCache
+    end
+    local modules = self:GetVisibleExpansionModules(expansionKey)
+    local saved = self:GetActiveModuleOrderStorage(expansionKey)
+    local function ApplyPinnedModuleOrder(source)
+        if type(source) ~= "table" or not self.pinnedModuleOrder then
+            return source
+        end
+
+        local result = {}
+        local pinned = {}
+        for _, mod in ipairs(source) do
+            local pin = mod and self.pinnedModuleOrder[mod.key]
+            if pin then
+                pinned[#pinned + 1] = { mod = mod, pin = pin }
+            else
+                result[#result + 1] = mod
+            end
+        end
+
+        table.sort(pinned, function(a, b)
+            if a.pin ~= b.pin then
+                return a.pin < b.pin
+            end
+            return (a.mod.key or "") < (b.mod.key or "")
+        end)
+
+        for i = #pinned, 1, -1 do
+            table.insert(result, 1, pinned[i].mod)
+        end
+        return result
+    end
+
     if not saved or #saved == 0 then
-        self._orderedModulesCache = self.modules
-        return self.modules
+        modules = ApplyPinnedModuleOrder(modules)
+        if expansionKey == self:GetSelectedExpansionKey() then
+            self._orderedModulesCache = modules
+        end
+        return modules
     end
     local result, seen = {}, {}
-    for _, mod in ipairs(self.modules) do seen[mod.key] = mod end
+    for _, mod in ipairs(modules) do seen[mod.key] = mod end
     for _, key in ipairs(saved) do
         if seen[key] then table.insert(result, seen[key]); seen[key] = nil end
     end
-    for _, mod in ipairs(self.modules) do
+    for _, mod in ipairs(modules) do
         if seen[mod.key] then table.insert(result, mod) end
     end
-    self._orderedModulesCache = result
+    result = ApplyPinnedModuleOrder(result)
+    if expansionKey == self:GetSelectedExpansionKey() then
+        self._orderedModulesCache = result
+    end
     return result
 end
 
+function MR:GetActiveModuleStorage(expansionKey)
+    if not (self and self.db) then
+        return nil
+    end
+
+    expansionKey = expansionKey or self:GetSelectedExpansionKey()
+
+    if self:IsCharacterWindowLayoutEnabled() then
+        self.db.char.expansionModuleStates = self.db.char.expansionModuleStates or {}
+        if expansionKey == "midnight" then
+            self.db.char.modules = self.db.char.modules or {}
+            self.db.char.expansionModuleStates[expansionKey] = self.db.char.modules
+        else
+            self.db.char.expansionModuleStates[expansionKey] = self.db.char.expansionModuleStates[expansionKey] or {}
+        end
+        return self.db.char.expansionModuleStates[expansionKey]
+    end
+
+    self.db.profile.expansionModuleStates = self.db.profile.expansionModuleStates or {}
+    if expansionKey == "midnight" then
+        self.db.profile.modules = self.db.profile.modules or {}
+        self.db.profile.expansionModuleStates[expansionKey] = self.db.profile.modules
+    else
+        self.db.profile.expansionModuleStates[expansionKey] = self.db.profile.expansionModuleStates[expansionKey] or {}
+    end
+    return self.db.profile.expansionModuleStates[expansionKey]
+end
+
+function MR:GetActiveModuleOrderStorage(expansionKey)
+    if not (self and self.db) then
+        return nil
+    end
+
+    expansionKey = expansionKey or self:GetSelectedExpansionKey()
+
+    if self:IsCharacterWindowLayoutEnabled() then
+        self.db.char.expansionModuleOrder = self.db.char.expansionModuleOrder or {}
+        if expansionKey == "midnight" then
+            self.db.char.moduleOrder = self.db.char.moduleOrder or {}
+            self.db.char.expansionModuleOrder[expansionKey] = self.db.char.moduleOrder
+        else
+            self.db.char.expansionModuleOrder[expansionKey] = self.db.char.expansionModuleOrder[expansionKey] or {}
+        end
+        return self.db.char.expansionModuleOrder[expansionKey]
+    end
+
+    self.db.profile.expansionModuleOrder = self.db.profile.expansionModuleOrder or {}
+    if expansionKey == "midnight" then
+        self.db.profile.moduleOrder = self.db.profile.moduleOrder or {}
+        self.db.profile.expansionModuleOrder[expansionKey] = self.db.profile.moduleOrder
+    else
+        self.db.profile.expansionModuleOrder[expansionKey] = self.db.profile.expansionModuleOrder[expansionKey] or {}
+    end
+    return self.db.profile.expansionModuleOrder[expansionKey]
+end
+
 function MR:SetModuleOrder(orderedKeys)
-    self.db.char.moduleOrder  = orderedKeys
+    if self:IsCharacterWindowLayoutEnabled() then
+        local expansionKey = self:GetSelectedExpansionKey()
+        self.db.char.expansionModuleOrder = self.db.char.expansionModuleOrder or {}
+        self.db.char.expansionModuleOrder[expansionKey] = orderedKeys
+        if expansionKey == "midnight" then
+            self.db.char.moduleOrder = orderedKeys
+        end
+    else
+        local expansionKey = self:GetSelectedExpansionKey()
+        self.db.profile.expansionModuleOrder = self.db.profile.expansionModuleOrder or {}
+        self.db.profile.expansionModuleOrder[expansionKey] = orderedKeys
+        if expansionKey == "midnight" then
+            self.db.profile.moduleOrder = orderedKeys
+        end
+    end
     self._orderedModulesCache = nil
 end
 
 function MR:IsModuleEnabled(key)
     local mod = self.moduleByKey[key]
-    if mod and mod.profSkillLine and not self.playerProfessions[mod.profSkillLine] then
-        return false
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[key]
+    local professionSource = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or nil
+    if mod and mod.profSkillLine and self.HasProfessionForModule and not self:HasProfessionForModule(mod.profSkillLine, professionSource) then
+        return s and s.enabled == true and s.professionManual == true
     end
-    local s = self.db.char.modules[key]
+    if mod and not self:IsPatchEnabled(mod.patchKey) then
+        local hasEnabledPatchRows = false
+        for _, row in ipairs(mod.rows or {}) do
+            if self:GetRowPatchKey(mod, row) ~= mod.patchKey and self:IsPatchEnabled(self:GetRowPatchKey(mod, row)) then
+                hasEnabledPatchRows = true
+                break
+            end
+        end
+        if not hasEnabledPatchRows then
+            return false
+        end
+    end
     return not (s and s.enabled == false)
 end
 
+function MR:IsPatchEnabled(patchKey)
+    if not patchKey then
+        return true
+    end
+    local states = self.db and self.db.profile and self.db.profile.patchStates
+    local state = states and states[patchKey]
+    return not (state and state.enabled == false)
+end
+
+function MR:SetPatchEnabled(patchKey, enabled, skipRefresh)
+    if not (self and self.db and self.db.profile and patchKey) then
+        return
+    end
+
+    self.db.profile.patchStates = self.db.profile.patchStates or {}
+    self.db.profile.patchStates[patchKey] = self.db.profile.patchStates[patchKey] or {}
+    self.db.profile.patchStates[patchKey].enabled = enabled and true or false
+    if not skipRefresh then
+        self:RefreshUI()
+    end
+end
+
 function MR:IsModuleOpen(key)
-    local s = self.db.char.modules[key]
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[key]
     if s == nil then
         local mod = self.moduleByKey[key]
         return not mod or mod.defaultOpen ~= false
@@ -532,28 +1177,33 @@ function MR:IsModuleOpen(key)
 end
 
 function MR:IsModuleDetached(key)
-    local s = self.db.char.modules[key]
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[key]
     return s and s.detached == true or false
 end
 
 function MR:SetModuleOpen(key, open)
-    if not self.db.char.modules[key] then self.db.char.modules[key] = {} end
-    self.db.char.modules[key].open = open
+    local storage = self:GetActiveModuleStorage()
+    if not storage[key] then storage[key] = {} end
+    storage[key].open = open
 end
 
 function MR:SetModuleDetached(key, detached)
-    if not self.db.char.modules[key] then self.db.char.modules[key] = {} end
-    self.db.char.modules[key].detached = detached and true or false
+    local storage = self:GetActiveModuleStorage()
+    if not storage[key] then storage[key] = {} end
+    storage[key].detached = detached and true or false
 end
 
 function MR:GetDetachedModulePosition(key)
-    local s = self.db.char.modules[key]
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[key]
     return s and s.detachedPos or nil
 end
 
 function MR:SetDetachedModulePosition(key, point, relPoint, x, y)
-    if not self.db.char.modules[key] then self.db.char.modules[key] = {} end
-    self.db.char.modules[key].detachedPos = {
+    local storage = self:GetActiveModuleStorage()
+    if not storage[key] then storage[key] = {} end
+    storage[key].detachedPos = {
         point = point,
         relPoint = relPoint,
         x = x,
@@ -562,48 +1212,107 @@ function MR:SetDetachedModulePosition(key, point, relPoint, x, y)
 end
 
 function MR:GetDetachedModuleSize(key)
-    local s = self.db.char.modules[key]
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[key]
     return s and s.detachedSize or nil
 end
 
 function MR:SetDetachedModuleSize(key, width, height)
-    if not self.db.char.modules[key] then self.db.char.modules[key] = {} end
-    self.db.char.modules[key].detachedSize = {
+    local storage = self:GetActiveModuleStorage()
+    if not storage[key] then storage[key] = {} end
+    storage[key].detachedSize = {
         width = width,
         height = height,
     }
 end
 
-function MR:SetModuleEnabled(key, enabled)
-    if not self.db.char.modules[key] then self.db.char.modules[key] = {} end
-    self.db.char.modules[key].enabled = enabled
-    self:RefreshUI()
+function MR:SetModuleEnabled(key, enabled, skipRefresh)
+    local storage = self:GetActiveModuleStorage()
+    if not storage[key] then storage[key] = {} end
+    storage[key].enabled = enabled
+    local mod = self.moduleByKey and self.moduleByKey[key]
+    if mod and mod.profSkillLine then
+        storage[key].professionManual = enabled and true or nil
+    end
+    if not skipRefresh then
+        self:RefreshUI()
+    end
+end
+
+function MR:RequestUIRefresh(delay)
+    if not self.ScheduleTimer then
+        self:RefreshUI()
+        return
+    end
+
+    delay = tonumber(delay) or 0.05
+    self._refreshRequestPending = true
+    if self._refreshRequestTimer and self.CancelTimer then
+        self:CancelTimer(self._refreshRequestTimer)
+        self._refreshRequestTimer = nil
+    end
+
+    self._refreshRequestTimer = self:ScheduleTimer(function()
+        self._refreshRequestTimer = nil
+        if self._refreshRequestPending then
+            self._refreshRequestPending = nil
+            self:RefreshUI()
+        end
+    end, delay)
+end
+
+function MR:RequestConfigRefresh()
+    self:RequestUIRefresh(0.04)
 end
 
 function MR:IsModuleHideComplete(modKey)
-    local s = self.db.char.modules[modKey]
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[modKey]
     if s and s.hideComplete ~= nil then return s.hideComplete end
+    if MODULES_WITH_OPTIONAL_CURRENCY_COMPLETION[modKey] then
+        return false
+    end
     return self.db.char.hideComplete
 end
 
-function MR:SetModuleHideComplete(modKey, value)
-    if not self.db.char.modules[modKey] then self.db.char.modules[modKey] = {} end
-    self.db.char.modules[modKey].hideComplete = value
-    self:RefreshUI()
+function MR:SetModuleHideComplete(modKey, value, skipRefresh)
+    local storage = self:GetActiveModuleStorage()
+    if not storage[modKey] then storage[modKey] = {} end
+    if storage[modKey].hideComplete == value then
+        return
+    end
+    storage[modKey].hideComplete = value
+    if not skipRefresh then
+        self:RefreshUI()
+    end
 end
 
 function MR:IsRowEnabled(modKey, rowKey)
-    local s = self.db.char.modules[modKey]
+    local mod = self.moduleByKey and self.moduleByKey[modKey]
+    if mod then
+        for _, row in ipairs(mod.rows or {}) do
+            if row.key == rowKey and not self:IsPatchEnabled(self:GetRowPatchKey(mod, row)) then
+                return false
+            end
+        end
+    end
+
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[modKey]
     if not s or not s.hiddenRows then return true end
     return s.hiddenRows[rowKey] ~= false
 end
 
-function MR:SetRowEnabled(modKey, rowKey, enabled)
-    if not self.db.char.modules[modKey] then self.db.char.modules[modKey] = {} end
-    if not self.db.char.modules[modKey].hiddenRows then
-        self.db.char.modules[modKey].hiddenRows = {}
+function MR:SetRowEnabled(modKey, rowKey, enabled, skipRefresh)
+    local storage = self:GetActiveModuleStorage()
+    if not storage[modKey] then storage[modKey] = {} end
+    if not storage[modKey].hiddenRows then
+        storage[modKey].hiddenRows = {}
     end
-    self.db.char.modules[modKey].hiddenRows[rowKey] = enabled and true or false
+    storage[modKey].hiddenRows[rowKey] = enabled and true or false
+    if not skipRefresh then
+        self:RefreshUI()
+    end
 end
 
 function MR:IsCharacterWindowLayoutEnabled()
@@ -636,6 +1345,22 @@ function MR:SetWindowLayoutValue(key, value)
     end
 end
 
+function MR:GetManagedWindowOpen(key)
+    if not key then
+        return false
+    end
+
+    return self:GetWindowLayoutValue(key) == true
+end
+
+function MR:SetManagedWindowOpen(key, value)
+    if not key then
+        return
+    end
+
+    self:SetWindowLayoutValue(key, value and true or false)
+end
+
 function MR:GetHeaderColor(modKey)
     if self.db.profile.headerColors and self.db.profile.headerColors[modKey] then
         return self.db.profile.headerColors[modKey]
@@ -649,15 +1374,168 @@ function MR:SetHeaderColor(modKey, hexColor)
         self.db.profile.headerColors = {}
     end
     self.db.profile.headerColors[modKey] = hexColor
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 function MR:ResetHeaderColor(modKey)
     if self.db.profile.headerColors then
         self.db.profile.headerColors[modKey] = nil
     end
-    self:RefreshUI()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+end
+
+function MR:GetHeaderBackgroundColor(modKey)
+    if self.db.profile.headerBackgroundColors and self.db.profile.headerBackgroundColors[modKey] then
+        return self.db.profile.headerBackgroundColors[modKey]
+    end
+    return nil
+end
+
+function MR:SetHeaderBackgroundColor(modKey, hexColor)
+    if not self.db.profile.headerBackgroundColors then
+        self.db.profile.headerBackgroundColors = {}
+    end
+    self.db.profile.headerBackgroundColors[modKey] = hexColor
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
+end
+
+function MR:ResetHeaderBackgroundColor(modKey)
+    if self.db.profile.headerBackgroundColors then
+        self.db.profile.headerBackgroundColors[modKey] = nil
+    end
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+end
+
+function MR:GetActiveMediaSettings()
+    if not (self and self.db) then
+        return {}
+    end
+
+    if self:IsCharacterWindowLayoutEnabled() then
+        self.db.char.mediaSettings = self.db.char.mediaSettings or {}
+        return self.db.char.mediaSettings
+    end
+
+    return self.db.profile
+end
+
+function MR:GetMediaSetting(key)
+    if not (self and self.db and key) then
+        return nil
+    end
+
+    local active = self:GetActiveMediaSettings()
+    if active[key] ~= nil then
+        return active[key]
+    end
+
+    return self.db.profile[key]
+end
+
+function MR:SetMediaSetting(key, value)
+    if not (self and self.db and key) then
+        return
+    end
+
+    local active = self:GetActiveMediaSettings()
+    active[key] = value
+end
+
+function MR:IsCursorWithinBounds(target)
+    if not target or not target.IsShown or not target:IsShown() then
+        return false
+    end
+
+    local left = target:GetLeft()
+    local right = target:GetRight()
+    local top = target:GetTop()
+    local bottom = target:GetBottom()
+    if not left or not right or not top or not bottom then
+        return false
+    end
+
+    local cursorX, cursorY = GetCursorPosition()
+    local uiScale = UIParent and UIParent:GetEffectiveScale() or 1
+    cursorX = cursorX / uiScale
+    cursorY = cursorY / uiScale
+
+    return cursorX >= left and cursorX <= right and cursorY >= bottom and cursorY <= top
+end
+
+function MR:ApplyPanelHeaderAutoHide(frame, titleBar, shouldHideFunc)
+    if not frame or not titleBar then return end
+
+    if not frame._mrPanelHeaderAutoHideHooked then
+        frame._mrHeaderHoverElapsed = 0
+        frame:EnableMouse(true)
+        frame:HookScript("OnEnter", function(self)
+            if self.UpdatePanelHeaderVisibility then
+                self:UpdatePanelHeaderVisibility(true)
+            end
+        end)
+        frame:HookScript("OnLeave", function(self)
+            if self.UpdatePanelHeaderVisibility then
+                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
+            end
+        end)
+        frame:HookScript("OnShow", function(self)
+            if self.UpdatePanelHeaderVisibility then
+                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
+            end
+        end)
+        frame:HookScript("OnUpdate", function(self, elapsed)
+            if not self.UpdatePanelHeaderVisibility then return end
+            self._mrHeaderHoverElapsed = (self._mrHeaderHoverElapsed or 0) + (elapsed or 0)
+            if self._mrHeaderHoverElapsed < 0.05 then return end
+            self._mrHeaderHoverElapsed = 0
+            local isHovering = MR:IsCursorWithinBounds(self)
+            self:UpdatePanelHeaderVisibility(isHovering)
+        end)
+        frame._mrPanelHeaderAutoHideHooked = true
+    end
+
+    frame.UpdatePanelHeaderVisibility = function(self, isHovering)
+        local hideHeaders = MR.db and MR.db.profile and MR.db.profile.autoHidePanelHeaders
+        if shouldHideFunc then
+            hideHeaders = hideHeaders or shouldHideFunc(self)
+        end
+        titleBar:SetAlpha((hideHeaders and not isHovering) and 0 or 1)
+        self._mrHeaderHovering = isHovering
+    end
+
+    frame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(frame))
+end
+
+function MR:RefreshPanelHeaderVisibility(frame)
+    if frame and frame.UpdatePanelHeaderVisibility then
+        frame:UpdatePanelHeaderVisibility(self:IsCursorWithinBounds(frame))
+    end
 end
 
 function MR:GetRowColor(modKey, rowKey)
@@ -671,8 +1549,16 @@ function MR:SetRowColor(modKey, rowKey, hexColor)
     if not self.db.profile.rowColors then self.db.profile.rowColors = {} end
     if not self.db.profile.rowColors[modKey] then self.db.profile.rowColors[modKey] = {} end
     self.db.profile.rowColors[modKey][rowKey] = hexColor
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 function MR:ResetRowColor(modKey, rowKey)
@@ -680,8 +1566,16 @@ function MR:ResetRowColor(modKey, rowKey)
     if p and p[modKey] then
         p[modKey][rowKey] = nil
     end
-    self:RefreshUI()
-    self:RepopulateConfigFrame()
+    if self.RequestUIRefresh then
+        self:RequestUIRefresh(0.02)
+    else
+        self:RefreshUI()
+    end
+    if self.RequestConfigRepopulate then
+        self:RequestConfigRepopulate(nil, 0.06)
+    elseif self.RepopulateConfigFrame then
+        self:RepopulateConfigFrame()
+    end
 end
 
 local PARENT_TO_MIDNIGHT = {
@@ -689,35 +1583,248 @@ local PARENT_TO_MIDNIGHT = {
     [773]=2913, [755]=2914, [165]=2915, [186]=2916, [393]=2917, [197]=2918,
 }
 
+local PROFESSION_CONCENTRATION_CURRENCIES = {
+    [2906] = 3161,
+    [2907] = 3162,
+    [2909] = 3163,
+    [2910] = 3164,
+    [2913] = 3165,
+    [2914] = 3166,
+    [2915] = 3167,
+    [2918] = 3168,
+}
+
 MR.playerProfessions = MR.playerProfessions or {}
 
+local function CopyProfessionMap(source)
+    local copy = {}
+    if type(source) ~= "table" then
+        return copy
+    end
+
+    for skillLineID, learned in pairs(source) do
+        if learned then
+            copy[skillLineID] = true
+        end
+    end
+
+    return copy
+end
+
+local function HasAnyProfessionRecord(source)
+    if type(source) ~= "table" then
+        return false
+    end
+
+    for _, learned in pairs(source) do
+        if learned then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function CharacterDataHasProfession(charData, skillLineID)
+    if type(charData) ~= "table" then
+        return false
+    end
+
+    local professions = charData.professions
+    if type(professions) == "table" and professions[skillLineID] then
+        return true
+    end
+    if charData.professionsScanned or HasAnyProfessionRecord(professions) then
+        return false
+    end
+
+    local concentration = charData.professionConcentration
+    return type(concentration) == "table" and concentration[skillLineID] ~= nil
+end
+
+function MR:HasProfessionForModule(skillLineID, charData)
+    if not skillLineID then
+        return true
+    end
+
+    if charData ~= nil then
+        if self.db and charData == self.db.char and self.playerProfessions and self.playerProfessions[skillLineID] then
+            return true
+        end
+        return CharacterDataHasProfession(charData, skillLineID)
+    end
+
+    if self.playerProfessions and self.playerProfessions[skillLineID] then
+        return true
+    end
+
+    if CharacterDataHasProfession(self.db and self.db.char, skillLineID) then
+        return true
+    end
+
+    return false
+end
+
+local function ConcentrationDataEqual(a, b)
+    if a == b then
+        return true
+    end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+
+    for skillLineID, infoA in pairs(a) do
+        local infoB = b[skillLineID]
+        if type(infoA) ~= "table" or type(infoB) ~= "table" then
+            return false
+        end
+        if (infoA.currencyID or 0) ~= (infoB.currencyID or 0)
+            or (infoA.quantity or 0) ~= (infoB.quantity or 0)
+            or (infoA.maxQuantity or 0) ~= (infoB.maxQuantity or 0)
+            or (infoA.rechargingCycleDurationMS or 0) ~= (infoB.rechargingCycleDurationMS or 0)
+            or (infoA.rechargingAmountPerCycle or 0) ~= (infoB.rechargingAmountPerCycle or 0)
+            or (infoA.lastUpdated or 0) ~= (infoB.lastUpdated or 0) then
+            return false
+        end
+    end
+
+    for skillLineID in pairs(b) do
+        if a[skillLineID] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
 function MR:RefreshPlayerProfessions()
+    if self:ShouldDeferForCombat("playerProfessions") then
+        return
+    end
+
     wipe(self.playerProfessions)
+    local found = false
+    local scanned = false
     if C_TradeSkillUI and C_TradeSkillUI.GetAllProfessionTradeSkillLines then
         local lines = C_TradeSkillUI.GetAllProfessionTradeSkillLines()
         if lines then
+            scanned = true
             for _, skillLineID in ipairs(lines) do
                 local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID and
                              C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID)
                 if info and (info.skillLevel or 0) > 0 then
                     self.playerProfessions[skillLineID] = true
+                    found = true
                     if info.parentProfessionID then
                         local mid = PARENT_TO_MIDNIGHT[info.parentProfessionID]
-                        if mid then self.playerProfessions[mid] = true end
+                        if mid then
+                            self.playerProfessions[mid] = true
+                            found = true
+                        end
                     end
                 end
             end
         end
     end
-    for _, idx in ipairs({ GetProfessions() }) do
-        if idx then
-            local _, _, _, _, _, _, parentSkillLine = GetProfessionInfo(idx)
-            if parentSkillLine then
-                local mid = PARENT_TO_MIDNIGHT[parentSkillLine]
-                if mid then self.playerProfessions[mid] = true end
+    if GetProfessions and GetProfessionInfo then
+        local prof1, prof2, archaeology, fishing, cooking = GetProfessions()
+        scanned = true
+        for _, idx in ipairs({ prof1, prof2, archaeology, fishing, cooking }) do
+            if idx then
+                local _, _, _, _, _, _, parentSkillLine = GetProfessionInfo(idx)
+                if parentSkillLine then
+                    local mid = PARENT_TO_MIDNIGHT[parentSkillLine]
+                    if mid then
+                        self.playerProfessions[mid] = true
+                        found = true
+                    end
+                end
             end
         end
     end
+
+    if self.db and self.db.char then
+        if scanned then
+            self.db.char.professions = CopyProfessionMap(self.playerProfessions)
+            self.db.char.professionsScanned = true
+            if not found then
+                self.db.char.professionConcentration = {}
+            end
+        elseif HasAnyProfessionRecord(self.db.char.professions) then
+            for skillLineID, learned in pairs(self.db.char.professions) do
+                if learned then
+                    self.playerProfessions[skillLineID] = true
+                end
+            end
+        end
+    end
+end
+
+function MR:RefreshProfessionConcentration()
+    if not (self and self.db and self.db.char) then
+        return false
+    end
+
+    if self:ShouldDeferForCombat("professionConcentration") then
+        return false
+    end
+
+    local previous = self.db.char.professionConcentration
+    local concentration = {}
+    for skillLineID, currencyID in pairs(PROFESSION_CONCENTRATION_CURRENCIES) do
+        if self.playerProfessions and self.playerProfessions[skillLineID] then
+            local info = C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo and C_CurrencyInfo.GetCurrencyInfo(currencyID)
+            if info then
+                local quantity = info.quantity or 0
+                local maxQuantity = info.maxQuantity or 0
+                local cycleMS = info.rechargingCycleDurationMS or 0
+                local amountPerCycle = info.rechargingAmountPerCycle or 1
+                if amountPerCycle <= 0 then
+                    amountPerCycle = 1
+                end
+                local lastUpdated = GetServerTime()
+                local previousInfo = type(previous) == "table" and previous[skillLineID] or nil
+
+                if type(previousInfo) == "table" then
+                    local previousQuantity = tonumber(previousInfo.quantity) or 0
+                    local previousMax = tonumber(previousInfo.maxQuantity) or 0
+                    local previousUpdated = tonumber(previousInfo.lastUpdated) or 0
+                    local previousCycleMS = tonumber(previousInfo.rechargingCycleDurationMS) or cycleMS
+                    local previousAmountPerCycle = tonumber(previousInfo.rechargingAmountPerCycle) or amountPerCycle
+                    if previousCycleMS <= 0 then
+                        previousCycleMS = cycleMS
+                    end
+                    if previousAmountPerCycle <= 0 then
+                        previousAmountPerCycle = amountPerCycle
+                    end
+
+                    if quantity == previousQuantity
+                        and previousMax > 0
+                        and previousQuantity < previousMax
+                        and previousUpdated > 0
+                        and previousCycleMS > 0
+                        and previousAmountPerCycle > 0 then
+                        lastUpdated = previousUpdated
+                    end
+                end
+
+                concentration[skillLineID] = {
+                    currencyID = currencyID,
+                    quantity = quantity,
+                    maxQuantity = maxQuantity,
+                    rechargingCycleDurationMS = cycleMS,
+                    rechargingAmountPerCycle = amountPerCycle,
+                    name = info.name,
+                    iconFileID = info.iconFileID,
+                    quality = info.quality or 0,
+                    lastUpdated = lastUpdated,
+                }
+            end
+        end
+    end
+
+    self.db.char.professionConcentration = concentration
+    return not ConcentrationDataEqual(previous, concentration)
 end
 
 local spellIndex = {}
@@ -749,86 +1856,479 @@ local function WriteProgress(progress, modKey, rowKey, val, overrides)
     return true
 end
 
-function MR:Scan()
-    if self._scanSuppressedUntil and GetTime() < self._scanSuppressedUntil then
+local function ValuesEqual(a, b)
+    if a == b then
+        return true
+    end
+
+    if type(a) ~= type(b) then
+        return false
+    end
+
+    if type(a) ~= "table" then
+        return false
+    end
+
+    for key, value in pairs(a) do
+        if not ValuesEqual(value, b[key]) then
+            return false
+        end
+    end
+
+    for key in pairs(b) do
+        if a[key] == nil then
+            return false
+        end
+    end
+
+    return true
+end
+
+local function UpdateCurrencyProgressForRow(self, progress, mod, row)
+    local info = C_CurrencyInfo.GetCurrencyInfo(row.currencyId)
+    if not info then
+        return false
+    end
+
+    local dirty = false
+    local wallet  = info.quantity or 0
+    local weekly  = info.quantityEarnedThisWeek or 0
+    local weeklyCap = (info.maxWeeklyQuantity and info.maxWeeklyQuantity > 0)
+                      and info.maxWeeklyQuantity or nil
+    local dynamicCap = nil
+    local raw = wallet
+
+    if info.maxQuantity and info.maxQuantity > 0 then
+        dynamicCap = info.maxQuantity
+        if info.useTotalEarnedForMaxQty and info.totalEarned ~= nil then
+            raw = info.totalEarned
+        else
+            raw = wallet
+        end
+    elseif weeklyCap and not row.noMax then
+        dynamicCap = weeklyCap
+        raw = weekly
+    end
+
+    if dynamicCap and row.max ~= dynamicCap then
+        row.max = dynamicCap
+        dirty = true
+    end
+
+    if not progress[mod.key] then progress[mod.key] = {} end
+    local walletKey = row.key .. "_wallet"
+    local previousWallet = progress[mod.key][walletKey]
+
+    if progress[mod.key][walletKey] ~= wallet then
+        progress[mod.key][walletKey] = wallet
+        dirty = true
+    end
+
+    if row.trackWeeklyEarned then
+        local collectedKey = row.key .. "_collected"
+        local trackingCap = row.weeklyCap or weeklyCap or row.max
+        local collected = tonumber(progress[mod.key][collectedKey]) or 0
+
+        if previousWallet ~= nil and wallet > previousWallet then
+            collected = collected + (wallet - previousWallet)
+        end
+
+        collected = math.max(collected, weekly, wallet)
+        if trackingCap and trackingCap > 0 then
+            collected = math.min(collected, trackingCap)
+        end
+
+        if progress[mod.key][collectedKey] ~= collected then
+            progress[mod.key][collectedKey] = collected
+            dirty = true
+        end
+    end
+
+    local val = row.noMax and raw or math.min(raw, row.max or raw)
+    if WriteProgress(progress, mod.key, row.key, val, self.db.char.manualOverrides) then
+        dirty = true
+    end
+
+    return dirty
+end
+
+local function UpdateQuestProgressForRow(self, progress, mod, row)
+    local done = 0
+    if row.questIds then
+        for _, qid in ipairs(row.questIds) do
+            if C_QuestLog.IsQuestFlaggedCompleted(qid) then
+                done = done + 1
+            end
+        end
+    end
+
+    local value = math.min(done, row.max or done)
+    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+    local overridesBucket = (self.GetManualOverrideBucket and self:GetManualOverrideBucket(mod.key, row.key)) or self.db.char.manualOverrides
+
+    if row.accountWideComplete and value == 0 then
+        local existing = progressBucket[mod.key] and progressBucket[mod.key][row.key] or 0
+        if existing > 0 then
+            return false
+        end
+    end
+
+    return WriteProgress(progressBucket, mod.key, row.key, value, overridesBucket)
+end
+
+local function UpdateItemProgressForRow(self, progress, mod, row)
+    local count = 0
+    if C_Item and C_Item.GetItemCount then
+        count = C_Item.GetItemCount(row.itemId, false, false, true) or 0
+    elseif GetItemCount then
+        count = GetItemCount(row.itemId, false, false) or 0
+    end
+
+    local value = row.noMax and count or math.min(count, row.max or count)
+    return WriteProgress(progress, mod.key, row.key, value, self.db.char.manualOverrides)
+end
+
+function MR:RequestScan(delay)
+    delay = tonumber(delay) or 0
+
+    if delay > 0 then
+        if self._requestedScanTimer then
+            self:CancelTimer(self._requestedScanTimer)
+        end
+        self._requestedScanTimer = self:ScheduleTimer(function()
+            self._requestedScanTimer = nil
+            self:Scan()
+        end, delay)
         return
     end
 
-    self.db.char.lastSyncAt = GetServerTime()
+    self:Scan()
+end
+
+
+
+
+
+function MR:ScanAutoUpdateInstanceRows(changedQuestId, changedEncounterId, difficultyId)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return
+    end
+
+    if difficultyId and MR.CANONICAL_DIFFICULTY then
+        difficultyId = MR.CANONICAL_DIFFICULTY[difficultyId] or difficultyId
+    end
+    local progress = self.db.char.progress
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+
+            if row.autoUpdateInstances and row.questIds and (changedQuestId == nil or (function()
+                for _, qid in ipairs(row.questIds) do
+                    if qid == changedQuestId then return true end
+                end
+            end)()) then
+                if not row.turnInTracked then
+                    UpdateQuestProgressForRow(self, progress, mod, row)
+                elseif row.allowQuestFlagBackfill then
+                    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                    local cur = progressBucket[mod.key] and progressBucket[mod.key][row.key] or 0
+                    if cur <= 0 then
+                        UpdateQuestProgressForRow(self, progress, mod, row)
+                    end
+                end
+            end
+
+
+            if row.encounterIds and (changedEncounterId == nil or (function()
+                for _, eid in ipairs(row.encounterIds) do
+                    if eid == changedEncounterId then return true end
+                end
+            end)()) then
+
+                local diffOk = (not difficultyId) or (not row.encounterDifficulties) or (row.encounterDifficulties[difficultyId] == true)
+                if diffOk then
+                    local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                    if not progressBucket[mod.key] then progressBucket[mod.key] = {} end
+                    local cur = progressBucket[mod.key][row.key] or 0
+                    local maxVal = row.max or 1
+
+
+                    if difficultyId and row.taskId then
+                        if self.db then
+                            local diffProgress
+                            if row.accountWideComplete then
+                                self.db.global.customTaskDiffProgress = self.db.global.customTaskDiffProgress or {}
+                                diffProgress = self.db.global.customTaskDiffProgress
+                            elseif self.db.char then
+                                self.db.char.customTaskDiffProgress = self.db.char.customTaskDiffProgress or {}
+                                diffProgress = self.db.char.customTaskDiffProgress
+                            end
+                            local key = row.key or tostring(row.taskId)
+                            if diffProgress then
+                                diffProgress[key] = diffProgress[key] or {}
+                                local diffState = diffProgress[key]
+                                if not diffState[difficultyId] then
+                                    diffState[difficultyId] = true
+                                    if cur < maxVal then
+                                        progressBucket[mod.key][row.key] = cur + 1
+                                        self._moduleStatsCache = nil
+                                    end
+                                end
+                            end
+                        end
+                    elseif not row.taskId then
+
+                        if cur < maxVal then
+                            progressBucket[mod.key][row.key] = maxVal
+                            self._moduleStatsCache = nil
+                        end
+                    end
+
+
+                end
+            end
+        end
+    end
+end
+
+function MR:RefreshCurrencyProgress(currencyId, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
 
     local progress = self.db.char.progress
-    local dirty    = false
+    local dirty = false
 
     for _, mod in ipairs(self.modules) do
         for _, row in ipairs(mod.rows) do
-            if row.questIds and not row.turnInTracked then
-                local done = 0
-                for _, qid in ipairs(row.questIds) do
-                    if C_QuestLog.IsQuestFlaggedCompleted(qid) then done = done + 1 end
-                end
-                if WriteProgress(progress, mod.key, row.key, math.min(done, row.max or done), self.db.char.manualOverrides) then
+            if row.currencyId and (currencyId == nil or row.currencyId == currencyId) then
+                if UpdateCurrencyProgressForRow(self, progress, mod, row) then
                     dirty = true
                 end
-            elseif row.questIds and row.turnInTracked and row.allowQuestFlagBackfill then
-                local currentValue = progress[mod.key] and progress[mod.key][row.key] or 0
-                if currentValue <= 0 then
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:RefreshQuestProgress(questId, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+    local progress = self.db.char.progress
+    local dirty = false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.questIds then
+                local shouldUpdate = questId == nil
+                if not shouldUpdate then
                     for _, qid in ipairs(row.questIds) do
-                        if C_QuestLog.IsQuestFlaggedCompleted(qid) then
-                            if WriteProgress(progress, mod.key, row.key, 1, self.db.char.manualOverrides) then
-                                dirty = true
-                            end
+                        if qid == questId then
+                            shouldUpdate = true
                             break
                         end
                     end
                 end
+
+                if shouldUpdate then
+                    if row.turnInTracked and row.allowQuestFlagBackfill then
+                        local progressBucket = (self.GetProgressBucket and self:GetProgressBucket(mod.key, row.key)) or progress
+                        local currentValue = progressBucket[mod.key] and progressBucket[mod.key][row.key] or 0
+                        if currentValue <= 0 and UpdateQuestProgressForRow(self, progress, mod, row) then
+                            dirty = true
+                        end
+                    elseif not row.turnInTracked then
+                        if UpdateQuestProgressForRow(self, progress, mod, row) then
+                            dirty = true
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:RefreshItemProgress(itemId, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress) then
+        return false
+    end
+
+    local progress = self.db.char.progress
+    local dirty = false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.itemId and not row.noItemProgress and (itemId == nil or row.itemId == itemId) then
+                if UpdateItemProgressForRow(self, progress, mod, row) then
+                    dirty = true
+                end
+            end
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI ~= false then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:RefreshModuleScans(moduleKeys, refreshUI)
+    if not (self and self.db and self.db.char and self.db.char.progress and moduleKeys) then
+        return false
+    end
+
+    local ran = false
+    local dirty = false
+    for _, moduleKey in ipairs(moduleKeys) do
+        local mod = self.moduleByKey and self.moduleByKey[moduleKey]
+        if mod and mod.onScan then
+            if not self.db.char.progress[moduleKey] then
+                self.db.char.progress[moduleKey] = {}
+            end
+            local beforeProgress = DeepCopy(self.db.char.progress[moduleKey])
+            local beforeRows = {}
+            for _, row in ipairs(mod.rows or {}) do
+                beforeRows[row.key] = {
+                    countColor = DeepCopy(row.countColor),
+                    countText = row.countText,
+                    isVisible = row.isVisible and row.isVisible() or nil,
+                    max = row.max,
+                    note = row.note,
+                    vaultColor = row.vaultColor,
+                    vaultLabel = row.vaultLabel,
+                }
+            end
+
+            local changed = mod.onScan(mod) == true
+            if not changed and not ValuesEqual(beforeProgress, self.db.char.progress[moduleKey]) then
+                changed = true
+            end
+            if not changed then
+                for _, row in ipairs(mod.rows or {}) do
+                    local beforeRow = beforeRows[row.key]
+                    local afterRow = {
+                        countColor = DeepCopy(row.countColor),
+                        countText = row.countText,
+                        isVisible = row.isVisible and row.isVisible() or nil,
+                        max = row.max,
+                        note = row.note,
+                        vaultColor = row.vaultColor,
+                        vaultLabel = row.vaultLabel,
+                    }
+                    if not ValuesEqual(beforeRow, afterRow) then
+                        changed = true
+                        break
+                    end
+                end
+            end
+
+            if changed then
+                dirty = true
+            end
+            ran = true
+        end
+    end
+
+    if dirty then
+        self._moduleStatsCache = nil
+        if refreshUI then
+            self:RefreshUI()
+        end
+    end
+
+    return dirty
+end
+
+function MR:Scan()
+    if self:ShouldDeferForCombat("scan") then
+        return
+    end
+
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(nil, nil)
+        return
+    end
+
+    local now = GetTime and GetTime() or 0
+    local minScanInterval = 0.25
+
+    if self._requestedScanTimer then
+        self:CancelTimer(self._requestedScanTimer)
+        self._requestedScanTimer = nil
+    end
+
+    if self._scanInProgress then
+        self._scanPending = true
+        return
+    end
+
+    if self._lastScanAt and (now - self._lastScanAt) < minScanInterval then
+        self._scanPending = true
+        if not self._scanThrottleTimer then
+            local delay = math.max(minScanInterval - (now - self._lastScanAt), 0.01)
+            self._scanThrottleTimer = self:ScheduleTimer(function()
+                self._scanThrottleTimer = nil
+                if self._scanPending then
+                    self._scanPending = nil
+                    self:Scan()
+                end
+            end, delay)
+        end
+        return
+    end
+
+    if self._scanSuppressedUntil and GetTime() < self._scanSuppressedUntil then
+        return
+    end
+
+    self._scanInProgress = true
+    self.db.char.lastSyncAt = GetServerTime()
+    local concentrationChanged = self:RefreshProfessionConcentration()
+
+    local progress = self.db.char.progress
+    local dirty    = concentrationChanged and true or false
+
+    for _, mod in ipairs(self.modules) do
+        for _, row in ipairs(mod.rows) do
+            if row.questIds and not row.turnInTracked then
+                if UpdateQuestProgressForRow(self, progress, mod, row) then
+                    dirty = true
+                end
+            elseif row.questIds and row.turnInTracked and row.allowQuestFlagBackfill then
+                local currentValue = progress[mod.key] and progress[mod.key][row.key] or 0
+                if currentValue <= 0 and UpdateQuestProgressForRow(self, progress, mod, row) then
+                    dirty = true
+                end
             end
             if row.currencyId then
-                local info = C_CurrencyInfo.GetCurrencyInfo(row.currencyId)
-                if info then
-                    local wallet  = info.quantity or 0
-                    local weekly  = info.quantityEarnedThisWeek or 0
-                    local weeklyCap = (info.maxWeeklyQuantity and info.maxWeeklyQuantity > 0)
-                                      and info.maxWeeklyQuantity or nil
-                    local dynamicCap = nil
-                    local raw = wallet
-
-                    if info.maxQuantity and info.maxQuantity > 0 then
-                        dynamicCap = info.maxQuantity
-                        if info.useTotalEarnedForMaxQty and info.totalEarned ~= nil then
-                            raw = info.totalEarned
-                        else
-                            raw = wallet
-                        end
-                    elseif weeklyCap then
-                        dynamicCap = weeklyCap
-                        raw = weekly
-                    end
-
-                    if dynamicCap and row.max ~= dynamicCap then
-                        row.max = dynamicCap
-                        dirty = true
-                    end
-
-                    if not progress[mod.key] then progress[mod.key] = {} end
-                    local walletKey = row.key .. "_wallet"
-                    if progress[mod.key][walletKey] ~= wallet then
-                        progress[mod.key][walletKey] = wallet
-                        dirty = true
-                    end
-
-                    local val = row.noMax and raw or math.min(raw, row.max or raw)
-                    if WriteProgress(progress, mod.key, row.key, val, self.db.char.manualOverrides) then dirty = true end
+                if UpdateCurrencyProgressForRow(self, progress, mod, row) then
+                    dirty = true
                 end
             end
-            if row.itemId then
-                local count = 0
-                if C_Item and C_Item.GetItemCount then
-                    count = C_Item.GetItemCount(row.itemId, false, false, true) or 0
-                elseif GetItemCount then
-                    count = GetItemCount(row.itemId, false, false) or 0
-                end
-
-                if WriteProgress(progress, mod.key, row.key, row.noMax and count or math.min(count, row.max or count), self.db.char.manualOverrides) then
+            if row.itemId and not row.noItemProgress then
+                if UpdateItemProgressForRow(self, progress, mod, row) then
                     dirty = true
                 end
             end
@@ -836,8 +2336,8 @@ function MR:Scan()
 
         if mod.onScan then
             local before = progress[mod.key] and next(progress[mod.key])
-            mod.onScan(mod)
-            if progress[mod.key] and next(progress[mod.key]) ~= before then dirty = true end
+            local changed = mod.onScan(mod)
+            if changed or (progress[mod.key] and next(progress[mod.key]) ~= before) then dirty = true end
         end
 
         local mdb = progress[mod.key]
@@ -866,9 +2366,20 @@ function MR:Scan()
     if self.SyncAllRareKills then self:SyncAllRareKills() end
     if self.RefreshRares  then self:RefreshRares()  end
     if self.RefreshRenown then self:RefreshRenown() end
+
+    self._lastScanAt = GetTime and GetTime() or now
+    self._scanInProgress = nil
+
+    if self._scanPending and not self._scanThrottleTimer then
+        self._scanPending = nil
+        self._scanThrottleTimer = self:ScheduleTimer(function()
+            self._scanThrottleTimer = nil
+            self:Scan()
+        end, minScanInterval)
+    end
 end
 
-local TURN_IN_COMPLETIONS = {
+local STATIC_TURN_IN_COMPLETIONS = {
     [89268] = { mod = "s1_weekly",           row = "lost_legends"        },
     [89289] = { mod = "s1_weekly",           row = "saltherils_soiree"   },
     [91966] = { mod = "s1_weekly",           row = "saltherils_soiree"   },
@@ -881,146 +2392,83 @@ local TURN_IN_COMPLETIONS = {
     [94835] = { mod = "pvp_weeklies",        row = "early_training"      },
 }
 
-local WEEKLY_RESET_SCHEDULE = {
-    [1] = { weekday = 3, hour = 3 }, 
-    [2] = { weekday = 4, hour = 3 }, 
-    [3] = { weekday = 3, hour = 3 }, 
-    [4] = { weekday = 4, hour = 3 }, 
-    [5] = { weekday = 4, hour = 3 }, 
-}
+local TURN_IN_COMPLETIONS = {}
 
-local DAY_SECONDS = 24 * 60 * 60
-local WEEK_SECONDS = 7 * DAY_SECONDS
+function MR:RebuildTurnInCompletions()
+    wipe(TURN_IN_COMPLETIONS)
 
-local function GetResetTimestampFromCountdown(secondsUntilReset, cycleSeconds)
-    if type(secondsUntilReset) ~= "number" then
-        return nil
+    for questID, entry in pairs(STATIC_TURN_IN_COMPLETIONS) do
+        TURN_IN_COMPLETIONS[questID] = entry
     end
 
-    secondsUntilReset = math.floor(secondsUntilReset)
-    if secondsUntilReset < 0 then
-        return nil
-    end
-
-    local maxExpected = cycleSeconds + (2 * 60 * 60)
-    if secondsUntilReset > maxExpected then
-        return nil
-    end
-
-    return GetServerTime() + secondsUntilReset - cycleSeconds
-end
-
-function MR:GetLastDailyTimestamp()
-    if C_DateAndTime and C_DateAndTime.GetSecondsUntilDailyReset then
-        local ts = GetResetTimestampFromCountdown(C_DateAndTime.GetSecondsUntilDailyReset(), DAY_SECONDS)
-        if ts then
-            return ts
-        end
-    end
-
-    local cal = C_DateAndTime.GetCurrentCalendarTime()
-    if not cal then return nil end
-    local now = GetServerTime()
-    local secondsSinceMidnight = (cal.hour * 3600) + (cal.minute * 60) + (cal.second or 0)
-    return now - secondsSinceMidnight
-end
-
-function MR:CheckDailyReset()
-    local lastDailyAt = self:GetLastDailyTimestamp()
-    if not lastDailyAt then return end
-    local prevDailyAt = self.db.char.lastDailyAt
-    if not prevDailyAt or prevDailyAt == 0 then
-        self.db.char.lastDailyAt = lastDailyAt
-        return
-    end
-    if lastDailyAt > prevDailyAt + 300 then
-        self:DoDailyReset()
-    end
-end
-
-function MR:DoDailyReset()
-    local ts = self:GetLastDailyTimestamp()
-    if ts then self.db.char.lastDailyAt = ts end
     for _, mod in ipairs(self.modules) do
-        if mod.resetType == "daily" then
-            self.db.char.progress[mod.key] = {}
-            if self.db.char.manualOverrides then
-                self.db.char.manualOverrides[mod.key] = nil
+        for _, row in ipairs(mod.rows) do
+            if row.turnInTracked and row.questIds then
+                for _, questID in ipairs(row.questIds) do
+                    TURN_IN_COMPLETIONS[questID] = {
+                        mod = mod.key,
+                        row = row.key,
+                    }
+                end
             end
         end
     end
-    self:RefreshUI()
-end
-
-function MR:GetLastResetTimestamp()
-    if C_DateAndTime and C_DateAndTime.GetSecondsUntilWeeklyReset then
-        local ts = GetResetTimestampFromCountdown(C_DateAndTime.GetSecondsUntilWeeklyReset(), WEEK_SECONDS)
-        if ts then
-            return ts
-        end
-    end
-
-    local region    = GetCurrentRegion() or 1
-    local resetInfo = WEEKLY_RESET_SCHEDULE[region]
-    if not resetInfo then return nil end
-
-    local cal = C_DateAndTime.GetCurrentCalendarTime()
-    if not cal then return nil end
-
-    local now                 = GetServerTime()
-    local secondsSinceMidnight = (cal.hour * 3600) + (cal.minute * 60) + (cal.second or 0)
-    local todayReset          = now - secondsSinceMidnight + (resetInfo.hour * 3600)
-    local diffDays            = ((cal.weekday - resetInfo.weekday) + 7) % 7
-    local candidate           = todayReset - (diffDays * 24 * 3600)
-
-    if candidate > now then candidate = candidate - (7 * 24 * 3600) end
-
-    return candidate
-end
-
-function MR:GetCurrentWeekKey()
-    return self:GetLastResetTimestamp() or 0
-end
-
-function MR:CheckWeeklyReset()
-    local lastResetAt = self:GetLastResetTimestamp()
-    if not lastResetAt then return end
-
-    local prevResetAt = self.db.char.lastResetAt
-
-    if not prevResetAt then
-        self.db.char.lastResetAt = lastResetAt
-        return
-    end
-
-    if lastResetAt > prevResetAt + 300 then
-        self:DoWeeklyReset()
-    end
-end
-
-function MR:DoWeeklyReset()
-    local ts = self:GetLastResetTimestamp()
-    if ts then self.db.char.lastResetAt = ts end
-
-    self._scanSuppressedUntil = GetTime() + 15
-
-            for _, mod in ipairs(self:GetOrderedModules()) do
-                if mod.resetType == "weekly" then
-            self.db.char.progress[mod.key] = {}
-            if self.db.char.manualOverrides then
-                self.db.char.manualOverrides[mod.key] = nil
-            end
-        end
-    end
-    self.db.char.raresKills = {}
-    self:RefreshUI()
-    self:ScheduleTimer(function() self:Scan() end, 20)
-    print(L["Weekly_Reset"] or "|cff2ae7c6MidnightRoutine:|r Weekly reset applied.")
 end
 
 function MR:OnInitialize()
-    self.db = AceDB:New("MidnightRoutineDB", DEFAULTS, true)
+    self.db = Foundry.DB:New({
+        name = addonName,
+        sv = "MidnightRoutineDB",
+        defaults = DEFAULTS,
+        defaultProfile = true,
+    })
     self:MigrateLegacySettings()
+    if self.RefreshCustomTasksModule then
+        self:RefreshCustomTasksModule()
+    end
+    if self.RefreshCurrenciesModule then
+        self:RefreshCurrenciesModule(false)
+    end
+    if ns.ApplySharedMedia then
+        ns.ApplySharedMedia(self.GetActiveMediaSettings and self:GetActiveMediaSettings() or self.db.profile)
+    end
+end
+
+function MR:ResetAllSettings()
+    if not self.db then
+        return
+    end
+
+    local welcomeSeen = self.db.char and self.db.char.welcomeSeen
+    local welcomeSuppressed = self.db.profile and self.db.profile.welcomeSuppressed
+    local firstSeen = self.db.profile and self.db.profile.firstSeen
+
+    RestoreDefaults(self.db.profile, DEFAULTS.profile)
+    RestoreDefaults(self.db.char, DEFAULTS.char)
+
+    self.db.char.welcomeSeen = welcomeSeen and true or false
+    self.db.profile.welcomeSuppressed = welcomeSuppressed and true or false
+    self.db.profile.firstSeen = firstSeen and true or false
+
+    self._orderedModulesCache = nil
+    self._moduleStatsCache = nil
+    if self.RefreshCustomTasksModule then
+        self:RefreshCustomTasksModule()
+    end
+    if self.RefreshCurrenciesModule then
+        self:RefreshCurrenciesModule(false)
+    end
+
+    if ns.ApplySharedMedia then
+        ns.ApplySharedMedia(self.GetActiveMediaSettings and self:GetActiveMediaSettings() or self.db.profile)
+    end
+    if self.ApplySharedMediaSettings then
+        self:ApplySharedMediaSettings()
+    else
+        self:RefreshUI()
+    end
+
+    self:RequestScan(0.05)
 end
 
 function MR:MigrateLegacySettings()
@@ -1062,6 +2510,19 @@ function MR:ShouldHideFramesInCurrentInstance()
     return INSTANCE_HIDE_TYPES[instanceType] == true
 end
 
+function MR:ShouldSuspendBackgroundWorkInCurrentInstance()
+    return self:ShouldHideFramesInCurrentInstance()
+end
+
+function MR:ResumeDeferredInstanceWork()
+    if self._deferredInstanceGatheringRefresh then
+        self._deferredInstanceGatheringRefresh = nil
+        if self.RefreshGatheringLocationsFrame then
+            self:RefreshGatheringLocationsFrame()
+        end
+    end
+end
+
 function MR:CaptureManagedWindowState()
     local detached = {}
     if self.detachedFrames then
@@ -1077,6 +2538,7 @@ function MR:CaptureManagedWindowState()
         renown = self.renownFrame and self.renownFrame:IsShown() or false,
         rares = self.raresFrame and self.raresFrame:IsShown() or false,
         gathering = self.gatheringLocationsFrame and self.gatheringLocationsFrame:IsShown() or false,
+        concentration = self.concentrationTrackerFrame and self.concentrationTrackerFrame:IsShown() or false,
         detached = detached,
     }
 end
@@ -1087,20 +2549,79 @@ function MR:ManagedWindowStateHasVisibleFrames(state)
         or state.renown
         or state.rares
         or state.gathering
+        or state.concentration
         or (state.detached and next(state.detached) ~= nil)
 end
 
-function MR:HideManagedWindows()
+function MR:SetMainPanelOpen(open, userSet)
+    if not (self.db and self.db.char) then return end
+    self.db.char.panelOpen = open and true or false
+    if userSet then
+        self.db.char.panelOpenUserSet = true
+    end
+end
+
+function MR:PersistManagedWindowState(state)
+    if not self.db or not state then return end
+
+    self:SetMainPanelOpen(state.panel, true)
+    self:SetManagedWindowOpen("renownOpen", state.renown)
+    self:SetManagedWindowOpen("raresOpen", state.rares)
+    self:SetManagedWindowOpen("gatheringLocOpen", state.gathering)
+    self:SetManagedWindowOpen("concentrationTrackerOpen", state.concentration)
+end
+
+function MR:SetManagedWindowRestoreState(state)
+    if not self.db then return end
+
+    if state and self:ManagedWindowStateHasVisibleFrames(state) then
+        self.db.profile.managedWindowRestoreState = DeepCopy(state)
+    else
+        self.db.profile.managedWindowRestoreState = nil
+    end
+end
+
+function MR:IsManagedWindowsBundleHidden()
+    local p = self.db and self.db.profile
+    return p and p.rememberManagedWindowsVisibility and p.managedWindowsBundleHidden or false
+end
+
+function MR:ClearManagedWindowsBundleHidden()
+    if self.db and self.db.profile then
+        self.db.profile.managedWindowsBundleHidden = false
+    end
+end
+
+function MR:HideManagedWindows(persistState)
+    if persistState then
+        self:PersistManagedWindowState({
+            panel = false,
+            renown = false,
+            rares = false,
+            gathering = false,
+            concentration = false,
+        })
+        if self.db.profile.rememberManagedWindowsVisibility then
+            self.db.profile.managedWindowsBundleHidden = true
+        end
+    end
+
     if self.frame then self.frame:Hide() end
+    if self.HideCurrencyBrowserFrame then self:HideCurrencyBrowserFrame() end
     if self.HideDetachedModules then self:HideDetachedModules() end
     if self.HideConfig then self:HideConfig() end
     if self.HideRenown then self:HideRenown(false) end
     if self.HideRares then self:HideRares(false) end
     if self.HideGatheringLocations then self:HideGatheringLocations(false) end
+    if self.HideConcentrationTracker then self:HideConcentrationTracker(false) end
 end
 
-function MR:RestoreManagedWindows(state)
+function MR:RestoreManagedWindows(state, persistState)
     state = state or {}
+    if persistState then
+        self:PersistManagedWindowState(state)
+        self:ClearManagedWindowsBundleHidden()
+    end
 
     if state.panel then
         if not self.frame and self.BuildUI then
@@ -1119,6 +2640,9 @@ function MR:RestoreManagedWindows(state)
     if state.gathering and self.EnsureGatheringLocationsShown then
         self:EnsureGatheringLocationsShown()
     end
+    if state.concentration and self.EnsureConcentrationTrackerShown then
+        self:EnsureConcentrationTrackerShown()
+    end
 
     if state.detached and self.detachedFrames then
         for key in pairs(state.detached) do
@@ -1135,16 +2659,21 @@ function MR:ToggleManagedWindows()
         return false
     end
 
-    if self._toggleRestoreState then
-        self:RestoreManagedWindows(self._toggleRestoreState)
+    local restoreState = self._toggleRestoreState
+        or (self.db and self.db.profile and self.db.profile.managedWindowRestoreState)
+
+    if restoreState and self:ManagedWindowStateHasVisibleFrames(restoreState) then
+        self:RestoreManagedWindows(restoreState, true)
         self._toggleRestoreState = nil
+        self:SetManagedWindowRestoreState(nil)
         return true
     end
 
     local state = self:CaptureManagedWindowState()
     if self:ManagedWindowStateHasVisibleFrames(state) then
         self._toggleRestoreState = state
-        self:HideManagedWindows()
+        self:SetManagedWindowRestoreState(state)
+        self:HideManagedWindows(true)
         return false
     end
 
@@ -1154,11 +2683,16 @@ function MR:ToggleManagedWindows()
     if self.frame then
         self.frame:Show()
     end
-    self.db.char.panelOpen = true
+    self:SetMainPanelOpen(true, true)
+    self:ClearManagedWindowsBundleHidden()
     return true
 end
 
 function MR:UpdateInstanceFrameVisibility()
+    if self:ShouldDeferForCombat("instanceVisibility") then
+        return
+    end
+
     if not self.db then return end
 
     local shouldHide = self:ShouldHideFramesInCurrentInstance()
@@ -1178,17 +2712,27 @@ function MR:UpdateInstanceFrameVisibility()
     self._instanceRestoreState = nil
 
     self:RestoreManagedWindows(state)
+    if self:IsManagedWindowsBundleHidden() then
+        self:HideManagedWindows(false)
+    end
+    self:ResumeDeferredInstanceWork()
 end
 
 function MR:OnEnable()
     self:RegisterBucketEvent({
+        "AREA_POIS_UPDATED",
+    }, 0.75, "OnAreaPoisUpdated")
+
+    self:RegisterBucketEvent({
         "QUEST_LOG_UPDATE",
         "UNIT_QUEST_LOG_CHANGED",
-        "QUEST_TURNED_IN",
-        "LFG_COMPLETION_REWARD",
-        "CURRENCY_DISPLAY_UPDATE",
-        "AREA_POIS_UPDATED",
-    }, 1, "Scan")
+        "GOSSIP_SHOW",
+        "GOSSIP_CLOSED",
+        "QUEST_DETAIL",
+        "QUEST_DATA_LOAD_RESULT",
+        "QUEST_PROGRESS",
+        "QUEST_COMPLETE",
+    }, 0.5, "OnQuestDataChanged")
 
     self:RegisterBucketEvent({
         "SKILL_LINES_CHANGED",
@@ -1204,11 +2748,17 @@ function MR:OnEnable()
     self:RegisterBucketEvent({
         "CHALLENGE_MODE_COMPLETED",
         "WEEKLY_REWARDS_UPDATE",
+        "LFG_COMPLETION_REWARD",
     }, 1, "OnVaultEvent")
 
     self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED", "OnSpellCast")
     self:RegisterEvent("ENCOUNTER_END",            "OnEncounterEnd")
     self:RegisterEvent("BOSS_KILL",                "OnBossKill")
+    self:RegisterEvent("CURRENCY_DISPLAY_UPDATE",  "OnCurrencyDisplayUpdate")
+    self:RegisterEvent("QUEST_TURNED_IN",          "OnQuestTurnedIn")
+    self:RegisterEvent("QUEST_ACCEPTED",           "OnQuestAccepted")
+    self:RegisterEvent("QUEST_REMOVED",            "OnQuestRemoved")
+    self:RegisterEvent("BAG_UPDATE_DELAYED",       "OnBagUpdateDelayed")
     self:RegisterEvent("PLAYER_ENTERING_WORLD",    "OnEnteringWorld")
 
     self:ScheduleRepeatingTimer("CheckWeeklyReset", 60)
@@ -1232,6 +2782,13 @@ function MR:OnEnable()
                 if modProgress then
                     modProgress["uatv_completed_branch_name"] = modProgress["uatv_branch_name"]
                 end
+            elseif entry.mod == "s1_weekly" and entry.row == "ritual_sites" then
+                if modProgress then
+                    modProgress["ritual_site_completed_name"] = modProgress["ritual_site_active_name"]
+                        or modProgress["ritual_site_completed_name"]
+                    modProgress["ritual_site_completed_map_id"] = modProgress["ritual_site_active_map_id"]
+                        or modProgress["ritual_site_completed_map_id"]
+                end
             end
             if not ch.progress[entry.mod] then ch.progress[entry.mod] = {} end
             ch.progress[entry.mod][entry.row] = 1
@@ -1248,65 +2805,207 @@ function MR:OnEnteringWorld()
     end
     self.db.char.lastSyncAt = GetServerTime()
     self:RefreshPlayerProfessions()
+    self:RefreshProfessionConcentration()
+    self:RebuildTurnInCompletions()
     self:BuildSpellIndex()
     local temporarilyHidden = self._toggleRestoreState ~= nil
 
-    if not self.db.profile.firstSeen then
-        self.db.char.panelOpen     = false
-        self.db.profile.renownOpen = false
+    if not self.db.profile.firstSeen and not self.db.char.panelOpenUserSet then
+        self:SetMainPanelOpen(false, false)
+        self:SetManagedWindowOpen("renownOpen", false)
     end
 
-    if not self.frame then
-        self:BuildUI()
-    else
-        self:RefreshUI()
-    end
-    if self.frame and self.db.char.panelOpen == false then
-        self.frame:Hide()
+    local shouldHideFrames = self:ShouldHideFramesInCurrentInstance()
+
+    if not shouldHideFrames then
+        if not self.frame then
+            self:BuildUI()
+        end
+        if self.frame and self.db.char.panelOpen == false then
+            self.frame:Hide()
+        end
     end
     if temporarilyHidden then
         self:HideManagedWindows()
+    elseif self:IsManagedWindowsBundleHidden() then
+        self:HideManagedWindows(false)
     end
 
     self:UpdateInstanceFrameVisibility()
-    local shouldHideFrames = self._instanceFramesHidden == true
+    shouldHideFrames = self._instanceFramesHidden == true
+
+    if shouldHideFrames then
+        self:RequestScan(0.35)
+        if self.RefreshGatheringLocationsFrame then
+            self._deferredInstanceGatheringRefresh = true
+        end
+        return
+    end
 
     self:MaybeShowWelcomeScreen()
-    if self.OnRenownUpdate then
-        self:RegisterBucketEvent({
+    if self.OnRenownUpdate and not self._renownUpdateBucketHandle then
+        self._renownUpdateBucketHandle = self:RegisterBucketEvent({
             "MAJOR_FACTION_RENOWN_LEVEL_CHANGED",
             "UPDATE_FACTION",
             "COMBAT_TEXT_UPDATE",
         }, 1, "OnRenownUpdate")
     end
-    if not shouldHideFrames and not temporarilyHidden and self.db.profile.renownOpen and self.EnsureRenownShown then
-        self:ScheduleTimer(function() self:EnsureRenownShown() end, 1.5)
-    end
-    if not shouldHideFrames and not temporarilyHidden and self.db.profile.raresOpen and self.EnsureRaresShown then
-        self:ScheduleTimer(function() self:EnsureRaresShown() end, 1.7)
-    end
-    if not shouldHideFrames and not temporarilyHidden and self.db.profile.gatheringLocOpen and self.EnsureGatheringLocationsShown then
-        self:ScheduleTimer(function() self:EnsureGatheringLocationsShown() end, 1.9)
+    if not shouldHideFrames and not temporarilyHidden and not self:IsManagedWindowsBundleHidden() then
+        if self:GetManagedWindowOpen("renownOpen") and self.EnsureRenownShown then
+            self:EnsureRenownShown()
+        end
+        if self:GetManagedWindowOpen("raresOpen") and self.EnsureRaresShown then
+            self:EnsureRaresShown()
+        end
+        if self:GetManagedWindowOpen("gatheringLocOpen") and self.EnsureGatheringLocationsShown then
+            self:EnsureGatheringLocationsShown()
+        end
+        if self:GetManagedWindowOpen("concentrationTrackerOpen") and self.EnsureConcentrationTrackerShown then
+            self:EnsureConcentrationTrackerShown()
+        end
     end
     if self.db.profile.peekOnHover and self.ApplyPeekOnHover then
-        self:ScheduleTimer(function() self:ApplyPeekOnHover(true) end, 2.5)
+        if self._enteringWorldPeekTimer then
+            self:CancelTimer(self._enteringWorldPeekTimer)
+        end
+        self._enteringWorldPeekTimer = self:ScheduleTimer(function()
+            self._enteringWorldPeekTimer = nil
+            self:ApplyPeekOnHover(true)
+        end, 2.5)
     end
-    self:ScheduleTimer(function()
+    if self._enteringWorldRefreshTimer then
+        self:CancelTimer(self._enteringWorldRefreshTimer)
+    end
+    self._enteringWorldRefreshTimer = self:ScheduleTimer(function()
+        self._enteringWorldRefreshTimer = nil
         self:CheckWeeklyReset()
         self:CheckDailyReset()
         self:RefreshPlayerProfessions()
-        self:RefreshUI()
+        self:RequestScan(0.35)
         self:UpdateInstanceFrameVisibility()
         if self.RefreshGatheringLocationsFrame then
             self:RefreshGatheringLocationsFrame()
         end
     end, 0.5)
-    self:ScheduleTimer(function() self:Scan() end, 5)
-    self:Scan()
+    if self._enteringWorldScanTimer then
+        self:CancelTimer(self._enteringWorldScanTimer)
+    end
+    self._enteringWorldScanTimer = self:ScheduleTimer(function()
+        self._enteringWorldScanTimer = nil
+        self:RequestScan()
+    end, 5)
+    self:RequestScan(0.35)
+end
+
+function MR:OnCurrencyDisplayUpdate(_, currencyID)
+    local dirty = self:RefreshCurrencyProgress(currencyID, false)
+
+    if self:RefreshModuleScans({ "s1_weekly" }, false) then
+        dirty = true
+    end
+
+    if currencyID == 3290 and self.RefreshDelvesLiveProgress then
+        if self._delvesLiveProgressTimer then
+            self:CancelTimer(self._delvesLiveProgressTimer)
+        end
+        self._delvesLiveProgressTimer = self:ScheduleTimer(function()
+            self._delvesLiveProgressTimer = nil
+            self:RefreshDelvesLiveProgress(true)
+        end, 2)
+    end
+
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnQuestDataChanged()
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(nil, nil)
+        return
+    end
+    local dirty = false
+    if self:RefreshQuestProgress(nil, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnAreaPoisUpdated()
+    self:RefreshModuleScans({ "delves", "s1_weekly" }, true)
+end
+
+function MR:OnQuestTurnedIn(_, questID)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(questID, nil)
+        return
+    end
+    local dirty = false
+    if self:RefreshQuestProgress(questID, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnQuestAccepted(_, questID)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(questID, nil)
+        return
+    end
+    local dirty = false
+    if self:RefreshQuestProgress(questID, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnQuestRemoved(_, questID)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(questID, nil)
+        return
+    end
+    local dirty = false
+    if self:RefreshQuestProgress(questID, false) then
+        dirty = true
+    end
+    if self:RefreshModuleScans({ "s1_weekly", "pvp_weeklies" }, false) then
+        dirty = true
+    end
+    if dirty then
+        self:RefreshUI()
+    end
+end
+
+function MR:OnBagUpdateDelayed()
+    local dirty = self:RefreshItemProgress()
+
+    if self:RefreshModuleScans({ "s1_weekly" }, false) then
+        dirty = true
+    end
+
+    if dirty then
+        self:RefreshUI()
+    end
 end
 
 function MR:OnProfessionChange()
     self:RefreshPlayerProfessions()
+    self:RefreshProfessionConcentration()
     self:RefreshUI()
     if self.RefreshGatheringLocationsFrame then
         self:RefreshGatheringLocationsFrame()
@@ -1321,32 +3020,48 @@ function MR:OnSpellCast(_, unit, _, spellID)
 end
 
 function MR:OnVaultEvent()
-    self:ScheduleTimer(function() self:Scan() end, 1.5)
+    self:RefreshModuleScans({ "great_vault", "delves" }, true)
 end
 
 function MR:OnZoneChanged()
     self:UpdateInstanceFrameVisibility()
-    self:Scan()
-    self:RefreshUI()
+    self:RefreshModuleScans({ "delves", "s1_weekly" }, true)
     if self.OnRaresZoneChanged then
         self:OnRaresZoneChanged()
     end
 end
 
-function MR:OnEncounterEnd(_, _, encounterName, _, _, success)
+function MR:OnEncounterEnd(_, encounterId, encounterName, difficultyID, _, success)
     if success == 1 then
+        if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+            self:ScanAutoUpdateInstanceRows(nil, tonumber(encounterId), tonumber(difficultyID))
+            return
+        end
         if encounterName and self.SyncCurrentWorldBossKillByName then
             self:SyncCurrentWorldBossKillByName(encounterName)
         end
-        self:ScheduleTimer(function() self:Scan() end, 1.5)
+        if self.RefreshEncounterProgress then
+            self:RefreshEncounterProgress(tonumber(encounterId), true, tonumber(difficultyID))
+        end
+        self:RefreshModuleScans({ "great_vault", "delves", "world_bosses", "s1_weekly" }, true)
     end
 end
 
-function MR:OnBossKill(_, bossName)
-    if bossName and self.SyncCurrentWorldBossKillByName then
-        self:SyncCurrentWorldBossKillByName(bossName)
-        self:ScheduleTimer(function() self:Scan() end, 1.5)
+function MR:OnBossKill(_, bossId, bossName)
+    if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() then
+        self:ScanAutoUpdateInstanceRows(nil, tonumber(bossId))
+        return
     end
+    if self.SyncCurrentWorldBossKillByName then
+        local nameForSync = (type(bossName) == "string" and bossName ~= "") and bossName or tostring(bossId or "")
+        if nameForSync ~= "" then
+            self:SyncCurrentWorldBossKillByName(nameForSync)
+        end
+    end
+    if self.RefreshEncounterProgress then
+        self:RefreshEncounterProgress(tonumber(bossId), true)
+    end
+    self:RefreshModuleScans({ "world_bosses", "great_vault", "s1_weekly" }, true)
 end
 
 SLASH_MIDROUTE1 = "/mr"
@@ -1362,22 +3077,24 @@ SlashCmdList["MIDROUTE"] = function(msg)
         end
     end
 
-      if     msg == "reset"   then MR:DoWeeklyReset()
-      elseif msg == "lock"    then
+    if msg == "reset" then
+        MR:DoWeeklyReset()
+    elseif msg == "lock" then
         MR.db.profile.locked = true
         if MR.frame then MR.frame:SetMovable(false) end
         print(L["Frame_Locked"])
-    elseif msg == "unlock"  then
+    elseif msg == "unlock" then
         MR.db.profile.locked = false
         if MR.frame then MR.frame:SetMovable(true) end
         print(L["Frame_Unlocked"])
-    elseif msg == "hide"    then
+    elseif msg == "hide" then
         if MR.frame then MR.frame:Hide() end
-        MR.db.char.panelOpen = false
-    elseif msg == "show"    then
+        MR:SetMainPanelOpen(false, true)
+    elseif msg == "show" then
         if MR.frame then MR.frame:Show() end
-        MR.db.char.panelOpen = true
-    elseif msg == "toggle"  then
+        MR:SetMainPanelOpen(true, true)
+        MR:ClearManagedWindowsBundleHidden()
+    elseif msg == "toggle" then
         MR:ToggleManagedWindows()
     elseif msg == "main" or msg == "main toggle" then
         if not MR.frame and MR.BuildUI then
@@ -1386,10 +3103,11 @@ SlashCmdList["MIDROUTE"] = function(msg)
         if MR.frame then
             if MR.frame:IsShown() then
                 MR.frame:Hide()
-                MR.db.char.panelOpen = false
+                MR:SetMainPanelOpen(false, true)
             else
                 MR.frame:Show()
-                MR.db.char.panelOpen = true
+                MR:SetMainPanelOpen(true, true)
+                MR:ClearManagedWindowsBundleHidden()
             end
         end
     elseif msg == "main show" then
@@ -1397,10 +3115,11 @@ SlashCmdList["MIDROUTE"] = function(msg)
             MR:BuildUI()
         end
         if MR.frame then MR.frame:Show() end
-        MR.db.char.panelOpen = true
+        MR:SetMainPanelOpen(true, true)
+        MR:ClearManagedWindowsBundleHidden()
     elseif msg == "main hide" then
         if MR.frame then MR.frame:Hide() end
-        MR.db.char.panelOpen = false
+        MR:SetMainPanelOpen(false, true)
     elseif msg == "minimap" then
         local newHide = not (MR.db.profile.minimap and MR.db.profile.minimap.hide)
         MR:SetMinimapHidden(newHide)
@@ -1418,26 +3137,14 @@ SlashCmdList["MIDROUTE"] = function(msg)
         if s and s >= 0.5 and s <= 2 then
             ApplyMainScale(s)
         end
-    elseif msg == "big"   then if MR.ApplyWidth then MR.ApplyWidth(500) end
-    elseif msg == "small"   then if MR.ApplyWidth then MR.ApplyWidth(200) end
+    elseif msg == "big" then if MR.ApplyWidth then MR.ApplyWidth(500) end
+    elseif msg == "small" then if MR.ApplyWidth then MR.ApplyWidth(200) end
     elseif msg == "welcome" then MR:ShowWelcomeScreen()
-    elseif msg == "renown"  then MR:ToggleRenown()
+    elseif msg == "renown" then MR:ToggleRenown()
     elseif msg == "renown config" then MR:ToggleRenownConfig()
-    elseif msg == "rares"   then MR:ToggleRares()
+    elseif msg == "rares" then MR:ToggleRares()
     elseif msg == "rares config" then MR:ToggleRaresConfig()
     elseif msg == "gathering" then MR:ToggleGatheringLocations()
-    elseif msg == "sa debug" or msg == "sa_debug" then
-        if MR.DebugSpecialAssignments then
-            MR:DebugSpecialAssignments()
-        end
-    elseif msg == "dmf" then
-        MR.debugDMF = not MR.debugDMF
-        if MR.debugDMF then
-            print("|cffcc99ff[MidnightRoutine]|r Darkmoon Faire test mode ON — module forced visible")
-        else
-            print("|cffcc99ff[MidnightRoutine]|r Darkmoon Faire test mode OFF")
-        end
-        MR:RefreshUI()
     else
         print(L["Chat_Commands"])
     end

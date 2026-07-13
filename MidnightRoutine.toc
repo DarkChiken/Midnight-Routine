@@ -1,4 +1,4 @@
-## Interface: 120001
+## Interface: 120005, 120007
 ## Title: |cff2ae7c6Midnight|r Routine
 ## Notes: Auto-tracking quest log style todo list for Midnight
 ## Notes-zhCN: 自动追踪至暗之夜任务进度及其他待办日志
@@ -14,11 +14,7 @@
 Libs/LibStub/LibStub.lua
 Libs/CallbackHandler-1.0/CallbackHandler-1.0.lua
 
-Libs/AceAddon-3.0/AceAddon-3.0.xml
-Libs/AceEvent-3.0/AceEvent-3.0.xml
-Libs/AceBucket-3.0/AceBucket-3.0.xml
-Libs/AceTimer-3.0/AceTimer-3.0.xml
-Libs/AceDB-3.0/AceDB-3.0.xml
+Libs/Foundry/Foundry-1.0.xml
 Libs/AceLocale-3.0/AceLocale-3.0.lua
 Libs/LibDataBroker-1.1/LibDataBroker-1.1.lua
 Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua
@@ -26,22 +22,34 @@ Libs/LibDBIcon-1.0/LibDBIcon-1.0.lua
 Theme.lua
 Locales/Localization.xml
 Core.lua
+Core/Resets.lua
+Core/Warband.lua
 
 Modules/Activities.lua
+Modules/OmniumFolio.lua
 Modules/WeeklyTasks.lua
 Modules/PvP.lua
 Modules/GreatVault.lua
 Modules/Crests.lua
+Modules/CurrencyBrowser.lua
 Modules/Professions.lua
 Modules/Delves.lua
 Modules/Prey.lua
 Modules/StoryCampaign.lua
 Modules/WorldEvents.lua
+Modules/Timewalking.lua
 Modules/DarkmoonFaire.lua
+Modules/CustomTasks.lua
 Modules/Renown.lua
 Modules/Rares.lua
 Modules/ProfessionKnowledge.lua
 
+UI/WarbandBoard.lua
+UI/CustomTaskDialogs.lua
+UI/EncounterJournalOverlay.lua
 UI.lua
+UI/Config.lua
 WelcomeScreen.lua
 MinimapButton.lua
+Core/Bootstrap.lua
+

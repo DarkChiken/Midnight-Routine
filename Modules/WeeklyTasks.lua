@@ -1,14 +1,17 @@
+local _, ns = ...
+local MR = ns.MR
+
 local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
 
 local SA_ASSIGNMENTS = {
-    { quest = 91390, unlock = 94865, name = L["SA_Temple"],    zone = 2395, zoneLabel = L["Zone_EversongWoods"] },
+    { quest = 91390, unlock = 94865, name = L["SA_Temple"],    zone = 2437, zoneLabel = L["Zone_ZulAman"] },
     { quest = 91796, unlock = 94866, name = L["SA_Ours"],      zone = 2437, zoneLabel = L["Zone_ZulAman"] },
     { quest = 92063, unlock = 94390, name = L["SA_Hunter"],    zone = 2413, zoneLabel = L["Zone_Harandar"] },
     { quest = 92139, unlock = 95435, name = L["SA_Shade"],     zone = 2395, zoneLabel = L["Zone_EversongWoods"] },
-    { quest = 92145, unlock = 92848, name = L["SA_Drink"],     zone = 2393, zoneLabel = L["Faction_SilvermoonCourt"] },
-    { quest = 93013, unlock = 94391, name = L["SA_Push"],      zone = 2405, zoneLabel = L["Zone_Voidstorm"] },
+    { quest = 92145, unlock = 92848, name = L["SA_Drink"],     zone = 2395, zoneLabel = L["Zone_EversongWoods"] },
+    { quest = 93013, unlock = 94391, name = L["SA_Push"],      zone = 2413, zoneLabel = L["Zone_Harandar"] },
     { quest = 93244, unlock = 94795, name = L["SA_Agents"],    zone = 2405, zoneLabel = L["Zone_Voidstorm"] },
-    { quest = 93438, unlock = 94743, name = L["SA_Precision"], zone = 2413, zoneLabel = L["Zone_Harandar"] },
+    { quest = 93438, unlock = 94743, name = L["SA_Precision"], zone = 2405, zoneLabel = L["Zone_Voidstorm"] },
 }
 
 local UATV_BRANCHES = {
@@ -31,6 +34,50 @@ local UATV_BRANCH_QUEST_IDS = {
     93890, 93767, 94457, 93909, 93911, 93769, 93891, 93910, 93912, 93889, 93892, 93913, 93766,
 }
 
+local HALDURON_WEEKLIES = {
+    { quest = 93751, name = L["Halduron_WindrunnerSpire"]     },
+    { quest = 93752, name = L["Halduron_MurderRow"]           },
+    { quest = 93753, name = L["Halduron_MagistersTerrace"]   },
+    { quest = 93754, name = L["Halduron_MaisaraCaverns"]     },
+    { quest = 93755, name = L["Halduron_DenOfNalorakk"]      },
+    { quest = 93756, name = L["Halduron_BlindingVale"]       },
+    { quest = 93757, name = L["Halduron_VoidscarArena"]      },
+    { quest = 93758, name = L["Halduron_NexusPointXenas"]    },
+    { quest = 95468, name = L["Halduron_HopeDarkestCorners"] },
+}
+
+local ARCANTINA_WEEKLIES = {
+    { quest = 92319, name = L["Arcantina_AFavorToAxe"] },
+    { quest = 92321, name = L["Arcantina_AFrostbittenTally"] },
+    { quest = 92320, name = L["Arcantina_StillBehindEnemyPortals"] },
+    { quest = 92322, name = L["Arcantina_TimearForeseesProofOfDemise"] },
+    { quest = 92323, name = L["Arcantina_WhereTheFireOnceBurned"] },
+    { quest = 92324, name = L["Arcantina_UncrownedsColdCase"] },
+    { quest = 92325, name = L["Arcantina_HellscreamsHeritage"] },
+    { quest = 92326, name = L["Arcantina_TheFragranceOfTheDunes"] },
+    { quest = 92327, name = L["Arcantina_AGenerationalMoment"] },
+}
+
+local VOID_ASSAULT_WEEKLIES = {
+    { quest = 94385, mapId = 2395, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+    { quest = 94386, mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
+}
+
+local RITUAL_SITE_WEEKLIES = {
+    { quest = 94880, mapId = 2395, name = L["Zone_EversongWoods"] or "Eversong Woods" },
+    { quest = 94878, mapId = 2437, name = L["Zone_ZulAman"] or "Zul'Aman" },
+}
+
+local VOID_INVASION_SHOWDOWNS = {
+    { quest = 96717, mapId = 2600, name = L["Weekly_Showdown_Naigtal"] or "Showdown on Naigtal" },
+    { quest = 96718, mapId = 2600, name = L["Weekly_Showdown_Naigtal_Heroic"] or "Showdown on Naigtal (Heroic)" },
+    { quest = 96713, mapId = 2601, name = L["Weekly_Showdown_Val"] or "Showdown on Val" },
+    { quest = 96714, mapId = 2601, name = L["Weekly_Showdown_Val_Heroic"] or "Showdown on Val (Heroic)" },
+}
+
+local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
+local ABYSS_ANGLERS_INTRO_QUEST_ID = 96388
+
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
     [2395] = true,
@@ -38,6 +85,8 @@ local MIDNIGHT_MAP_IDS = {
     [2413] = true,
     [2437] = true,
     [2576] = true,
+    [2600] = true,
+    [2601] = true,
 }
 
 local function IsPlayerInMidnightArea()
@@ -64,8 +113,70 @@ local function IsPlayerInMidnightArea()
     return false
 end
 
+local function IsPlayerInMapHierarchy(targetMapId)
+    if not targetMapId or not (C_Map and C_Map.GetBestMapForUnit and C_Map.GetMapInfo) then
+        return false
+    end
+
+    local mapId = C_Map.GetBestMapForUnit("player")
+    local checked = 0
+    while mapId and checked < 10 do
+        if mapId == targetMapId then
+            return true
+        end
+
+        local info = C_Map.GetMapInfo(mapId)
+        if not info or not info.parentMapID or info.parentMapID == 0 then
+            break
+        end
+
+        mapId = info.parentMapID
+        checked = checked + 1
+    end
+
+    return false
+end
+
 local function GetMapName(_, fallback)
     return fallback
+end
+
+local function NormalizeActivityText(text)
+    if type(text) ~= "string" then
+        return ""
+    end
+
+    return text:lower():gsub("[^%a%d]", "")
+end
+
+local function ColorsEqual(a, b)
+    if a == b then
+        return true
+    end
+    if type(a) ~= "table" or type(b) ~= "table" then
+        return false
+    end
+    return (a[1] or 0) == (b[1] or 0)
+        and (a[2] or 0) == (b[2] or 0)
+        and (a[3] or 0) == (b[3] or 0)
+        and (a[4] or 0) == (b[4] or 0)
+end
+
+local function ResolveVariantName(variant)
+    if not variant then
+        return nil
+    end
+
+    return MR:GetQuestName(variant.quest, variant.name)
+end
+
+local function GetVariantName(variants, index, fallback)
+    local variant = variants and variants[index or 1]
+    return (variant and variant.name) or fallback
+end
+
+local function GetVariantDisplayName(variant, fallback)
+    return (variant and variant.name) or fallback or "Unknown"
 end
 
 local function IsQuestCurrentlyActive(questId)
@@ -86,7 +197,54 @@ local function IsQuestCurrentlyActive(questId)
         end
     end
 
+    if MR.IsQuestOfferVisible and MR:IsQuestOfferVisible(questId) then
+        return true
+    end
+
+    if GetQuestID and GetQuestID() == questId then
+        return true
+    end
+
+    if C_GossipInfo and C_GossipInfo.GetAvailableQuests then
+        local availableQuests = C_GossipInfo.GetAvailableQuests()
+        if availableQuests then
+            for _, info in ipairs(availableQuests) do
+                if info.questID == questId then
+                    return true
+                end
+            end
+        end
+    end
+
     return false
+end
+
+local function UpdateRotatingWeeklyQuestState(progressBucket, row, questId)
+    if type(progressBucket) ~= "table" or type(row) ~= "table" or not row.key or not questId then
+        return false, false
+    end
+
+    local seenKey = row.key .. "_seen_active"
+    local isActive = IsQuestCurrentlyActive(questId)
+    local isCompleted = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(questId) or false
+    local wasDone = (tonumber(progressBucket[row.key]) or 0) > 0
+
+    if isActive then
+        progressBucket[seenKey] = true
+    end
+
+    local isDone = wasDone
+    if isCompleted and (isActive or progressBucket[seenKey]) then
+        isDone = true
+    elseif not isActive and not wasDone then
+        isDone = false
+    end
+
+    progressBucket[row.key] = isDone and 1 or 0
+    row.countText = isDone and (L["Done"] or "Done") or (isActive and (L["Weekly_SA_Count_ActiveSingle"] or "Active") or nil)
+    row.countColor = isDone and { 0.4, 0.85, 0.4 } or (isActive and { 1, 0.9, 0.3 } or nil)
+
+    return isActive, isDone
 end
 
 local function CollectSpecialAssignments()
@@ -98,7 +256,7 @@ local function CollectSpecialAssignments()
         local entry = {
             quest = assignment.quest,
             unlock = assignment.unlock,
-            name = assignment.name,
+            name = MR:GetQuestName(assignment.quest, assignment.name),
             zone = assignment.zone,
             zoneName = GetMapName(assignment.zone, assignment.zoneLabel),
         }
@@ -115,28 +273,60 @@ end
 
 local function FindActiveQuestVariant(variants)
     for _, variant in ipairs(variants) do
-        if C_QuestLog.IsOnQuest(variant.quest) then
-            return variant
+        if IsQuestCurrentlyActive(variant.quest) then
+            return {
+                quest = variant.quest,
+                name = ResolveVariantName(variant),
+            }
         end
     end
     return nil
 end
 
-function MR:DebugSpecialAssignments()
-    print("|cff2ae7c6[MidnightRoutine]|r Special Assignment debug:")
+local function CollectQuestVariants(variants)
+    local completed = {}
+    local active = {}
 
-    for _, assignment in ipairs(SA_ASSIGNMENTS) do
-        print(string.format(
-            "  %s | quest=%d completed=%s active=%s | unlock=%d active=%s | zone=%s",
-            assignment.name,
-            assignment.quest,
-            tostring(C_QuestLog.IsQuestFlaggedCompleted(assignment.quest)),
-            tostring(IsQuestCurrentlyActive(assignment.quest)),
-            assignment.unlock,
-            tostring(IsQuestCurrentlyActive(assignment.unlock)),
-            tostring(assignment.zoneLabel)
-        ))
+    for _, variant in ipairs(variants) do
+        local entry = {
+            quest = variant.quest,
+            name = ResolveVariantName(variant),
+        }
+
+        if C_QuestLog.IsQuestFlaggedCompleted(variant.quest) then
+            table.insert(completed, entry)
+        elseif IsQuestCurrentlyActive(variant.quest) then
+            table.insert(active, entry)
+        end
     end
+
+    return completed, active
+end
+
+local function FindActivityZoneFromAreaPois(variants, matchTerms)
+    if not (C_AreaPoiInfo and C_AreaPoiInfo.GetAreaPOIForMap and C_AreaPoiInfo.GetAreaPOIInfo) then
+        return nil, nil, nil
+    end
+
+    for _, variant in ipairs(variants or {}) do
+        local poiIds = C_AreaPoiInfo.GetAreaPOIForMap(variant.mapId)
+        if poiIds then
+            for _, poiId in ipairs(poiIds) do
+                local info = C_AreaPoiInfo.GetAreaPOIInfo(variant.mapId, poiId)
+                local poiName = info and info.name
+                local normalized = NormalizeActivityText(poiName)
+                if normalized ~= "" then
+                    for _, term in ipairs(matchTerms) do
+                        if normalized:find(term, 1, true) then
+                            return variant.name, poiName, variant.mapId
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return nil, nil, nil
 end
 
 MR:RegisterModule({
@@ -145,19 +335,54 @@ MR:RegisterModule({
     labelColor  = "#2ae7c6",
     resetType   = "weekly",
     defaultOpen = true,
+    scanReturnsChanged = true,
 
     onScan = function(mod)
         local db = MR.db.char.progress
         if not db[mod.key] then db[mod.key] = {} end
+        local previousRitualActiveName = db[mod.key]["ritual_site_active_name"]
+        local previousRitualActiveMapId = db[mod.key]["ritual_site_active_map_id"]
+        local previousRitualCompletedName = db[mod.key]["ritual_site_completed_name"]
+        local previousRitualCompletedMapId = db[mod.key]["ritual_site_completed_map_id"]
+        local beforeProgress = {}
+        for key, value in pairs(db[mod.key]) do
+            beforeProgress[key] = value
+        end
+        local beforeRows = {}
+        for _, row in ipairs(mod.rows) do
+            beforeRows[row.key] = {
+                countText = row.countText,
+                countColor = row.countColor and { unpack(row.countColor) } or nil,
+                max = row.max,
+                note = row.note,
+            }
+        end
         db[mod.key]["special_assignment"] = 0
         db[mod.key]["sa_active_name"] = nil
         db[mod.key]["sa_active_names"] = nil
         db[mod.key]["sa_active_zones"] = nil
+        db[mod.key]["halduron_active_name"] = nil
+        db[mod.key]["halduron_active_names"] = nil
+        db[mod.key]["halduron_completed_name"] = nil
+        db[mod.key]["halduron_completed_names"] = nil
+        db[mod.key]["arcantina_active_name"] = nil
+        db[mod.key]["arcantina_active_names"] = nil
+        db[mod.key]["arcantina_completed_name"] = nil
+        db[mod.key]["arcantina_completed_names"] = nil
+        db[mod.key]["void_assault_active_name"] = nil
+        db[mod.key]["void_assault_active_poi_name"] = nil
+        db[mod.key]["void_assault_completed_name"] = nil
+        db[mod.key]["ritual_site_active_name"] = nil
+        db[mod.key]["ritual_site_active_map_id"] = nil
+        db[mod.key]["ritual_site_active_poi_name"] = nil
+        db[mod.key]["ritual_site_completed_name"] = nil
+        db[mod.key]["ritual_site_completed_map_id"] = nil
+        db[mod.key]["showdown_active_name"] = nil
+        db[mod.key]["showdown_completed_name"] = nil
 
         local completedAssignments, activeAssignments = CollectSpecialAssignments()
-        if #completedAssignments > 0 then
-            db[mod.key]["special_assignment"] = 1
-        end
+        local totalAssignments = math.max(#completedAssignments + #activeAssignments, 1)
+        db[mod.key]["special_assignment"] = #completedAssignments
 
         local detectedAssignments = (#activeAssignments > 0) and activeAssignments or completedAssignments
         if #detectedAssignments > 0 then
@@ -174,6 +399,7 @@ MR:RegisterModule({
 
         for _, row in ipairs(mod.rows) do
             if row.key == "special_assignment" then
+                row.max = totalAssignments
                 if #activeAssignments > 0 then
                     row.countText = string.format(
                         L["Weekly_SA_Count_Active"] or "%d active",
@@ -194,10 +420,20 @@ MR:RegisterModule({
                         L["Weekly_SA_Note_CompletedMulti"] or "Completed %d special assignments this week. Hover for the full list and zones.",
                         #completedAssignments
                     )
-                elseif #completedAssignments == 1 then
-                    row.countText = L["Weekly_SA_Count_Complete"] or "Done"
+                elseif #completedAssignments == 1 and totalAssignments == 1 then
+                    row.countText = L["Done"] or "Done"
                     row.countColor = { 0.4, 0.85, 0.4 }
                     row.note = L["Weekly_SA_Note"]
+                elseif #completedAssignments > 0 then
+                    row.countText = string.format(
+                        L["Weekly_SA_Count_Completed"] or "%d done",
+                        #completedAssignments
+                    )
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                    row.note = string.format(
+                        L["Weekly_SA_Note_CompletedMulti"] or "Completed %d special assignments this week. Hover for the full list and zones.",
+                        #completedAssignments
+                    )
                 elseif #detectedAssignments == 1 then
                     row.countText = L["Weekly_SA_Count_ActiveSingle"] or "Active"
                     row.countColor = { 1, 0.9, 0.3 }
@@ -211,10 +447,261 @@ MR:RegisterModule({
             end
         end
 
+        local completedVoidAssaultWeeklies, activeVoidAssaultWeeklies = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
+        local activeVoidAssaultZone, activeVoidAssaultPoiName = FindActivityZoneFromAreaPois(
+            VOID_ASSAULT_WEEKLIES,
+            { "voidstrike", "voidincursion", "voidassault" }
+        )
+        if #activeVoidAssaultWeeklies > 0 then
+            db[mod.key]["void_assault_active_name"] = activeVoidAssaultWeeklies[1].name
+        elseif activeVoidAssaultZone then
+            db[mod.key]["void_assault_active_name"] = activeVoidAssaultZone
+        end
+        db[mod.key]["void_assault_active_poi_name"] = activeVoidAssaultPoiName
+        if #completedVoidAssaultWeeklies > 0 then
+            db[mod.key]["void_assault_completed_name"] = completedVoidAssaultWeeklies[1].name
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "void_assaults" then
+                local metaDone = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842) or false
+                if metaDone or #completedVoidAssaultWeeklies > 0 then
+                    row.countText = db[mod.key]["void_assault_completed_name"] or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif db[mod.key]["void_assault_active_name"] then
+                    row.countText = db[mod.key]["void_assault_active_name"]
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
+        local completedRitualSiteWeeklies, activeRitualSiteWeeklies = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
+        local activeRitualSiteZone, activeRitualSitePoiName, activeRitualSiteMapId = FindActivityZoneFromAreaPois(
+            RITUAL_SITE_WEEKLIES,
+            { "ritualsite", "ritual" }
+        )
+        local activeRitualSiteVariant = activeRitualSiteWeeklies[1]
+        local completedRitualSiteVariant = completedRitualSiteWeeklies[1]
+        local ritualMetaDone = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843) or false
+
+        if activeRitualSiteVariant then
+            db[mod.key]["ritual_site_active_name"] = activeRitualSiteVariant.name
+            db[mod.key]["ritual_site_active_map_id"] = activeRitualSiteVariant.mapId
+        elseif activeRitualSiteZone then
+            db[mod.key]["ritual_site_active_name"] = activeRitualSiteZone
+            db[mod.key]["ritual_site_active_map_id"] = activeRitualSiteMapId
+        end
+        db[mod.key]["ritual_site_active_poi_name"] = activeRitualSitePoiName
+
+        if completedRitualSiteVariant then
+            db[mod.key]["ritual_site_completed_name"] = completedRitualSiteVariant.name
+            db[mod.key]["ritual_site_completed_map_id"] = completedRitualSiteVariant.mapId
+        elseif ritualMetaDone then
+            db[mod.key]["ritual_site_completed_name"] = previousRitualCompletedName
+                or previousRitualActiveName
+                or db[mod.key]["ritual_site_active_name"]
+            db[mod.key]["ritual_site_completed_map_id"] = previousRitualCompletedMapId
+                or previousRitualActiveMapId
+                or db[mod.key]["ritual_site_active_map_id"]
+        elseif not activeRitualSiteVariant
+            and not activeRitualSiteZone
+            and not IsQuestCurrentlyActive(95843)
+            and previousRitualActiveMapId
+            and IsPlayerInMapHierarchy(previousRitualActiveMapId) then
+            db[mod.key]["ritual_sites"] = 1
+            db[mod.key]["ritual_site_completed_name"] = previousRitualCompletedName or previousRitualActiveName
+            db[mod.key]["ritual_site_completed_map_id"] = previousRitualCompletedMapId or previousRitualActiveMapId
+        elseif (tonumber(db[mod.key]["ritual_sites"]) or 0) > 0 then
+            db[mod.key]["ritual_site_completed_name"] = previousRitualCompletedName
+                or db[mod.key]["ritual_site_active_name"]
+                or previousRitualActiveName
+            db[mod.key]["ritual_site_completed_map_id"] = previousRitualCompletedMapId
+                or db[mod.key]["ritual_site_active_map_id"]
+                or previousRitualActiveMapId
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "ritual_sites" then
+                if db[mod.key]["ritual_site_completed_name"]
+                    or ritualMetaDone
+                    or (tonumber(db[mod.key]["ritual_sites"]) or 0) > 0 then
+                    row.countText = db[mod.key]["ritual_site_completed_name"] or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif db[mod.key]["ritual_site_active_name"] then
+                    row.countText = db[mod.key]["ritual_site_active_name"]
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
+        local completedArcantinaWeeklies, activeArcantinaWeeklies = CollectQuestVariants(ARCANTINA_WEEKLIES)
+        if #activeArcantinaWeeklies > 0 then
+            local names = {}
+            for _, variant in ipairs(activeArcantinaWeeklies) do
+                names[#names + 1] = variant.name
+            end
+            db[mod.key]["arcantina_active_name"] = names[1]
+            db[mod.key]["arcantina_active_names"] = table.concat(names, " || ")
+        end
+
+        if #completedArcantinaWeeklies > 0 then
+            local names = {}
+            for _, variant in ipairs(completedArcantinaWeeklies) do
+                names[#names + 1] = variant.name
+            end
+            db[mod.key]["arcantina_weekly"] = 1
+            db[mod.key]["arcantina_completed_name"] = names[1]
+            db[mod.key]["arcantina_completed_names"] = table.concat(names, " || ")
+        else
+            db[mod.key]["arcantina_weekly"] = db[mod.key]["arcantina_weekly"] or 0
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "arcantina_weekly" then
+                if #activeArcantinaWeeklies > 1 then
+                    row.countText = string.format(L["Weekly_SA_Count_Active"] or "%d active", #activeArcantinaWeeklies)
+                    row.countColor = { 1, 0.9, 0.3 }
+                    row.note = L["Weekly_Arcantina_Note"]
+                elseif #activeArcantinaWeeklies == 1 then
+                    row.countText = activeArcantinaWeeklies[1].name
+                    row.countColor = { 1, 0.9, 0.3 }
+                    row.note = L["Weekly_Arcantina_Note"]
+                elseif #completedArcantinaWeeklies > 1 then
+                    row.countText = string.format(L["Weekly_SA_Count_Completed"] or "%d done", #completedArcantinaWeeklies)
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                    row.note = L["Weekly_Arcantina_Note"]
+                elseif #completedArcantinaWeeklies == 1 then
+                    row.countText = completedArcantinaWeeklies[1].name
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                    row.note = L["Weekly_Arcantina_Note"]
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                    row.note = L["Weekly_Arcantina_Note"]
+                end
+                break
+            end
+        end
+
+        local completedHalduronWeeklies, activeHalduronWeeklies = CollectQuestVariants(HALDURON_WEEKLIES)
+        if #activeHalduronWeeklies > 0 then
+            local names = {}
+            for _, variant in ipairs(activeHalduronWeeklies) do
+                names[#names + 1] = variant.name
+            end
+            db[mod.key]["halduron_active_name"] = names[1]
+            db[mod.key]["halduron_active_names"] = table.concat(names, " || ")
+        end
+
+        if #completedHalduronWeeklies > 0 then
+            local names = {}
+            for _, variant in ipairs(completedHalduronWeeklies) do
+                names[#names + 1] = variant.name
+            end
+            db[mod.key]["halduron_weekly"] = 1
+            db[mod.key]["halduron_completed_name"] = names[1]
+            db[mod.key]["halduron_completed_names"] = table.concat(names, " || ")
+        else
+            db[mod.key]["halduron_weekly"] = db[mod.key]["halduron_weekly"] or 0
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "halduron_weekly" then
+                if #activeHalduronWeeklies > 1 then
+                    row.countText = string.format(L["Weekly_SA_Count_Active"] or "%d active", #activeHalduronWeeklies)
+                    row.countColor = { 1, 0.9, 0.3 }
+                    row.note = L["Weekly_Halduron_Note"]
+                elseif #activeHalduronWeeklies == 1 then
+                    row.countText = activeHalduronWeeklies[1].name
+                    row.countColor = { 1, 0.9, 0.3 }
+                    row.note = L["Weekly_Halduron_Note"]
+                elseif #completedHalduronWeeklies > 1 then
+                    row.countText = string.format(L["Weekly_SA_Count_Completed"] or "%d done", #completedHalduronWeeklies)
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                    row.note = L["Weekly_Halduron_Note"]
+                elseif #completedHalduronWeeklies == 1 then
+                    row.countText = completedHalduronWeeklies[1].name
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                    row.note = L["Weekly_Halduron_Note"]
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                    row.note = L["Weekly_Halduron_Note"]
+                end
+                break
+            end
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "call_to_delves" then
+                UpdateRotatingWeeklyQuestState(db[mod.key], row, 93595)
+                break
+            end
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "abyss_anglers" then
+                local isDone = (tonumber(db[mod.key]["abyss_anglers"]) or 0) > 0
+                    or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID))
+                    or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_INTRO_QUEST_ID))
+                local isActive = IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
+                    or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID)
+
+                db[mod.key]["abyss_anglers"] = isDone and 1 or 0
+                if isDone then
+                    row.countText = L["Done"] or "Done"
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif isActive then
+                    row.countText = L["Weekly_SA_Count_ActiveSingle"] or "Active"
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
+        local completedShowdowns, activeShowdowns = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
+        if #activeShowdowns > 0 then
+            db[mod.key]["showdown_active_name"] = activeShowdowns[1].name
+        end
+        if #completedShowdowns > 0 then
+            db[mod.key]["void_invasion_showdown"] = 1
+            db[mod.key]["showdown_completed_name"] = completedShowdowns[1].name
+        else
+            db[mod.key]["void_invasion_showdown"] = db[mod.key]["void_invasion_showdown"] or 0
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "void_invasion_showdown" then
+                if db[mod.key]["showdown_completed_name"] or (tonumber(db[mod.key]["void_invasion_showdown"]) or 0) > 0 then
+                    row.countText = db[mod.key]["showdown_completed_name"] or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif db[mod.key]["showdown_active_name"] then
+                    row.countText = db[mod.key]["showdown_active_name"]
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
+            end
+        end
+
         local activeUATVBranch = FindActiveQuestVariant(UATV_BRANCHES)
         db[mod.key]["uatv_branch_name"] = activeUATVBranch and activeUATVBranch.name or nil
         db[mod.key]["uatv_branch_quest"] = activeUATVBranch and activeUATVBranch.quest or nil
         db[mod.key]["uatv_completed_branch_name"] = nil
+        db[mod.key]["unity_against_void"] = db[mod.key]["unity_against_void"] or 0
 
         if C_QuestLog.IsQuestFlaggedCompleted(93744) then
             db[mod.key]["unity_against_void"] = 1
@@ -225,6 +712,35 @@ MR:RegisterModule({
                     db[mod.key]["uatv_completed_branch_name"] = branch.name
                     break
                 end
+            end
+        end
+
+        if db[mod.key]["unity_against_void"] < 1
+            and activeUATVBranch
+            and activeUATVBranch.quest == 93913
+            and MR.IsCurrentWorldBossCompleted
+            and MR:IsCurrentWorldBossCompleted() then
+            db[mod.key]["unity_against_void"] = 1
+            db[mod.key]["uatv_completed_branch_name"] = activeUATVBranch.name
+        end
+
+        for _, row in ipairs(mod.rows) do
+            if row.key == "unity_against_void" then
+                local completedBranch = db[mod.key]["uatv_completed_branch_name"]
+                local activeBranch = db[mod.key]["uatv_branch_name"]
+                local unityProgress = db[mod.key]["unity_against_void"] or 0
+
+                if completedBranch or unityProgress >= 1 then
+                    row.countText = completedBranch or (L["Done"] or "Done")
+                    row.countColor = { 0.4, 0.85, 0.4 }
+                elseif activeBranch then
+                    row.countText = activeBranch
+                    row.countColor = { 1, 0.9, 0.3 }
+                else
+                    row.countText = nil
+                    row.countColor = nil
+                end
+                break
             end
         end
 
@@ -244,29 +760,260 @@ MR:RegisterModule({
                 break
             end
         end
-
+        for key, value in pairs(db[mod.key]) do
+            if beforeProgress[key] ~= value then
+                return true
+            end
+        end
+        for key in pairs(beforeProgress) do
+            if db[mod.key][key] ~= beforeProgress[key] then
+                return true
+            end
+        end
+        for _, row in ipairs(mod.rows) do
+            local beforeRow = beforeRows[row.key]
+            if beforeRow then
+                if beforeRow.countText ~= row.countText
+                    or beforeRow.max ~= row.max
+                    or beforeRow.note ~= row.note
+                    or not ColorsEqual(beforeRow.countColor, row.countColor) then
+                    return true
+                end
+            end
+        end
+        return false
     end,
 
     rows = {
         {
+            key      = "void_assaults",
+            label    = L["Weekly_VoidAssaults_Label"] or "|cff2ae7c6Void Assaults:|r",
+            max      = 1,
+            note     = L["Weekly_VoidAssaults_Note"] or "Complete the active Void Assault weekly in Eversong Woods or Zul'Aman for a Spark of Radiance.",
+            questIds = { 95842, 94385, 94386 },
+            patchKey = "12.0.5",
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
+                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local completedName = s1db["void_assault_completed_name"]
+                local activeName = s1db["void_assault_active_name"]
+                local activePoiName = s1db["void_assault_active_poi_name"]
+                local fallbackName = L["Done"] or "Done"
+
+                tip:AddLine(" ")
+                if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842)) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
+                elseif activeName or #activeVariants > 0 then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (activeName or GetVariantName(activeVariants, 1, L["Weekly_VoidAssaults_Label"] or "Void Assaults")), 1, 0.9, 0.3)
+                    if activePoiName then
+                        tip:AddLine("    " .. activePoiName, 0.65, 0.82, 1)
+                    end
+                else
+                    tip:AddLine(L["Tooltip_No_VoidAssaults"] or "|cffaaaaaa? No Void Assault weekly detected.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_VoidAssaults"] or "  Visit the active assault zone in Eversong Woods or Zul'Aman.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "ritual_sites",
+            label    = L["Weekly_RitualSites_Label"] or "|cff2ae7c6Ritual Sites:|r",
+            max      = 1,
+            note     = L["Weekly_RitualSites_Note"] or "Complete a Ritual Site in Midnight for a Spark of Radiance.",
+            questIds = { 95843, 94880, 94878 },
+            patchKey = "12.0.5",
+            turnInTracked = true,
+            allowQuestFlagBackfill = true,
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
+                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local completedName = s1db["ritual_site_completed_name"]
+                local activeName = s1db["ritual_site_active_name"]
+                local activePoiName = s1db["ritual_site_active_poi_name"]
+                local rowDone = (tonumber(s1db["ritual_sites"]) or 0) > 0
+                local fallbackName = L["Done"] or "Done"
+
+                tip:AddLine(" ")
+                if completedName or #completedVariants > 0 or rowDone or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95843)) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
+                elseif activeName or #activeVariants > 0 or IsQuestCurrentlyActive(95843) then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (activeName or GetVariantName(activeVariants, 1, L["Weekly_RitualSites_Label"] or "Ritual Sites")), 1, 0.9, 0.3)
+                    if activePoiName then
+                        tip:AddLine("    " .. activePoiName, 0.65, 0.82, 1)
+                    end
+                else
+                    tip:AddLine(L["Tooltip_No_RitualSites"] or "|cffaaaaaa? Ritual Sites weekly not yet detected.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_RitualSites"] or "  Complete a Ritual Site in the active location to reveal this week's progress.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        {
+            key      = "abyss_anglers",
+            label    = L["Weekly_AbyssAnglers_Label"] or "|cff2ae7c6Abyss Anglers:|r",
+            max      = 1,
+            note     = L["Weekly_AbyssAnglers_Note"] or "Complete an Abyss Anglers dive in Zul'Aman. This helps cover the new weekly-capped activity tied to up to 3 Fused Vitality purchases.",
+            questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID, ABYSS_ANGLERS_INTRO_QUEST_ID },
+            patchKey = "12.0.5",
+            tooltipFunc = function(tip)
+                tip:AddLine(" ")
+                if C_QuestLog.IsQuestFlaggedCompleted and (
+                    C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
+                    or C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_INTRO_QUEST_ID)
+                ) then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_AbyssAnglers_Label"] or "Abyss Anglers"), 0.4, 0.85, 0.4)
+                elseif IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID) or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID) then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Weekly_AbyssAnglers_Label"] or "Abyss Anglers"), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_AbyssAnglers"] or "|cffaaaaaa? Abyss Anglers not yet detected this week.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_AbyssAnglers"] or "  Visit Depthdiver Jeju off the coast of Zul'Aman to start a dive.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "void_invasion_showdown",
+            label    = L["Weekly_Showdown_Label"] or "|cff2ae7c6Void Invasion Showdown:|r",
+            max      = 1,
+            note     = L["Weekly_Showdown_Note"] or "Complete the active Naigtal or Val Showdown. Normal or Heroic counts.",
+            questIds = { 96717, 96718, 96713, 96714 },
+            patchKey = "12.0.7",
+            turnInTracked = true,
+            allowQuestFlagBackfill = true,
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
+                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local completedName = s1db["showdown_completed_name"]
+                local activeName = s1db["showdown_active_name"]
+                local rowDone = (tonumber(s1db["void_invasion_showdown"]) or 0) > 0
+                local fallbackName = L["Done"] or "Done"
+
+                tip:AddLine(" ")
+                if completedName or #completedVariants > 0 or rowDone then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
+                elseif activeName or #activeVariants > 0 then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (activeName or GetVariantName(activeVariants, 1, L["Weekly_Showdown_Label"] or "Void Invasion Showdown")), 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_Showdown"] or "|cffaaaaaa? Void Invasion Showdown not yet detected this week.|r", 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_Showdown"] or "  Visit the active Void Invasion zone in Naigtal or Val.", 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "arcantina_weekly",
+            label    = L["Weekly_Arcantina_Label"],
+            max      = 1,
+            note     = L["Weekly_Arcantina_Note"],
+            patchKey = "12.0.0",
+            turnInTracked = true,
+            questIds = { 92319, 92321, 92320, 92322, 92323, 92324, 92325, 92326, 92327 },
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(ARCANTINA_WEEKLIES)
+
+                tip:AddLine(" ")
+                if #activeVariants > 0 then
+                    tip:AddLine(L["Tooltip_Active_Week"], 1, 1, 1)
+                    for _, variant in ipairs(activeVariants) do
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 1, 0.9, 0.3)
+                    end
+                elseif #completedVariants > 0 then
+                    tip:AddLine(L["Tooltip_Done_Completed"], 1, 1, 1)
+                    for _, variant in ipairs(completedVariants) do
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 0.4, 0.85, 0.4)
+                    end
+                else
+                    tip:AddLine(L["Tooltip_No_Arcantina"], 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_Arcantina"], 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "halduron_weekly",
+            label    = L["Weekly_Halduron_Label"],
+            max      = 1,
+            note     = L["Weekly_Halduron_Note"],
+            patchKey = "12.0.0",
+            questIds = { 93753, 93754, 93755, 93756, 93757, 93758, 95468 },
+            tooltipFunc = function(tip)
+                local completedVariants, activeVariants = CollectQuestVariants(HALDURON_WEEKLIES)
+
+                tip:AddLine(" ")
+                if #activeVariants > 0 then
+                    tip:AddLine(L["Tooltip_Active_Week"], 1, 1, 1)
+                    for _, variant in ipairs(activeVariants) do
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 1, 0.9, 0.3)
+                    end
+                elseif #completedVariants > 0 then
+                    tip:AddLine(L["Tooltip_Done_Completed"], 1, 1, 1)
+                    for _, variant in ipairs(completedVariants) do
+                        tip:AddLine("  " .. GetVariantDisplayName(variant), 0.4, 0.85, 0.4)
+                    end
+                else
+                    tip:AddLine(L["Tooltip_No_Halduron"], 1, 1, 1)
+                    tip:AddLine(L["Tooltip_Visit_Halduron"], 0.7, 0.7, 0.7)
+                end
+            end,
+        },
+        {
+            key      = "call_to_delves",
+            label    = L["Weekly_CallToDelves_Label"],
+            max      = 1,
+            note     = L["Delves_Call_Note"],
+            patchKey = "12.0.0",
+            isVisible = function()
+                local mdb = MR and MR.db and MR.db.char and MR.db.char.progress and MR.db.char.progress["s1_weekly"]
+                return IsQuestCurrentlyActive(93595) or ((mdb and tonumber(mdb["call_to_delves"])) or 0) > 0
+            end,
+        },
+        {
             key      = "abundance",
             label    = L["Weekly_Abundance_Label"],
             max      = 1,
+            patchKey = "12.0.0",
             questIds = { 89507 },
         },
         {
             key      = "lost_legends",
             label    = L["Weekly_Legends_Label"],
             max      = 1,
-            questIds = { 89268 }, 
+            patchKey = "12.0.0",
+            turnInTracked = true,
+            allowQuestFlagBackfill = true,
+            questIds = { 89268, 93891 },
         },
         {
             key      = "saltherils_soiree",
             label    = L["Weekly_Soiree_Label"],
             max      = 1,
             note     = L["Weekly_Soiree_Note"],
+            patchKey = "12.0.0",
             turnInTracked = true,
-            questIds = { 89289, 91966 }, 
+            questIds = { 89289, 91966 },
             tooltipFunc = function(tip)
                 local variants = {
                     { quest = 91966, name = "Saltheril's Soiree" },
@@ -294,6 +1041,7 @@ MR:RegisterModule({
             label    = L["Weekly_Fortify_Label"],
             max      = 1,
             note     = L["Weekly_Fortify_Note"],
+            patchKey = "12.0.0",
             questIds = { 90573, 90574, 90575, 90576 },
 
             tooltipFunc = function(tip)
@@ -311,7 +1059,7 @@ MR:RegisterModule({
                 end
                 if not completedName then
                     for _, v in ipairs(variants) do
-                        if C_QuestLog.IsOnQuest(v.quest) then
+                        if IsQuestCurrentlyActive(v.quest) then
                             activeName = v.name; break
                         end
                     end
@@ -334,17 +1082,18 @@ MR:RegisterModule({
             label    = L["Weekly_Unity_Label"],
             max      = 1,
             note     = L["Weekly_Unity_Note"],
+            patchKey = "12.0.0",
             turnInTracked = true,
             questIds = { 93744 },
             branchQuestIds = UATV_BRANCH_QUEST_IDS,
 
             isVisible = function()
                 for _, qid in ipairs(UATV_BRANCH_QUEST_IDS) do
-                    if C_QuestLog.IsOnQuest(qid) or C_QuestLog.IsQuestFlaggedCompleted(qid) then
+                    if IsQuestCurrentlyActive(qid) or C_QuestLog.IsQuestFlaggedCompleted(qid) then
                         return true
                     end
                 end
-                return C_QuestLog.IsOnQuest(93744)
+                return IsQuestCurrentlyActive(93744)
                     or C_QuestLog.IsQuestFlaggedCompleted(93744)
                     or MR:GetProgress("s1_weekly", "unity_against_void") >= 1
             end,
@@ -353,7 +1102,7 @@ MR:RegisterModule({
                 local s1db = MR.db.char.progress["s1_weekly"] or {}
                 local activeBranchInfo = FindActiveQuestVariant(UATV_BRANCHES)
                 local completedBranch = (MR:GetProgress("s1_weekly", "unity_against_void") >= 1 and s1db["uatv_completed_branch_name"]) or nil
-                local activeBranch = activeBranchInfo and activeBranchInfo.name or nil
+                local activeBranch = (activeBranchInfo and activeBranchInfo.name) or s1db["uatv_branch_name"]
 
                 tip:AddLine(" ")
                 if completedBranch or MR:GetProgress("s1_weekly", "unity_against_void") >= 1 then
@@ -375,6 +1124,7 @@ MR:RegisterModule({
             label    = L["Weekly_SA_Label"],
             max      = 1,
             note     = L["Weekly_SA_Note"],
+            patchKey = "12.0.0",
 
             questIds = { 91390, 91796, 92063, 92139, 92145, 93013, 93244, 93438 },
             tooltipFunc = function(tip)

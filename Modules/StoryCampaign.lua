@@ -1,3 +1,6 @@
+local _, ns = ...
+local MR = ns.MR
+
 local registeredCampaigns = {}
 local SKIP_STATES = { [3] = true }
 local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")

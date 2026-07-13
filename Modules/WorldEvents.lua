@@ -1,13 +1,7 @@
-local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
+local _, ns = ...
+local MR = ns.MR
 
-local HOLIDAY_TIMEWALKING = {
-    1056,
-    1063,
-    1326,
-    1400,
-    1404,
-    1500,
-}
+local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
 
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
@@ -27,20 +21,6 @@ local WORLD_BOSS_ROTATION = {
 
 local WEEK_SECONDS = 7 * 24 * 60 * 60
 local MIDNIGHT_SEASON_START_RESET = 1773727200
-
-local function IsHolidayActive(holidayId)
-    if not C_DateAndTime or not C_DateAndTime.GetHolidayInfo then return false end
-    local info = C_DateAndTime.GetHolidayInfo(holidayId)
-    return info ~= nil and info.startTime ~= nil and GetServerTime() >= info.startTime and GetServerTime() <= info.endTime
-end
-
-local function IsTimewalkingActive()
-    for _, id in ipairs(HOLIDAY_TIMEWALKING) do
-        if IsHolidayActive(id) then return true end
-    end
-    return false
-end
-
 local function NormalizeText(text)
     if type(text) ~= "string" then
         return ""
@@ -114,7 +94,7 @@ end
 local function FindWorldBossQuestID(mapID, matchText, bossKey)
     local cache = GetWorldBossQuestCache()
 
-    if not (C_TaskQuest and C_TaskQuest.GetQuestsForPlayerByMapID and C_QuestLog and C_QuestLog.GetTitleForQuestID) then
+    if not (C_TaskQuest and C_TaskQuest.GetQuestsForPlayerByMapID) then
         return bossKey and cache[bossKey] or nil
     end
 
@@ -127,7 +107,7 @@ local function FindWorldBossQuestID(mapID, matchText, bossKey)
     for _, info in ipairs(quests) do
         local questID = info.questId or info.questID
         if questID then
-            local title = C_QuestLog.GetTitleForQuestID(questID)
+            local title = MR:GetQuestName(questID)
             if title and NormalizeText(title):find(needle, 1, true) then
                 if bossKey then
                     cache[bossKey] = questID
@@ -170,6 +150,21 @@ end
 function MR:GetActiveWorldBossInfo()
     local boss, index, currentReset, nextReset = GetActiveWorldBossState()
     return boss, index, currentReset, nextReset
+end
+
+function MR:IsCurrentWorldBossCompleted()
+    local activeBoss = GetActiveWorldBossState()
+    if not activeBoss then
+        return false
+    end
+
+    local questID = activeBoss.questId or FindWorldBossQuestID(activeBoss.zone, activeBoss.match, activeBoss.key)
+    if questID and C_QuestLog.IsQuestFlaggedCompleted(questID) then
+        SyncWorldBossKillRecord(activeBoss.key)
+        return true
+    end
+
+    return GetWorldBossKillStatus(activeBoss.key) ~= nil
 end
 
 function MR:SyncCurrentWorldBossKillByName(name)
@@ -224,7 +219,7 @@ MR:RegisterModule({
             if isActive then
                 local remaining = nextReset - now
                 if isDone then
-                    row.countText = string.format(L["WB_Timer_Done"] or "Done - %s", FormatRemaining(remaining))
+                    row.countText = string.format("%s - %s", L["Done"] or "Done", FormatRemaining(remaining))
                     row.countColor = { 0.30, 0.90, 0.55 }
                 else
                     row.countText = string.format(L["WB_Timer_Active"] or "Active - %s", FormatRemaining(remaining))
@@ -244,24 +239,5 @@ MR:RegisterModule({
         { key = "cragpine",   label = L["WB_Cragpine_Label"],   note = L["WB_Cragpine_Note"],   max = 1, autoTracked = true, isVisible = function() return IsActiveWorldBossRow("cragpine") end },
         { key = "thormbelan", label = L["WB_Thormbelan_Label"], note = L["WB_Thormbelan_Note"], max = 1, autoTracked = true, isVisible = function() return IsActiveWorldBossRow("thormbelan") end },
         { key = "predaxas",   label = L["WB_Predaxas_Label"],   note = L["WB_Predaxas_Note"],   max = 1, autoTracked = true, isVisible = function() return IsActiveWorldBossRow("predaxas") end },
-    },
-})
-
-MR:RegisterModule({
-    key         = "timewalking",
-    label       = L["TW_DungeonTitle"],
-    labelColor  = "#66ccff",
-    resetType   = "weekly",
-    defaultOpen = true,
-    isVisible   = IsTimewalkingActive,
-
-    rows = {
-        {
-            key      = "tw_weekly",
-            label    = L["TW_Weekly_Label"],
-            max      = 1,
-            note     = L["TW_Weekly_Note"],
-            questIds = { 40753, 40173, 40786, 40785, 45566, 62786 },
-        },
     },
 })

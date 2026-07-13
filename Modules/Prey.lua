@@ -1,3 +1,6 @@
+local _, ns = ...
+local MR = ns.MR
+
 local L = LibStub("AceLocale-3.0"):GetLocale("MidnightRoutine")
 
 local function BuildPreyNormalQuestIds()
