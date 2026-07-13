@@ -253,6 +253,7 @@ local DEFAULTS = {
     char = {
         progress = {},
         professions = {},
+        professionsScanned = false,
         professionConcentration = {},
         customTasks = {},
         customTaskNextId = 1,
@@ -1122,8 +1123,11 @@ end
 
 function MR:IsModuleEnabled(key)
     local mod = self.moduleByKey[key]
-    if mod and mod.profSkillLine and not self.playerProfessions[mod.profSkillLine] then
-        return false
+    local storage = self:GetActiveModuleStorage()
+    local s = storage and storage[key]
+    local professionSource = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or nil
+    if mod and mod.profSkillLine and self.HasProfessionForModule and not self:HasProfessionForModule(mod.profSkillLine, professionSource) then
+        return s and s.enabled == true and s.professionManual == true
     end
     if mod and not self:IsPatchEnabled(mod.patchKey) then
         local hasEnabledPatchRows = false
@@ -1137,8 +1141,6 @@ function MR:IsModuleEnabled(key)
             return false
         end
     end
-    local storage = self:GetActiveModuleStorage()
-    local s = storage and storage[key]
     return not (s and s.enabled == false)
 end
 
@@ -1228,6 +1230,10 @@ function MR:SetModuleEnabled(key, enabled, skipRefresh)
     local storage = self:GetActiveModuleStorage()
     if not storage[key] then storage[key] = {} end
     storage[key].enabled = enabled
+    local mod = self.moduleByKey and self.moduleByKey[key]
+    if mod and mod.profSkillLine then
+        storage[key].professionManual = enabled and true or nil
+    end
     if not skipRefresh then
         self:RefreshUI()
     end
@@ -1488,6 +1494,16 @@ function MR:ApplyPanelHeaderAutoHide(frame, titleBar, shouldHideFunc)
     if not frame._mrPanelHeaderAutoHideHooked then
         frame._mrHeaderHoverElapsed = 0
         frame:EnableMouse(true)
+        frame:HookScript("OnEnter", function(self)
+            if self.UpdatePanelHeaderVisibility then
+                self:UpdatePanelHeaderVisibility(true)
+            end
+        end)
+        frame:HookScript("OnLeave", function(self)
+            if self.UpdatePanelHeaderVisibility then
+                self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
+            end
+        end)
         frame:HookScript("OnShow", function(self)
             if self.UpdatePanelHeaderVisibility then
                 self:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(self))
@@ -1499,10 +1515,7 @@ function MR:ApplyPanelHeaderAutoHide(frame, titleBar, shouldHideFunc)
             if self._mrHeaderHoverElapsed < 0.05 then return end
             self._mrHeaderHoverElapsed = 0
             local isHovering = MR:IsCursorWithinBounds(self)
-            if isHovering ~= self._mrHeaderHovering then
-                self._mrHeaderHovering = isHovering
-                self:UpdatePanelHeaderVisibility(isHovering)
-            end
+            self:UpdatePanelHeaderVisibility(isHovering)
         end)
         frame._mrPanelHeaderAutoHideHooked = true
     end
@@ -1517,6 +1530,12 @@ function MR:ApplyPanelHeaderAutoHide(frame, titleBar, shouldHideFunc)
     end
 
     frame:UpdatePanelHeaderVisibility(MR:IsCursorWithinBounds(frame))
+end
+
+function MR:RefreshPanelHeaderVisibility(frame)
+    if frame and frame.UpdatePanelHeaderVisibility then
+        frame:UpdatePanelHeaderVisibility(self:IsCursorWithinBounds(frame))
+    end
 end
 
 function MR:GetRowColor(modKey, rowKey)
@@ -1592,6 +1611,60 @@ local function CopyProfessionMap(source)
     return copy
 end
 
+local function HasAnyProfessionRecord(source)
+    if type(source) ~= "table" then
+        return false
+    end
+
+    for _, learned in pairs(source) do
+        if learned then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function CharacterDataHasProfession(charData, skillLineID)
+    if type(charData) ~= "table" then
+        return false
+    end
+
+    local professions = charData.professions
+    if type(professions) == "table" and professions[skillLineID] then
+        return true
+    end
+    if charData.professionsScanned or HasAnyProfessionRecord(professions) then
+        return false
+    end
+
+    local concentration = charData.professionConcentration
+    return type(concentration) == "table" and concentration[skillLineID] ~= nil
+end
+
+function MR:HasProfessionForModule(skillLineID, charData)
+    if not skillLineID then
+        return true
+    end
+
+    if charData ~= nil then
+        if self.db and charData == self.db.char and self.playerProfessions and self.playerProfessions[skillLineID] then
+            return true
+        end
+        return CharacterDataHasProfession(charData, skillLineID)
+    end
+
+    if self.playerProfessions and self.playerProfessions[skillLineID] then
+        return true
+    end
+
+    if CharacterDataHasProfession(self.db and self.db.char, skillLineID) then
+        return true
+    end
+
+    return false
+end
+
 local function ConcentrationDataEqual(a, b)
     if a == b then
         return true
@@ -1630,34 +1703,60 @@ function MR:RefreshPlayerProfessions()
     end
 
     wipe(self.playerProfessions)
+    local found = false
+    local scanned = false
     if C_TradeSkillUI and C_TradeSkillUI.GetAllProfessionTradeSkillLines then
         local lines = C_TradeSkillUI.GetAllProfessionTradeSkillLines()
         if lines then
+            scanned = true
             for _, skillLineID in ipairs(lines) do
                 local info = C_TradeSkillUI.GetProfessionInfoBySkillLineID and
                              C_TradeSkillUI.GetProfessionInfoBySkillLineID(skillLineID)
                 if info and (info.skillLevel or 0) > 0 then
                     self.playerProfessions[skillLineID] = true
+                    found = true
                     if info.parentProfessionID then
                         local mid = PARENT_TO_MIDNIGHT[info.parentProfessionID]
-                        if mid then self.playerProfessions[mid] = true end
+                        if mid then
+                            self.playerProfessions[mid] = true
+                            found = true
+                        end
                     end
                 end
             end
         end
     end
-    for _, idx in ipairs({ GetProfessions() }) do
-        if idx then
-            local _, _, _, _, _, _, parentSkillLine = GetProfessionInfo(idx)
-            if parentSkillLine then
-                local mid = PARENT_TO_MIDNIGHT[parentSkillLine]
-                if mid then self.playerProfessions[mid] = true end
+    if GetProfessions and GetProfessionInfo then
+        local prof1, prof2, archaeology, fishing, cooking = GetProfessions()
+        scanned = true
+        for _, idx in ipairs({ prof1, prof2, archaeology, fishing, cooking }) do
+            if idx then
+                local _, _, _, _, _, _, parentSkillLine = GetProfessionInfo(idx)
+                if parentSkillLine then
+                    local mid = PARENT_TO_MIDNIGHT[parentSkillLine]
+                    if mid then
+                        self.playerProfessions[mid] = true
+                        found = true
+                    end
+                end
             end
         end
     end
 
     if self.db and self.db.char then
-        self.db.char.professions = CopyProfessionMap(self.playerProfessions)
+        if scanned then
+            self.db.char.professions = CopyProfessionMap(self.playerProfessions)
+            self.db.char.professionsScanned = true
+            if not found then
+                self.db.char.professionConcentration = {}
+            end
+        elseif HasAnyProfessionRecord(self.db.char.professions) then
+            for skillLineID, learned in pairs(self.db.char.professions) do
+                if learned then
+                    self.playerProfessions[skillLineID] = true
+                end
+            end
+        end
     end
 end
 

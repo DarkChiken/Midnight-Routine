@@ -1390,19 +1390,18 @@ PopulateGatheringConfig = function(frame)
     elseif activePage == "professions" then
         SecLabel(L["Config_TabModules"] or "Professions")
         for _, profession in ipairs(PROFESSIONS) do
-            if HasProfessionLearned(profession.skillLine) then
-                local cr, cg, cb = GetProfessionColor(profession.key)
-                local row = CreateFrame("Frame", nil, body)
-                row:SetPoint("TOPLEFT", body, "TOPLEFT", pad, yOff)
-                row:SetPoint("TOPRIGHT", body, "TOPRIGHT", -pad, yOff)
-                row:SetHeight(26)
-                local nameLbl
-                local toggleBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
-                toggleBtn:SetSize(18, 18)
-                toggleBtn:SetPoint("LEFT", row, "LEFT", 0, 0)
-                toggleBtn:SetBackdrop(MakeBackdrop())
-                toggleBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
-                toggleBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
+            local cr, cg, cb = GetProfessionColor(profession.key)
+            local row = CreateFrame("Frame", nil, body)
+            row:SetPoint("TOPLEFT", body, "TOPLEFT", pad, yOff)
+            row:SetPoint("TOPRIGHT", body, "TOPRIGHT", -pad, yOff)
+            row:SetHeight(26)
+            local nameLbl
+            local toggleBtn = CreateFrame("Button", nil, row, "BackdropTemplate")
+            toggleBtn:SetSize(18, 18)
+            toggleBtn:SetPoint("LEFT", row, "LEFT", 0, 0)
+            toggleBtn:SetBackdrop(MakeBackdrop())
+            toggleBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+            toggleBtn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
 
                 local toggleLbl = toggleBtn:CreateFontString(nil, "OVERLAY")
                 toggleLbl:SetFont(FONT_ROWS, cfgFs, GetFontFlags())
@@ -1434,7 +1433,6 @@ PopulateGatheringConfig = function(frame)
                 nameLbl:SetText(profession.label .. (IsProfessionCollapsed(profession.key) and ("  " .. (L["Config_Collapsed"] or "Collapsed")) or ""))
                 nameLbl:SetTextColor(cr, cg, cb)
                 yOff = yOff - 28
-            end
         end
     else
         SecLabel(L["RESETS"])

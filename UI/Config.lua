@@ -843,17 +843,11 @@ function MR:PopulateConfigFrame(f)
             function() return MR.db.profile.autoHidePanelHeaders end,
             function(v)
                 MR.db.profile.autoHidePanelHeaders = v
-                if MR.frame and MR.frame.UpdatePanelHeaderVisibility then
-                    MR.frame:UpdatePanelHeaderVisibility(MR.frame:IsMouseOver())
-                end
-                if MR.renownFrame and MR.renownFrame.UpdatePanelHeaderVisibility then
-                    MR.renownFrame:UpdatePanelHeaderVisibility(MR.renownFrame:IsMouseOver())
-                end
-                if MR.raresFrame and MR.raresFrame.UpdatePanelHeaderVisibility then
-                    MR.raresFrame:UpdatePanelHeaderVisibility(MR.raresFrame:IsMouseOver())
-                end
-                if MR.gatheringLocationsFrame and MR.gatheringLocationsFrame.UpdatePanelHeaderVisibility then
-                    MR.gatheringLocationsFrame:UpdatePanelHeaderVisibility(MR.gatheringLocationsFrame:IsMouseOver())
+                if MR.RefreshPanelHeaderVisibility then
+                    MR:RefreshPanelHeaderVisibility(MR.frame)
+                    MR:RefreshPanelHeaderVisibility(MR.renownFrame)
+                    MR:RefreshPanelHeaderVisibility(MR.raresFrame)
+                    MR:RefreshPanelHeaderVisibility(MR.gatheringLocationsFrame)
                 end
             end)
         Gap(4); Divider()
@@ -1581,10 +1575,97 @@ function MR:PopulateConfigFrame(f)
         MR:PopulateConfigFrame(f)
     end
 
+    local professionGroupRendered = false
+    local professionGroupOpen = MR._cfgExpanded.__professions == true
+    local professionTotal, professionKnown = 0, 0
+    local professionSource = MR.GetMainFrameProgressSource and MR:GetMainFrameProgressSource() or nil
+    for _, mod in ipairs(_allMods) do
+        if mod.profSkillLine then
+            professionTotal = professionTotal + 1
+            if not MR.HasProfessionForModule or MR:HasProfessionForModule(mod.profSkillLine, professionSource) then
+                professionKnown = professionKnown + 1
+            end
+        end
+    end
+
+    local function BuildProfessionGroupHeader()
+        local ROW_H = 22
+        local headerFr = CreateFrame("Frame", nil, body, "BackdropTemplate")
+        headerFr:SetPoint("TOPLEFT", body, "TOPLEFT", 4, yOff)
+        headerFr:SetSize(contentW, ROW_H)
+        headerFr:SetBackdrop(MakeBackdrop())
+        headerFr:SetBackdropColor(0.05, 0.11, 0.16, 0.94)
+        headerFr:SetBackdropBorderColor(0.18, 0.40, 0.45, 0.95)
+
+        local arrowBtn = CreateFrame("Button", nil, headerFr, "BackdropTemplate")
+        arrowBtn:SetSize(16, 16)
+        arrowBtn:SetPoint("RIGHT", headerFr, "RIGHT", -3, 0)
+        arrowBtn:SetBackdrop(MakeBackdrop())
+        arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+        arrowBtn:SetBackdropBorderColor(0.15, 0.32, 0.38, 1)
+
+        local arrowLbl = arrowBtn:CreateFontString(nil, "OVERLAY")
+        arrowLbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        arrowLbl:SetPoint("CENTER", arrowBtn, "CENTER", 0, 1)
+        arrowLbl:SetText(professionGroupOpen and "v" or ">")
+        arrowLbl:SetTextColor(0.45, 0.75, 0.70)
+
+        local lbl = headerFr:CreateFontString(nil, "OVERLAY")
+        lbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        lbl:SetPoint("LEFT", headerFr, "LEFT", 8, 0)
+        lbl:SetPoint("RIGHT", arrowBtn, "LEFT", -6, 0)
+        lbl:SetJustifyH("LEFT")
+        lbl:SetText(string.format("Professions  |cff667788%d/%d|r", professionKnown, professionTotal))
+        lbl:SetTextColor(0.78, 0.95, 0.90)
+
+        local function ToggleProfessionGroup()
+            MR._cfgExpanded.__professions = not professionGroupOpen
+            if MR.RequestConfigRepopulate then
+                MR:RequestConfigRepopulate(f, 0.04)
+            else
+                MR:PopulateConfigFrame(f)
+            end
+        end
+
+        headerFr:EnableMouse(true)
+        headerFr:SetScript("OnMouseUp", ToggleProfessionGroup)
+        arrowBtn:SetScript("OnClick", ToggleProfessionGroup)
+        arrowBtn:SetScript("OnEnter", function()
+            arrowBtn:SetBackdropColor(0.08, 0.22, 0.32, 1)
+            arrowBtn:SetBackdropBorderColor(0.25, 0.85, 0.72, 1)
+            arrowLbl:SetTextColor(1, 1, 1)
+        end)
+        arrowBtn:SetScript("OnLeave", function()
+            arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+            arrowBtn:SetBackdropBorderColor(0.15, 0.32, 0.38, 1)
+            arrowLbl:SetTextColor(0.45, 0.75, 0.70)
+        end)
+
+        yOff = yOff - ROW_H
+    end
+
     local lastPatchKey
+    local professionSeparatorRendered = false
+    local lastRenderedProfession = false
     for _, mod in ipairs(_allMods) do
         local key = mod.key
         local optVisible = not mod.isVisible or mod:isVisible()
+        if mod.profSkillLine then
+            if not professionGroupRendered then
+                BuildProfessionGroupHeader()
+                professionGroupRendered = true
+            end
+            if not professionGroupOpen then
+                optVisible = false
+            end
+        elseif professionGroupOpen and lastRenderedProfession and not professionSeparatorRendered then
+            Gap(2)
+            Divider()
+            Gap(2)
+            professionSeparatorRendered = true
+            lastPatchKey = nil
+            lastRenderedProfession = false
+        end
         local patchKey = MR:GetModulePatchKey(mod)
 
         if optVisible and patchKey and patchKey ~= lastPatchKey then
@@ -1592,12 +1673,11 @@ function MR:PopulateConfigFrame(f)
             lastPatchKey = patchKey
         end
 
-        if mod.profSkillLine then
-            if MR.playerProfessions[mod.profSkillLine] then
-                local ROW_H = 22
-                local headerFr = CreateFrame("Frame", nil, body)
-                headerFr:SetPoint("TOPLEFT", body, "TOPLEFT", 4, yOff)
-                headerFr:SetSize(contentW, ROW_H)
+        if mod.profSkillLine and optVisible then
+            local ROW_H = 22
+            local headerFr = CreateFrame("Frame", nil, body)
+            headerFr:SetPoint("TOPLEFT", body, "TOPLEFT", 4, yOff)
+            headerFr:SetSize(contentW, ROW_H)
 
                 local grip = CreateFrame("Button", nil, headerFr, "BackdropTemplate")
                 grip:SetSize(16, ROW_H - 2)
@@ -1843,8 +1923,7 @@ function MR:PopulateConfigFrame(f)
 
                     Gap(3)
                 end
-            end
-
+                lastRenderedProfession = true
         elseif optVisible then
             local ROW_H = 22
             local headerFr = CreateFrame("Frame", nil, body)
