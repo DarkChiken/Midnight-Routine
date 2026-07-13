@@ -963,7 +963,7 @@ local function UpdateDetachedSectionWidget(self, hostFrame, mod, contentWidth)
         local hideComplete = stats and stats.hideComplete
         local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
         for _, row in ipairs(rows) do
-            local rowVisible = not row.isVisible or row.isVisible()
+            local rowVisible = MR.IsRowVisibleForCharacter and MR:IsRowVisibleForCharacter(mod, row) or (not row.isVisible or row.isVisible())
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done = MR:GetProgress(mod.key, row.key)
                 local rowComplete = self:IsRowComplete(mod, row, done)
@@ -1701,7 +1701,7 @@ local function UpdateMainSectionWidget(self, mod, yOff, xOff, colW, col, recordR
         local hideComplete = stats and stats.hideComplete
         local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
         for _, row in ipairs(rows) do
-            local rowVisible = not row.isVisible or row.isVisible()
+            local rowVisible = MR.IsRowVisibleForCharacter and MR:IsRowVisibleForCharacter(mod, row) or (not row.isVisible or row.isVisible())
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done = MR:GetProgress(mod.key, row.key)
                 local rowComplete = self:IsRowComplete(mod, row, done)
@@ -4013,7 +4013,7 @@ BuildModuleStatsCache = function(self)
 
         local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
         for _, row in ipairs(rows) do
-            local rowVisible = not row.isVisible or row.isVisible()
+            local rowVisible = MR.IsRowVisibleForCharacter and MR:IsRowVisibleForCharacter(mod, row) or (not row.isVisible or row.isVisible())
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done = MR:GetProgress(mod.key, row.key)
                 local countsForTotals = not row.control
@@ -4290,7 +4290,7 @@ function MR:BuildSection(mod, yOff, xOff, colW, col, parent, widgetBucket, opts)
         local hideComplete = stats and stats.hideComplete
         local rows = MR.GetOrderedRows and MR:GetOrderedRows(mod) or mod.rows
         for _, row in ipairs(rows) do
-            local rowVisible = not row.isVisible or row.isVisible()
+            local rowVisible = MR.IsRowVisibleForCharacter and MR:IsRowVisibleForCharacter(mod, row) or (not row.isVisible or row.isVisible())
             if rowVisible and MR:IsRowEnabled(mod.key, row.key) then
                 local done       = MR:GetProgress(mod.key, row.key)
                 local isComplete = self:IsRowComplete(mod, row, done)

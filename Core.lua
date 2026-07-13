@@ -256,6 +256,7 @@ local DEFAULTS = {
         professionsScanned = false,
         professionConcentration = {},
         professionModuleStates = {},
+        rowVisibility = {},
         customTasks = {},
         customTaskNextId = 1,
         customTaskDiffProgress = {},
@@ -743,6 +744,29 @@ function MR:GetProgress(moduleKey, rowKey)
     local progress = source and source.progress or self.db.char.progress
     local m = progress and progress[moduleKey]
     return m and m[rowKey] or 0
+end
+
+function MR:IsRowVisibleForCharacter(mod, row, charData)
+    if not row or not row.isVisible then
+        return true
+    end
+
+    charData = charData or (self.GetMainFrameProgressSource and self:GetMainFrameProgressSource()) or (self.db and self.db.char)
+    if type(charData) == "table" and self.db and charData ~= self.db.char then
+        local visibility = charData.rowVisibility
+        local moduleVisibility = type(visibility) == "table" and mod and visibility[mod.key] or nil
+        local savedVisible = type(moduleVisibility) == "table" and moduleVisibility[row.key] or nil
+        if savedVisible ~= nil then
+            return savedVisible == true
+        end
+
+        local progress = type(charData.progress) == "table" and mod and charData.progress[mod.key] or nil
+        if type(progress) == "table" and (tonumber(progress[row.key]) or 0) > 0 then
+            return true
+        end
+    end
+
+    return row.isVisible() == true
 end
 
 function MR:GetProgressBucket(moduleKey, rowKey)
@@ -2262,6 +2286,17 @@ function MR:RefreshModuleScans(moduleKeys, refreshUI)
                         break
                     end
                 end
+            end
+
+            self.db.char.rowVisibility = self.db.char.rowVisibility or {}
+            self.db.char.rowVisibility[moduleKey] = self.db.char.rowVisibility[moduleKey] or {}
+            local visibilityBucket = self.db.char.rowVisibility[moduleKey]
+            for _, row in ipairs(mod.rows or {}) do
+                local currentVisible = row.isVisible and row.isVisible() == true or nil
+                if visibilityBucket[row.key] ~= currentVisible then
+                    changed = true
+                end
+                visibilityBucket[row.key] = currentVisible
             end
 
             if changed then

@@ -250,7 +250,7 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                         }
 
                         for _, row in ipairs(mod.rows) do
-                            local rowVisible = (not row.isVisible or row.isVisible())
+                            local rowVisible = self.IsRowVisibleForCharacter and self:IsRowVisibleForCharacter(mod, row, charData) or (not row.isVisible or row.isVisible())
                             local rowEnabled = not (effectiveSettings and effectiveSettings.hiddenRows and effectiveSettings.hiddenRows[row.key] == false)
 
                             if rowVisible and rowEnabled then
