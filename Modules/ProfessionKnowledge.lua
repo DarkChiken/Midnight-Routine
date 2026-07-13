@@ -305,6 +305,29 @@ local function HasProfessionLearned(skillLine)
     return MR.playerProfessions and MR.playerProfessions[skillLine] or false
 end
 
+local function GetProfessionModuleKey(profession)
+    if not (profession and profession.skillLine and MR and MR.modules) then
+        return nil
+    end
+
+    for _, mod in ipairs(MR.modules) do
+        if mod.profSkillLine == profession.skillLine then
+            return mod.key
+        end
+    end
+
+    return nil
+end
+
+local function ShouldShowProfessionInKnowledgeFrame(profession)
+    if not (profession and HasProfessionLearned(profession.skillLine)) then
+        return false
+    end
+
+    local modKey = GetProfessionModuleKey(profession)
+    return modKey and MR.IsModuleShownInProfessionKnowledge and MR:IsModuleShownInProfessionKnowledge(modKey) or false
+end
+
 local function QuestIDs(entry)
     if entry.questIDs then return entry.questIDs end
     if entry.questID then return { entry.questID } end
@@ -562,7 +585,7 @@ end
 local function GetVisibleKnowledgeTotals()
     local professions, sourcesDone, sourcesTotal, kpDone, kpTotal = 0, 0, 0, 0, 0
     for _, profession in ipairs(PROFESSIONS) do
-        if HasProfessionLearned(profession.skillLine) then
+        if ShouldShowProfessionInKnowledgeFrame(profession) then
             professions = professions + 1
             local pd, pt, kd, kt = ProfessionStats(profession)
             sourcesDone = sourcesDone + pd
@@ -869,7 +892,7 @@ local function BuildGatheringLocationsFrame(isRetry)
     end
 
     for _, profession in ipairs(PROFESSIONS) do
-        if HasProfessionLearned(profession.skillLine) then
+        if ShouldShowProfessionInKnowledgeFrame(profession) then
             local cr, cg, cb = GetProfessionColor(profession.key)
             local doneSources, totalSources, kpDone, kpTotal = ProfessionStats(profession)
             local weeklyDone, weeklyTotal = ProfessionWeeklyStats(profession)
@@ -1390,6 +1413,7 @@ PopulateGatheringConfig = function(frame)
     elseif activePage == "professions" then
         SecLabel(L["Config_TabModules"] or "Professions")
         for _, profession in ipairs(PROFESSIONS) do
+            local modKey = GetProfessionModuleKey(profession)
             local cr, cg, cb = GetProfessionColor(profession.key)
             local row = CreateFrame("Frame", nil, body)
             row:SetPoint("TOPLEFT", body, "TOPLEFT", pad, yOff)
@@ -1433,6 +1457,18 @@ PopulateGatheringConfig = function(frame)
                 nameLbl:SetText(profession.label .. (IsProfessionCollapsed(profession.key) and ("  " .. (L["Config_Collapsed"] or "Collapsed")) or ""))
                 nameLbl:SetTextColor(cr, cg, cb)
                 yOff = yOff - 28
+
+                if modKey then
+                    Check("Show in Profession Knowledge", function()
+                        return MR.IsModuleShownInProfessionKnowledge and MR:IsModuleShownInProfessionKnowledge(modKey) or false
+                    end, function(value)
+                        if MR.SetModuleShownInProfessionKnowledge then
+                            MR:SetModuleShownInProfessionKnowledge(modKey, value, true)
+                        end
+                        RebuildGatheringLocationsFrame()
+                    end, cr, cg, cb)
+                    Gap(2)
+                end
         end
     else
         SecLabel(L["RESETS"])

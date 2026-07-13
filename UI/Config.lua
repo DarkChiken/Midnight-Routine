@@ -1791,6 +1791,32 @@ function MR:PopulateConfigFrame(f)
 
                     local guideTopY = yOff
 
+                    local pkRow = CreateFrame("Frame", nil, body)
+                    pkRow:SetPoint("TOPLEFT", body, "TOPLEFT", 18, yOff)
+                    pkRow:SetSize(contentW - 20, 18)
+
+                    local pkCb = CreateFrame("CheckButton", nil, pkRow, "UICheckButtonTemplate")
+                    pkCb:SetSize(18, 18)
+                    pkCb:SetPoint("LEFT", pkRow, "LEFT", -2, 0)
+                    pkCb:SetChecked(MR.IsModuleShownInProfessionKnowledge and MR:IsModuleShownInProfessionKnowledge(key) or false)
+                    pkCb:SetScript("OnClick", function(s)
+                        if MR.SetModuleShownInProfessionKnowledge then
+                            MR:SetModuleShownInProfessionKnowledge(key, s:GetChecked(), true)
+                        end
+                        if MR.RebuildGatheringLocationsFrame then
+                            MR:RebuildGatheringLocationsFrame()
+                        end
+                    end)
+
+                    local pkLbl = pkRow:CreateFontString(nil, "OVERLAY")
+                    pkLbl:SetFont(FONT_ROWS, 9, GetFontFlags())
+                    pkLbl:SetPoint("LEFT", pkCb, "RIGHT", 2, 0)
+                    pkLbl:SetPoint("RIGHT", pkRow, "RIGHT", -4, 0)
+                    pkLbl:SetJustifyH("LEFT")
+                    pkLbl:SetText("Show in Profession Knowledge")
+                    pkLbl:SetTextColor(0.68, 0.88, 0.86)
+                    yOff = yOff - 20
+
                     local lastRowPatchKey
                     for _, row in ipairs(GetConfigRowsForModule(mod)) do
                         local rowPatchKey = MR:GetRowPatchKey(mod, row)
