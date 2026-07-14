@@ -91,6 +91,116 @@ local function HasAnyProfessionRecord(source)
     return false
 end
 
+local function GetConcentrationOrderIndex(order)
+    local index = {}
+    if type(order) == "table" then
+        for pos, skillLineID in ipairs(order) do
+            index[tonumber(skillLineID) or skillLineID] = pos
+        end
+    end
+    return index
+end
+
+function MR:GetAltBoardConcentrationOrder()
+    if not (self and self.db and self.db.profile) then
+        return {}
+    end
+
+    self.db.profile.altBoardConcentrationOrder = self.db.profile.altBoardConcentrationOrder or {}
+    return self.db.profile.altBoardConcentrationOrder
+end
+
+function MR:SetAltBoardConcentrationOrder(order)
+    if not (self and self.db and self.db.profile) then
+        return
+    end
+
+    local cleaned, seen = {}, {}
+    if type(order) == "table" then
+        for _, skillLineID in ipairs(order) do
+            skillLineID = tonumber(skillLineID)
+            if skillLineID and not seen[skillLineID] then
+                cleaned[#cleaned + 1] = skillLineID
+                seen[skillLineID] = true
+            end
+        end
+    end
+
+    self.db.profile.altBoardConcentrationOrder = cleaned
+end
+
+function MR:MoveAltBoardConcentrationProfession(skillLineID, direction)
+    skillLineID = tonumber(skillLineID)
+    direction = tonumber(direction) or 0
+    if not skillLineID or direction == 0 then
+        return false
+    end
+
+    local order = {}
+    local seen = {}
+    for _, existingID in ipairs(self:GetAltBoardConcentrationOrder()) do
+        existingID = tonumber(existingID)
+        if existingID and not seen[existingID] then
+            order[#order + 1] = existingID
+            seen[existingID] = true
+        end
+    end
+
+    local discovered = {}
+    if self.db and self.db.sv and type(self.db.sv.char) == "table" then
+        for _, charData in pairs(self.db.sv.char) do
+            local concentration = type(charData) == "table" and charData.professionConcentration or nil
+            if type(concentration) == "table" then
+                for existingID in pairs(concentration) do
+                    existingID = tonumber(existingID)
+                    if existingID and not seen[existingID] then
+                        discovered[#discovered + 1] = existingID
+                        seen[existingID] = true
+                    end
+                end
+            end
+        end
+    end
+    table.sort(discovered)
+    for _, existingID in ipairs(discovered) do
+        order[#order + 1] = existingID
+    end
+
+    if not seen[skillLineID] then
+        order[#order + 1] = skillLineID
+        seen[skillLineID] = true
+    end
+
+    local pos
+    for index, existingID in ipairs(order) do
+        if existingID == skillLineID then
+            pos = index
+            break
+        end
+    end
+
+    if not pos then
+        return false
+    end
+
+    local target = math.max(1, math.min(#order, pos + direction))
+    if target == pos then
+        return false
+    end
+
+    local moved = table.remove(order, pos)
+    table.insert(order, target, moved)
+    self:SetAltBoardConcentrationOrder(order)
+
+    if self.RefreshWarbandBoard then
+        self:RefreshWarbandBoard()
+    end
+    if self.RefreshConcentrationTracker then
+        self:RefreshConcentrationTracker()
+    end
+    return true
+end
+
 
 function MR:GetCurrentCharacterKey()
     if self.db and self.db.GetNativeHandles then
@@ -341,7 +451,13 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                     end
                 end
 
+                local concentrationOrderIndex = GetConcentrationOrderIndex(self:GetAltBoardConcentrationOrder())
                 table.sort(snapshot.concentration, function(a, b)
+                    local aOrder = concentrationOrderIndex[a.skillLineID] or math.huge
+                    local bOrder = concentrationOrderIndex[b.skillLineID] or math.huge
+                    if aOrder ~= bOrder then
+                        return aOrder < bOrder
+                    end
                     if a.skillLineID ~= b.skillLineID then
                         return a.skillLineID < b.skillLineID
                     end

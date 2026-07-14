@@ -438,6 +438,20 @@ local function GetAccountWideManualOverrideStorage()
     return MR.db.global.customTaskManualOverrides
 end
 
+local function ReadCustomTaskValue(source, rowKey)
+    local sourceModule = source and source[CUSTOM_MODULE_KEY]
+    return sourceModule and sourceModule[rowKey] or nil
+end
+
+local function WriteCustomTaskValue(target, rowKey, value)
+    if not (target and rowKey and value ~= nil) then
+        return
+    end
+
+    target[CUSTOM_MODULE_KEY] = target[CUSTOM_MODULE_KEY] or {}
+    target[CUSTOM_MODULE_KEY][rowKey] = value
+end
+
 local function GetDiffProgressStorage(task)
     if task and task.accountWideComplete then
         MR.db.global.customTaskDiffProgress = MR.db.global.customTaskDiffProgress or {}
@@ -819,6 +833,10 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     local oldTaskId = task.id
     local oldRowKey = GetTaskRowKey(oldTaskId, oldScope)
     local oldAccountWideComplete = task.accountWideComplete == true
+    local existingProgressSource = oldAccountWideComplete and GetAccountWideProgressStorage() or (self.db.char and self.db.char.progress)
+    local existingOverrideSource = oldAccountWideComplete and GetAccountWideManualOverrideStorage() or (self.db.char and self.db.char.manualOverrides)
+    local existingProgressValue = ReadCustomTaskValue(existingProgressSource, oldRowKey)
+    local existingOverrideValue = ReadCustomTaskValue(existingOverrideSource, oldRowKey)
     if oldScope ~= scope then
         local oldTasks = GetTaskStorage(oldScope)
         local newTasks = GetTaskStorage(scope)
@@ -874,6 +892,7 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     allowManualQuestClicks = NormalizeBoolean(allowManualQuestClicks)
     autoUpdateInstances = NormalizeBoolean(autoUpdateInstances)
     accountWideComplete = NormalizeBoolean(accountWideComplete)
+    local newRowKey = GetTaskRowKey(task.id, scope)
 
     if oldAccountWideComplete ~= accountWideComplete then
         local oldProgress = oldAccountWideComplete and GetAccountWideProgressStorage() or (self.db.char and self.db.char.progress)
@@ -897,6 +916,10 @@ function MR:UpdateCustomTask(taskId, label, resetType, maxValue, questIds, allow
     task.autoUpdateInstances = autoUpdateInstances
     task.accountWideComplete = accountWideComplete
     task.encounterDifficulties = NormalizeEncounterDifficulties(encounterDifficulties)
+    if accountWideComplete then
+        WriteCustomTaskValue(GetAccountWideProgressStorage(), newRowKey, existingProgressValue)
+        WriteCustomTaskValue(GetAccountWideManualOverrideStorage(), newRowKey, existingOverrideValue)
+    end
     RefreshCustomTaskViews(self)
     if questIds and self.RefreshQuestProgress then
         self:RefreshQuestProgress(nil, true)
@@ -914,12 +937,21 @@ function MR:ToggleCustomTask(taskId, scope)
     local cur = tonumber(self:GetProgress(CUSTOM_MODULE_KEY, rowKey)) or 0
     local newVal = cur >= 1 and 0 or 1
     self:SetProgress(CUSTOM_MODULE_KEY, rowKey, newVal, 1, task.autoUpdateInstances == true)
+    if task.accountWideComplete then
+        WriteCustomTaskValue(GetAccountWideProgressStorage(), rowKey, newVal)
+    end
 
     if task.questIds then
         if newVal >= 1 then
             self:SetManualOverride(CUSTOM_MODULE_KEY, rowKey, 1, 1)
+            if task.accountWideComplete then
+                WriteCustomTaskValue(GetAccountWideManualOverrideStorage(), rowKey, 1)
+            end
         else
             self:SetManualOverride(CUSTOM_MODULE_KEY, rowKey, 0, 1)
+            if task.accountWideComplete then
+                WriteCustomTaskValue(GetAccountWideManualOverrideStorage(), rowKey, 0)
+            end
         end
     end
 

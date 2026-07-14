@@ -243,6 +243,7 @@ local DEFAULTS = {
         altBoardShowHidden = false,
         altBoardView = "character",
         altBoardCollapsedModules = {},
+        altBoardConcentrationOrder = {},
         concentrationTrackerAlpha = 1.0,
         concentrationTrackerCompact = false,
         concentrationTrackerHiddenCharacters = {},
@@ -737,7 +738,33 @@ function MR:GetProgress(moduleKey, rowKey)
 
         local taskId = type(rowKey) == "string" and rowKey:match("^shared_task_(%d+)")
         local legacyKey = taskId and ("task_" .. taskId) or nil
-        return (legacyKey and m and m[legacyKey]) or 0
+        local legacyValue = legacyKey and m and m[legacyKey] or nil
+        if legacyValue ~= nil then
+            return legacyValue
+        end
+
+        local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or nil
+        local function readLocalProgress(localProgress)
+            local localModule = localProgress and localProgress[moduleKey]
+            return localModule and (localModule[rowKey] or (legacyKey and localModule[legacyKey])) or nil
+        end
+        local selectedValue = readLocalProgress(source and source.progress)
+        local currentValue = readLocalProgress(self.db and self.db.char and self.db.char.progress)
+        local localValue = selectedValue
+        if currentValue ~= nil and (localValue == nil or (tonumber(currentValue) or 0) > (tonumber(localValue) or 0)) then
+            localValue = currentValue
+        end
+        if localValue ~= nil then
+            if self.db then
+                self.db.global = self.db.global or {}
+                self.db.global.customTaskProgress = self.db.global.customTaskProgress or {}
+                self.db.global.customTaskProgress[moduleKey] = self.db.global.customTaskProgress[moduleKey] or {}
+                self.db.global.customTaskProgress[moduleKey][rowKey] = localValue
+            end
+            return localValue
+        end
+
+        return 0
     end
 
     local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
@@ -985,7 +1012,33 @@ function MR:GetManualOverride(modKey, rowKey)
 
         local taskId = type(rowKey) == "string" and rowKey:match("^shared_task_(%d+)")
         local legacyKey = taskId and ("task_" .. taskId) or nil
-        return (legacyKey and modOverrides and modOverrides[legacyKey]) or 0
+        local legacyValue = legacyKey and modOverrides and modOverrides[legacyKey] or nil
+        if legacyValue ~= nil then
+            return legacyValue
+        end
+
+        local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or nil
+        local function readLocalOverride(localOverrides)
+            local localModule = localOverrides and localOverrides[modKey]
+            return localModule and (localModule[rowKey] or (legacyKey and localModule[legacyKey])) or nil
+        end
+        local selectedValue = readLocalOverride(source and source.manualOverrides)
+        local currentValue = readLocalOverride(self.db and self.db.char and self.db.char.manualOverrides)
+        local localValue = selectedValue
+        if currentValue ~= nil and (localValue == nil or (tonumber(currentValue) or 0) > (tonumber(localValue) or 0)) then
+            localValue = currentValue
+        end
+        if localValue ~= nil then
+            if self.db then
+                self.db.global = self.db.global or {}
+                self.db.global.customTaskManualOverrides = self.db.global.customTaskManualOverrides or {}
+                self.db.global.customTaskManualOverrides[modKey] = self.db.global.customTaskManualOverrides[modKey] or {}
+                self.db.global.customTaskManualOverrides[modKey][rowKey] = localValue
+            end
+            return localValue
+        end
+
+        return 0
     end
 
     local source = self.GetMainFrameProgressSource and self:GetMainFrameProgressSource() or self.db.char
