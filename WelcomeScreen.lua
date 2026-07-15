@@ -36,6 +36,10 @@ local function GetFontFlags()
     return "OUTLINE"
 end
 
+local function IsStoryModule(mod)
+    return mod and (mod.configGroup == "story" or (type(mod.key) == "string" and mod.key:match("^story_campaign_")))
+end
+
 local function BuildWelcomeScreen()
     RefreshFonts()
     wipe(pendingEnabled)
@@ -50,26 +54,26 @@ local function BuildWelcomeScreen()
     pendingGathering = MR.GetManagedWindowOpen and MR:GetManagedWindowOpen("gatheringLocOpen") or false
 
     local f = StyledFrame(UIParent, nil, "FULLSCREEN_DIALOG", 200)
-    f:SetSize(388, 584)
+    f:SetSize(420, 608)
     f:SetPoint("CENTER", UIParent, "CENTER", 0, 30)
     f:SetBackdropColor(0.02, 0.04, 0.10, 0.98)
     f:SetBackdropBorderColor(0.16, 0.78, 0.75, 1)
 
-    local titleBar = TitleBar(f, 36)
-    titleBar:SetBackdropColor(0.04, 0.10, 0.22, 1)
+    local titleBar = TitleBar(f, 40)
+    titleBar:SetBackdropColor(0.035, 0.08, 0.16, 1)
     titleBar:RegisterForDrag("LeftButton")
     titleBar:SetScript("OnDragStart", function() f:StartMoving() end)
     titleBar:SetScript("OnDragStop",  function() f:StopMovingOrSizing() end)
 
     local icon = titleBar:CreateTexture(nil, "ARTWORK")
-    icon:SetSize(22, 22)
-    icon:SetPoint("LEFT", titleBar, "LEFT", 10, -2)
+    icon:SetSize(24, 24)
+    icon:SetPoint("LEFT", titleBar, "LEFT", 12, -1)
     icon:SetTexture("Interface\\AddOns\\MidnightRoutine\\Media\\Icon")
     icon:SetVertexColor(0.16, 0.78, 0.75, 1)
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
     titleTxt:SetFont(FONT_HEADERS, 13, GetFontFlags())
-    titleTxt:SetPoint("LEFT", icon, "RIGHT", 7, 0)
+    titleTxt:SetPoint("LEFT", icon, "RIGHT", 8, 1)
     titleTxt:SetText(L["Welcome_Title"])
 
     local function ScrollByDelta(delta)
@@ -90,17 +94,17 @@ local function BuildWelcomeScreen()
         end
     end
 
-    local headerInset = 14
-    local headerTop = -46
+    local headerInset = 18
+    local headerTop = -54
 
     local heading = f:CreateFontString(nil, "OVERLAY")
-    heading:SetFont(FONT_HEADERS, 12, GetFontFlags())
+    heading:SetFont(FONT_HEADERS, 14, GetFontFlags())
     heading:SetPoint("TOPLEFT",  f, "TOPLEFT",  headerInset, headerTop)
     heading:SetPoint("TOPRIGHT", f, "TOPRIGHT", -headerInset, headerTop)
     heading:SetJustifyH("LEFT")
     heading:SetText(L["Welcome_Heading"])
 
-    local hintTop = headerTop - 18
+    local hintTop = headerTop - 20
 
     local hint = f:CreateFontString(nil, "OVERLAY")
     hint:SetFont(FONT_ROWS, 10, GetFontFlags())
@@ -121,7 +125,7 @@ local function BuildWelcomeScreen()
     local footer = CreateFrame("Frame", nil, f, "BackdropTemplate")
     footer:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 0, 0)
     footer:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", 0, 0)
-    footer:SetHeight(108)
+    footer:SetHeight(112)
     footer:SetBackdrop(MakeBackdrop(false))
     if ns.HookBackdropFrame then
         ns.HookBackdropFrame(footer)
@@ -129,15 +133,15 @@ local function BuildWelcomeScreen()
     footer:SetBackdropColor(0.03, 0.08, 0.16, 0.96)
 
     local scroll = CreateFrame("ScrollFrame", nil, f)
-    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 12, hintTop - 26)
-    scroll:SetPoint("TOPRIGHT", f, "TOPRIGHT", -22, hintTop - 26)
-    scroll:SetPoint("BOTTOMLEFT", footer, "TOPLEFT", 12, 12)
-    scroll:SetPoint("BOTTOMRIGHT", footer, "TOPRIGHT", -22, 12)
+    scroll:SetPoint("TOPLEFT", f, "TOPLEFT", 14, hintTop - 28)
+    scroll:SetPoint("TOPRIGHT", f, "TOPRIGHT", -24, hintTop - 28)
+    scroll:SetPoint("BOTTOMLEFT", footer, "TOPLEFT", 14, 12)
+    scroll:SetPoint("BOTTOMRIGHT", footer, "TOPRIGHT", -24, 12)
     scroll:EnableMouseWheel(true)
     f._welcomeScroll = scroll
 
     local content = CreateFrame("Frame", nil, scroll)
-    content:SetSize(336, 1)
+    content:SetSize(360, 1)
     scroll:SetScrollChild(content)
     content:EnableMouseWheel(true)
     content:SetScript("OnMouseWheel", function(_, delta)
@@ -178,8 +182,8 @@ local function BuildWelcomeScreen()
     scrollBg:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT", 4, -4)
     scrollBg:SetFrameLevel(scroll:GetFrameLevel() - 1)
     scrollBg:SetBackdrop(MakeBackdrop())
-    scrollBg:SetBackdropColor(0.01, 0.03, 0.08, 0.55)
-    scrollBg:SetBackdropBorderColor(0.10, 0.28, 0.35, 0.75)
+    scrollBg:SetBackdropColor(0.01, 0.025, 0.055, 0.72)
+    scrollBg:SetBackdropBorderColor(0.10, 0.30, 0.34, 0.72)
 
     local function UpdateScrollBar()
         local viewH = scroll:GetHeight()
@@ -300,33 +304,84 @@ local function BuildWelcomeScreen()
     end)
     f.UpdateWelcomeScrollBar = UpdateScrollBar
 
-    local yOff = -2
-    MakeDivider(content, yOff)
-    yOff = yOff - 10
+    local yOff = -4
 
-    for _, mod in ipairs(MR:GetOrderedModules()) do
+    local welcomeModules = {}
+    local welcomeOrder = {}
+    for index, mod in ipairs(MR:GetOrderedModules()) do
+        welcomeModules[#welcomeModules + 1] = mod
+        welcomeOrder[mod.key] = index
+    end
+    table.sort(welcomeModules, function(a, b)
+        local aStory = IsStoryModule(a)
+        local bStory = IsStoryModule(b)
+        if aStory ~= bStory then
+            return not aStory
+        end
+        return (welcomeOrder[a.key] or 9999) < (welcomeOrder[b.key] or 9999)
+    end)
+
+    local function BuildSectionHeader(text)
+        local section = CreateFrame("Frame", nil, content, "BackdropTemplate")
+        section:SetPoint("TOPLEFT", content, "TOPLEFT", 8, yOff)
+        section:SetPoint("TOPRIGHT", content, "TOPRIGHT", -8, yOff)
+        section:SetHeight(22)
+        section:SetBackdrop(MakeBackdrop(false))
+        section:SetBackdropColor(0.03, 0.08, 0.12, 0.72)
+
+        local line = section:CreateTexture(nil, "ARTWORK")
+        line:SetHeight(1)
+        line:SetPoint("BOTTOMLEFT", section, "BOTTOMLEFT", 0, 0)
+        line:SetPoint("BOTTOMRIGHT", section, "BOTTOMRIGHT", 0, 0)
+        line:SetColorTexture(0.16, 0.78, 0.75, 0.22)
+
+        local fs = section:CreateFontString(nil, "OVERLAY")
+        fs:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        fs:SetPoint("LEFT", section, "LEFT", 2, 1)
+        fs:SetPoint("RIGHT", section, "RIGHT", -2, 1)
+        fs:SetJustifyH("LEFT")
+        fs:SetText(text)
+        fs:SetTextColor(0.72, 0.92, 0.90)
+        yOff = yOff - 26
+    end
+
+    BuildSectionHeader("Routine Modules")
+
+    local storyHeaderRendered = false
+    for _, mod in ipairs(welcomeModules) do
         local skip = mod.profSkillLine and not MR.playerProfessions[mod.profSkillLine]
         if not skip then
             local key = mod.key
+            local isStory = IsStoryModule(mod)
+            if isStory and not storyHeaderRendered then
+                yOff = yOff - 4
+                BuildSectionHeader("Story Campaigns")
+                storyHeaderRendered = true
+            end
 
-            local row = CreateFrame("Frame", nil, content)
-            row:SetPoint("TOPLEFT",  content, "TOPLEFT",  10, yOff)
-            row:SetPoint("TOPRIGHT", content, "TOPRIGHT", -10, yOff)
-            row:SetHeight(22)
+            local row = CreateFrame("Frame", nil, content, "BackdropTemplate")
+            row:SetPoint("TOPLEFT",  content, "TOPLEFT",  8, yOff)
+            row:SetPoint("TOPRIGHT", content, "TOPRIGHT", -8, yOff)
+            row:SetHeight(26)
+            row:SetBackdrop(MakeBackdrop())
+            row:SetBackdropColor(0.015, 0.035, 0.075, 0.55)
+            row:SetBackdropBorderColor(0.06, 0.13, 0.17, 0.72)
             row:EnableMouseWheel(true)
             row:SetScript("OnMouseWheel", function(_, delta)
                 ScrollByDelta(delta)
             end)
-
-            local dot = row:CreateTexture(nil, "ARTWORK")
-            dot:SetSize(5, 5)
-            dot:SetPoint("LEFT", row, "LEFT", 0, 0)
-            local lr, lg, lb = hex(mod.labelColor or "#aaaaaa")
-            dot:SetColorTexture(lr, lg, lb, 1)
+            row:SetScript("OnEnter", function()
+                row:SetBackdropColor(0.03, 0.09, 0.13, 0.82)
+                row:SetBackdropBorderColor(0.14, 0.42, 0.45, 0.95)
+            end)
+            row:SetScript("OnLeave", function()
+                row:SetBackdropColor(0.015, 0.035, 0.075, 0.55)
+                row:SetBackdropBorderColor(0.06, 0.13, 0.17, 0.72)
+            end)
 
             local cb = CreateFrame("CheckButton", nil, row, "UICheckButtonTemplate")
             cb:SetSize(20, 20)
-            cb:SetPoint("LEFT", dot, "RIGHT", 4, 0)
+            cb:SetPoint("LEFT", row, "LEFT", 7, 0)
             cb:SetChecked(pendingEnabled[key])
             cb:SetScript("OnClick", function(s)
                 pendingEnabled[key] = s:GetChecked()
@@ -336,40 +391,42 @@ local function BuildWelcomeScreen()
             local lbl = row:CreateFontString(nil, "OVERLAY")
             lbl:SetFont(FONT_ROWS, 11, GetFontFlags())
             lbl:SetPoint("LEFT",  cb,  "RIGHT",  4, 0)
-            lbl:SetPoint("RIGHT", row, "RIGHT",  0, 0)
+            lbl:SetPoint("RIGHT", row, "RIGHT", -8, 0)
             lbl:SetJustifyH("LEFT")
-            lbl:SetWordWrap(true)
+            lbl:SetWordWrap(false)
             local colHex = (mod.labelColor or "#dddddd"):gsub("#","")
             lbl:SetText(string.format("|cff%s%s|r", colHex, mod.label))
 
-            local rowHeight = math.max(22, math.ceil(lbl:GetStringHeight() or 0) + 6)
+            local rowHeight = 26
             row:SetHeight(rowHeight)
-            yOff = yOff - (rowHeight + 2)
+            yOff = yOff - (rowHeight + 3)
         end
     end
 
-    local function CreateUtilityPanel(title, desc, getChecked, setChecked, bgColor, borderColor, accentColor)
+    local function CreateUtilityPanel(title, desc, getChecked, setChecked, borderColor)
         local panel = CreateFrame("Frame", nil, content, "BackdropTemplate")
         panel:SetPoint("TOPLEFT",  content, "TOPLEFT",  8, yOff)
         panel:SetPoint("TOPRIGHT", content, "TOPRIGHT", -8, yOff)
-        panel:SetHeight(60)
+        panel:SetHeight(58)
         panel:SetBackdrop(MakeBackdrop())
-        panel:SetBackdropColor(bgColor[1], bgColor[2], bgColor[3], bgColor[4] or 0.85)
-        panel:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4] or 0.90)
+        panel:SetBackdropColor(0.018, 0.040, 0.075, 0.78)
+        panel:SetBackdropBorderColor(0.10, 0.24, 0.28, 0.85)
         panel:EnableMouseWheel(true)
         panel:SetScript("OnMouseWheel", function(_, delta)
             ScrollByDelta(delta)
         end)
-
-        local accent = panel:CreateTexture(nil, "ARTWORK")
-        accent:SetHeight(2)
-        accent:SetPoint("TOPLEFT",  panel, "TOPLEFT",  1, -1)
-        accent:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -1, -1)
-        accent:SetColorTexture(accentColor[1], accentColor[2], accentColor[3], accentColor[4] or 0.85)
+        panel:SetScript("OnEnter", function()
+            panel:SetBackdropColor(0.03, 0.075, 0.10, 0.90)
+            panel:SetBackdropBorderColor(borderColor[1], borderColor[2], borderColor[3], borderColor[4] or 0.90)
+        end)
+        panel:SetScript("OnLeave", function()
+            panel:SetBackdropColor(0.018, 0.040, 0.075, 0.78)
+            panel:SetBackdropBorderColor(0.10, 0.24, 0.28, 0.85)
+        end)
 
         local cb = CreateFrame("CheckButton", nil, panel, "UICheckButtonTemplate")
         cb:SetSize(22, 22)
-        cb:SetPoint("TOPLEFT", panel, "TOPLEFT", 8, -10)
+        cb:SetPoint("TOPLEFT", panel, "TOPLEFT", 7, -9)
         cb:SetChecked(getChecked())
         cb:SetScript("OnClick", function(s)
             setChecked(s:GetChecked())
@@ -380,12 +437,12 @@ local function BuildWelcomeScreen()
         titleFs:SetPoint("TOPLEFT",  cb, "TOPRIGHT", 4, -1)
         titleFs:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -10)
         titleFs:SetJustifyH("LEFT")
-        titleFs:SetWordWrap(true)
+        titleFs:SetWordWrap(false)
         titleFs:SetText(title)
 
         local descFs = panel:CreateFontString(nil, "OVERLAY")
         descFs:SetFont(FONT_ROWS, 10, GetFontFlags())
-        descFs:SetPoint("TOPLEFT",  panel, "TOPLEFT", 12, -31)
+        descFs:SetPoint("TOPLEFT",  panel, "TOPLEFT", 14, -31)
         descFs:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -31)
         descFs:SetJustifyH("LEFT")
         descFs:SetJustifyV("TOP")
@@ -395,12 +452,12 @@ local function BuildWelcomeScreen()
         local titleHeight = math.max(14, math.ceil(titleFs:GetStringHeight() or 14))
         local descTop = 14 + titleHeight + 8
         descFs:ClearAllPoints()
-        descFs:SetPoint("TOPLEFT", panel, "TOPLEFT", 12, -descTop)
+        descFs:SetPoint("TOPLEFT", panel, "TOPLEFT", 14, -descTop)
         descFs:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -10, -descTop)
 
         local descHeight = math.max(14, math.ceil(descFs:GetStringHeight() or 14))
         panel:SetHeight(math.max(62, descTop + descHeight + 10))
-        yOff = yOff - panel:GetHeight() - 10
+        yOff = yOff - panel:GetHeight() - 8
 
         return panel
     end
@@ -412,9 +469,7 @@ local function BuildWelcomeScreen()
         L["Welcome_Renown_Desc"],
         function() return pendingRenown end,
         function(val) pendingRenown = val end,
-        { 0.10, 0.08, 0.02, 0.85 },
-        { 0.65, 0.50, 0.10, 0.90 },
-        { 0.85, 0.65, 0.10, 0.85 }
+        { 0.65, 0.50, 0.10, 0.90 }
     )
 
     CreateUtilityPanel(
@@ -422,9 +477,7 @@ local function BuildWelcomeScreen()
         L["Welcome_Rares_Desc"],
         function() return pendingRares end,
         function(val) pendingRares = val end,
-        { 0.12, 0.03, 0.03, 0.85 },
-        { 0.65, 0.20, 0.10, 0.90 },
-        { 0.85, 0.25, 0.10, 0.85 }
+        { 0.65, 0.20, 0.10, 0.90 }
     )
 
     CreateUtilityPanel(
@@ -432,9 +485,7 @@ local function BuildWelcomeScreen()
         L["Welcome_ProfKnowledge_Desc"],
         function() return pendingGathering end,
         function(val) pendingGathering = val end,
-        { 0.08, 0.10, 0.03, 0.85 },
-        { 0.65, 0.57, 0.10, 0.90 },
-        { 0.80, 0.53, 0.20, 0.85 }
+        { 0.65, 0.57, 0.10, 0.90 }
     )
 
     content:SetHeight(math.abs(yOff) + 20)
@@ -448,6 +499,13 @@ local function BuildWelcomeScreen()
     footerDivider:SetBackdropColor(0.16, 0.78, 0.75, 0.35)
 
     local allOn = true
+    for _, mod in ipairs(welcomeModules) do
+        local skip = mod.profSkillLine and not MR.playerProfessions[mod.profSkillLine]
+        if not skip and not pendingEnabled[mod.key] then
+            allOn = false
+            break
+        end
+    end
     local enableAllBtn = CreateFrame("Button", nil, footer, "BackdropTemplate")
     enableAllBtn:SetPoint("TOPLEFT",  footer, "TOPLEFT",  12, -14)
     enableAllBtn:SetPoint("TOPRIGHT", footer, "TOPRIGHT", -12, -14)
@@ -459,7 +517,7 @@ local function BuildWelcomeScreen()
     local eaLbl = enableAllBtn:CreateFontString(nil, "OVERLAY")
     eaLbl:SetFont(FONT_ROWS, 10, GetFontFlags())
     eaLbl:SetPoint("CENTER")
-    eaLbl:SetText(L["Welcome_Disable_All"])
+    eaLbl:SetText(allOn and L["Welcome_Disable_All"] or L["Welcome_Enable_All"])
 
     enableAllBtn:SetScript("OnClick", function()
         allOn = not allOn

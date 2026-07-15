@@ -1189,6 +1189,16 @@ function MR:PopulateConfigFrame(f)
     if activePage == "modules" then
         Gap(4); Divider()
         SectionLabel(L["Config_ModuleSettings"])
+        local dragHint = body:CreateFontString(nil, "OVERLAY")
+        dragHint:SetFont(FONT_ROWS, math.max(8, cfgFs - 1), GetFontFlags())
+        dragHint:SetPoint("TOPLEFT", body, "TOPLEFT", 8, yOff)
+        dragHint:SetPoint("TOPRIGHT", body, "TOPRIGHT", -8, yOff)
+        dragHint:SetJustifyH("RIGHT")
+        dragHint:SetWordWrap(false)
+        dragHint:SetText(L["Config_DragRowsHint"])
+        dragHint:SetTextColor(0.42, 0.62, 0.64)
+        yOff = yOff - math.max(13, cfgFs + 2)
+        Gap(2)
 
     if not MR._cfgExpanded then MR._cfgExpanded = {} end
 
@@ -1306,7 +1316,7 @@ function MR:PopulateConfigFrame(f)
         return swatch
     end
 
-    local drag = { active = false, srcKey = nil, targetIdx = nil }
+    local drag = { active = false, srcKey = nil, targetIdx = nil, mode = "module", moduleKey = nil }
 
     local dragGhost = CreateFrame("Frame", nil, body, "BackdropTemplate")
     dragGhost:SetHeight(20)
@@ -1328,6 +1338,10 @@ function MR:PopulateConfigFrame(f)
     dragLineTex:SetAllPoints()
     dragLineTex:SetColorTexture(0.2, 0.9, 0.65, 1)
 
+    local function IsStoryConfigModule(mod)
+        return mod and (mod.configGroup == "story" or (type(mod.key) == "string" and mod.key:match("^story_campaign_")))
+    end
+
     local orderedMods = MR:GetOrderedModules()
     local orderIndex = {}
     for index, mod in ipairs(orderedMods) do
@@ -1339,6 +1353,11 @@ function MR:PopulateConfigFrame(f)
         _allMods[#_allMods + 1] = mod
     end
     table.sort(_allMods, function(a, b)
+        local aStory = IsStoryConfigModule(a)
+        local bStory = IsStoryConfigModule(b)
+        if aStory ~= bStory then
+            return not aStory
+        end
         local ao = MR.GetPatchSortOrder and MR:GetPatchSortOrder(MR:GetModulePatchKey(a)) or 999999
         local bo = MR.GetPatchSortOrder and MR:GetPatchSortOrder(MR:GetModulePatchKey(b)) or 999999
         if ao ~= bo then
@@ -1348,6 +1367,7 @@ function MR:PopulateConfigFrame(f)
     end)
 
     local _cfgRows = {}
+    local _cfgRowRows = {}
 
     local function FormatReleaseSuffix(patchKey)
         if not patchKey then
@@ -1456,9 +1476,17 @@ function MR:PopulateConfigFrame(f)
         yOff = yOff - ROW_H
     end
 
+    local CommitDrag
+
     local function DragOnUpdate()
         if not drag.active then return end
-        local rows = _cfgRows
+        if not IsMouseButtonDown("LeftButton") then
+            if CommitDrag then
+                CommitDrag()
+            end
+            return
+        end
+        local rows = (drag.mode == "row" and drag.moduleKey and _cfgRowRows[drag.moduleKey]) or _cfgRows or {}
         if #rows == 0 then return end
 
         local cx, cy = GetCursorPosition()
@@ -1527,15 +1555,48 @@ function MR:PopulateConfigFrame(f)
         if drag.active then DragOnUpdate() end
     end)
 
-    local function CommitDrag()
+    CommitDrag = function()
         if not drag.active then return end
+        local rows = (drag.mode == "row" and drag.moduleKey and _cfgRowRows[drag.moduleKey]) or _cfgRows or {}
+        local mode, moduleKey = drag.mode, drag.moduleKey
         drag.active = false
-        for _, row in ipairs(_cfgRows) do row.frame:SetAlpha(1) end
+        for _, row in ipairs(rows) do row.frame:SetAlpha(1) end
         dragGhost:Hide()
         dragLine:Hide()
 
         local slot = drag.targetIdx
-        if slot == nil then MR:PopulateConfigFrame(f); return end
+        if slot == nil then
+            drag.srcKey = nil
+            drag.targetIdx = nil
+            drag.mode = "module"
+            drag.moduleKey = nil
+            MR:PopulateConfigFrame(f)
+            return
+        end
+
+        if mode == "row" then
+            local targetRow
+            local afterTarget = false
+            if slot == 0 then
+                targetRow = rows[1]
+            elseif slot >= #rows then
+                targetRow = rows[#rows]
+                afterTarget = true
+            else
+                targetRow = rows[slot]
+                afterTarget = true
+            end
+
+            if moduleKey and targetRow and targetRow.key and MR.SetModuleRowPosition then
+                MR:SetModuleRowPosition(moduleKey, drag.srcKey, targetRow.key, afterTarget)
+            end
+            drag.srcKey = nil
+            drag.targetIdx = nil
+            drag.mode = "module"
+            drag.moduleKey = nil
+            MR:PopulateConfigFrame(f)
+            return
+        end
 
         local allMods = MR:GetOrderedModules()
         local visMods = {}
@@ -1571,19 +1632,30 @@ function MR:PopulateConfigFrame(f)
             MR:SetModuleOrder(newOrder)
             MR:RefreshUI()
         end
-        drag.srcKey = nil; drag.targetIdx = nil
+        drag.srcKey = nil; drag.targetIdx = nil; drag.mode = "module"; drag.moduleKey = nil
         MR:PopulateConfigFrame(f)
     end
 
     local professionGroupRendered = false
     local professionGroupOpen = MR._cfgExpanded.__professions == true
     local professionTotal, professionKnown = 0, 0
+    local storyGroupRendered = false
+    if MR._cfgExpanded.__storyCampaigns == nil then
+        MR._cfgExpanded.__storyCampaigns = true
+    end
+    local storyGroupOpen = MR._cfgExpanded.__storyCampaigns == true
+    local storyTotal, storyEnabled = 0, 0
     local professionSource = MR.GetMainFrameProgressSource and MR:GetMainFrameProgressSource() or nil
     for _, mod in ipairs(_allMods) do
         if mod.profSkillLine then
             professionTotal = professionTotal + 1
             if not MR.HasProfessionForModule or MR:HasProfessionForModule(mod.profSkillLine, professionSource) then
                 professionKnown = professionKnown + 1
+            end
+        elseif IsStoryConfigModule(mod) then
+            storyTotal = storyTotal + 1
+            if MR:IsModuleEnabled(mod.key) then
+                storyEnabled = storyEnabled + 1
             end
         end
     end
@@ -1644,13 +1716,104 @@ function MR:PopulateConfigFrame(f)
         yOff = yOff - ROW_H
     end
 
+    local function BuildStoryGroupHeader()
+        if storyTotal <= 0 then
+            return
+        end
+
+        local ROW_H = 22
+        local headerFr = CreateFrame("Frame", nil, body, "BackdropTemplate")
+        headerFr:SetPoint("TOPLEFT", body, "TOPLEFT", 4, yOff)
+        headerFr:SetSize(contentW, ROW_H)
+        headerFr:SetBackdrop(MakeBackdrop())
+        headerFr:SetBackdropColor(0.07, 0.10, 0.15, 0.95)
+        headerFr:SetBackdropBorderColor(0.38, 0.34, 0.16, 0.95)
+
+        local cb = CreateFrame("CheckButton", nil, headerFr, "UICheckButtonTemplate")
+        cb:SetSize(20, 20)
+        cb:SetPoint("LEFT", headerFr, "LEFT", 2, 0)
+        cb:SetChecked(storyEnabled == storyTotal)
+        cb:SetScript("OnClick", function(s)
+            local enabled = s:GetChecked() and true or false
+            for _, storyMod in ipairs(_allMods) do
+                if IsStoryConfigModule(storyMod) then
+                    MR:SetModuleEnabled(storyMod.key, enabled, true)
+                end
+            end
+            if MR.RequestConfigRefresh then
+                MR:RequestConfigRefresh()
+            else
+                MR:RefreshUI()
+            end
+        end)
+
+        local arrowBtn = CreateFrame("Button", nil, headerFr, "BackdropTemplate")
+        arrowBtn:SetSize(16, 16)
+        arrowBtn:SetPoint("RIGHT", headerFr, "RIGHT", -3, 0)
+        arrowBtn:SetBackdrop(MakeBackdrop())
+        arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+        arrowBtn:SetBackdropBorderColor(0.28, 0.26, 0.12, 1)
+
+        local arrowLbl = arrowBtn:CreateFontString(nil, "OVERLAY")
+        arrowLbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        arrowLbl:SetPoint("CENTER", arrowBtn, "CENTER", 0, 1)
+        arrowLbl:SetText(storyGroupOpen and "v" or ">")
+        arrowLbl:SetTextColor(0.90, 0.82, 0.42)
+
+        local lbl = headerFr:CreateFontString(nil, "OVERLAY")
+        lbl:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        lbl:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+        lbl:SetPoint("RIGHT", arrowBtn, "LEFT", -6, 0)
+        lbl:SetJustifyH("LEFT")
+        lbl:SetText(string.format("Story Campaigns  |cff667788%d/%d|r", storyEnabled, storyTotal))
+        lbl:SetTextColor(0.95, 0.88, 0.56)
+
+        local function ToggleStoryGroup()
+            MR._cfgExpanded.__storyCampaigns = not storyGroupOpen
+            if MR.RequestConfigRepopulate then
+                MR:RequestConfigRepopulate(f, 0.04)
+            else
+                MR:PopulateConfigFrame(f)
+            end
+        end
+
+        headerFr:EnableMouse(true)
+        headerFr:SetScript("OnMouseUp", ToggleStoryGroup)
+        arrowBtn:SetScript("OnClick", ToggleStoryGroup)
+        arrowBtn:SetScript("OnEnter", function()
+            arrowBtn:SetBackdropColor(0.14, 0.16, 0.16, 1)
+            arrowBtn:SetBackdropBorderColor(0.88, 0.78, 0.32, 1)
+            arrowLbl:SetTextColor(1, 1, 1)
+        end)
+        arrowBtn:SetScript("OnLeave", function()
+            arrowBtn:SetBackdropColor(0.05, 0.10, 0.18, 1)
+            arrowBtn:SetBackdropBorderColor(0.28, 0.26, 0.12, 1)
+            arrowLbl:SetTextColor(0.90, 0.82, 0.42)
+        end)
+
+        yOff = yOff - ROW_H
+    end
+
     local lastPatchKey
     local professionSeparatorRendered = false
     local lastRenderedProfession = false
     for _, mod in ipairs(_allMods) do
         local key = mod.key
         local optVisible = not mod.isVisible or mod:isVisible()
-        if mod.profSkillLine then
+        local isStoryConfigModule = IsStoryConfigModule(mod)
+        if isStoryConfigModule then
+            if not storyGroupRendered then
+                Gap(2)
+                Divider()
+                Gap(2)
+                BuildStoryGroupHeader()
+                storyGroupRendered = true
+                lastPatchKey = nil
+            end
+            if not storyGroupOpen then
+                optVisible = false
+            end
+        elseif mod.profSkillLine then
             if not professionGroupRendered then
                 BuildProfessionGroupHeader()
                 professionGroupRendered = true
@@ -1668,7 +1831,7 @@ function MR:PopulateConfigFrame(f)
         end
         local patchKey = MR:GetModulePatchKey(mod)
 
-        if optVisible and patchKey and patchKey ~= lastPatchKey then
+        if optVisible and not isStoryConfigModule and patchKey and patchKey ~= lastPatchKey then
             BuildPatchHeader(patchKey)
             lastPatchKey = patchKey
         end
@@ -1708,6 +1871,8 @@ function MR:PopulateConfigFrame(f)
                 grip:SetScript("OnMouseDown", function()
                     if drag.active then return end
                     drag.active = true
+                    drag.mode = "module"
+                    drag.moduleKey = nil
                     drag.srcKey = key
                     drag.targetIdx = nil
                     dragGhostLbl:SetText(mod.label)
@@ -1804,6 +1969,34 @@ function MR:PopulateConfigFrame(f)
                         local rowFr = CreateFrame("Frame", nil, body)
                         rowFr:SetPoint("TOPLEFT", body, "TOPLEFT", 18, yOff)
                         rowFr:SetSize(contentW - 20, 18)
+                        rowFr:EnableMouse(true)
+                        _cfgRowRows[key] = _cfgRowRows[key] or {}
+                        _cfgRowRows[key][#_cfgRowRows[key] + 1] = { key = rkey, frame = rowFr, label = row.label }
+                        rowFr:SetScript("OnMouseDown", function(_, button)
+                            if button ~= "LeftButton" or drag.active then
+                                return
+                            end
+                            drag.active = true
+                            drag.mode = "row"
+                            drag.moduleKey = key
+                            drag.srcKey = rkey
+                            drag.targetIdx = nil
+                            dragGhostLbl:SetText(FormatRowConfigLabel(mod, row))
+                            GameTooltip:Hide()
+                        end)
+                        rowFr:SetScript("OnMouseUp", function(_, button)
+                            if button == "LeftButton" and drag.active and drag.mode == "row" and drag.moduleKey == key then
+                                CommitDrag()
+                            end
+                        end)
+                        rowFr:SetScript("OnEnter", function()
+                            GameTooltip:SetOwner(rowFr, "ANCHOR_RIGHT")
+                            GameTooltip:SetText(L["Config_DragRowTooltip"], 1, 1, 1)
+                            GameTooltip:Show()
+                        end)
+                        rowFr:SetScript("OnLeave", function()
+                            GameTooltip:Hide()
+                        end)
 
                         local rdot = rowFr:CreateTexture(nil, "ARTWORK")
                         rdot:SetSize(5, 5)
@@ -2007,6 +2200,8 @@ function MR:PopulateConfigFrame(f)
             grip:SetScript("OnMouseDown", function()
                 if drag.active then return end
                 drag.active = true
+                drag.mode = "module"
+                drag.moduleKey = nil
                 drag.srcKey = key
                 drag.targetIdx = nil
                 dragGhostLbl:SetText(mod.label)
@@ -2055,6 +2250,34 @@ function MR:PopulateConfigFrame(f)
                     local rowFr = CreateFrame("Frame", nil, body)
                     rowFr:SetPoint("TOPLEFT", body, "TOPLEFT", 18, yOff)
                     rowFr:SetSize(contentW - 20, 18)
+                    rowFr:EnableMouse(true)
+                    _cfgRowRows[key] = _cfgRowRows[key] or {}
+                    _cfgRowRows[key][#_cfgRowRows[key] + 1] = { key = rkey, frame = rowFr, label = row.label }
+                    rowFr:SetScript("OnMouseDown", function(_, button)
+                        if button ~= "LeftButton" or drag.active then
+                            return
+                        end
+                        drag.active = true
+                        drag.mode = "row"
+                        drag.moduleKey = key
+                        drag.srcKey = rkey
+                        drag.targetIdx = nil
+                        dragGhostLbl:SetText(FormatRowConfigLabel(mod, row))
+                        GameTooltip:Hide()
+                    end)
+                    rowFr:SetScript("OnMouseUp", function(_, button)
+                        if button == "LeftButton" and drag.active and drag.mode == "row" and drag.moduleKey == key then
+                            CommitDrag()
+                        end
+                    end)
+                    rowFr:SetScript("OnEnter", function()
+                        GameTooltip:SetOwner(rowFr, "ANCHOR_RIGHT")
+                        GameTooltip:SetText(L["Config_DragRowTooltip"], 1, 1, 1)
+                        GameTooltip:Show()
+                    end)
+                    rowFr:SetScript("OnLeave", function()
+                        GameTooltip:Hide()
+                    end)
 
                     local rdot = rowFr:CreateTexture(nil, "ARTWORK")
                     rdot:SetSize(5, 5)
@@ -2300,12 +2523,28 @@ function MR:PopulateConfigFrame(f)
             MR:PopulateConfigFrame(f)
         end)
         Btn(L["Config_ResetOrder"], function()
+            local expansionKey = MR:GetSelectedExpansionKey()
             if MR:IsCharacterWindowLayoutEnabled() then
                 MR.db.char.moduleOrder = {}
+                if MR.db.char.expansionModuleOrder then
+                    MR.db.char.expansionModuleOrder[expansionKey] = {}
+                end
             else
                 MR.db.profile.moduleOrder = {}
+                if MR.db.profile.expansionModuleOrder then
+                    MR.db.profile.expansionModuleOrder[expansionKey] = {}
+                end
+            end
+            local storage = MR:GetActiveModuleStorage(expansionKey)
+            if storage then
+                for _, state in pairs(storage) do
+                    if type(state) == "table" then
+                        state.rowOrder = nil
+                    end
+                end
             end
             MR._orderedModulesCache = nil
+            MR._moduleStatsCache = nil
             MR:RefreshUI()
             MR:PopulateConfigFrame(f)
         end)

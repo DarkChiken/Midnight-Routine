@@ -894,9 +894,45 @@ function MR:GetOrderedRows(mod)
         return a.index < b.index
     end)
 
-    local rows = {}
+    local baseRows = {}
     for _, entry in ipairs(ordered) do
-        rows[#rows + 1] = entry.row
+        baseRows[#baseRows + 1] = entry.row
+    end
+
+    local storage = self.GetActiveModuleStorage and self:GetActiveModuleStorage(self:GetModuleExpansionKey(mod)) or nil
+    local state = storage and storage[mod.key]
+    local savedOrder = state and state.rowOrder
+    if type(savedOrder) ~= "table" or #savedOrder == 0 then
+        return baseRows
+    end
+
+    local byKey, used, reorderedRows, rows = {}, {}, {}, {}
+    for _, row in ipairs(baseRows) do
+        if row and row.key and not row.control then
+            byKey[row.key] = row
+        end
+    end
+    for _, rowKey in ipairs(savedOrder) do
+        local row = byKey[rowKey]
+        if row and not used[rowKey] then
+            reorderedRows[#reorderedRows + 1] = row
+            used[rowKey] = true
+        end
+    end
+    for _, row in ipairs(baseRows) do
+        if row and row.key and not row.control and not used[row.key] then
+            reorderedRows[#reorderedRows + 1] = row
+        end
+    end
+
+    local reorderedIndex = 1
+    for _, row in ipairs(baseRows) do
+        if row and row.control then
+            rows[#rows + 1] = row
+        else
+            rows[#rows + 1] = reorderedRows[reorderedIndex] or row
+            reorderedIndex = reorderedIndex + 1
+        end
     end
     return rows
 end
@@ -1411,6 +1447,108 @@ function MR:SetRowEnabled(modKey, rowKey, enabled, skipRefresh)
     if not skipRefresh then
         self:RefreshUI()
     end
+end
+
+function MR:SetModuleRowOrder(modKey, orderedKeys)
+    if not (self and self.db and modKey and type(orderedKeys) == "table") then
+        return false
+    end
+
+    local mod = self.moduleByKey and self.moduleByKey[modKey]
+    if not mod then
+        return false
+    end
+
+    local storage = self:GetActiveModuleStorage(self:GetModuleExpansionKey(mod))
+    if not storage then
+        return false
+    end
+    storage[modKey] = storage[modKey] or {}
+
+    local valid = {}
+    for _, row in ipairs(mod.rows or {}) do
+        if row and row.key then
+            valid[row.key] = true
+        end
+    end
+
+    local cleaned, seen = {}, {}
+    for _, rowKey in ipairs(orderedKeys) do
+        if valid[rowKey] and not seen[rowKey] then
+            cleaned[#cleaned + 1] = rowKey
+            seen[rowKey] = true
+        end
+    end
+
+    storage[modKey].rowOrder = cleaned
+    self._moduleStatsCache = nil
+    return true
+end
+
+function MR:SetModuleRowPosition(modKey, rowKey, targetRowKey, afterTarget)
+    if not (modKey and rowKey and targetRowKey) or rowKey == targetRowKey then
+        return false
+    end
+
+    local mod = self.moduleByKey and self.moduleByKey[modKey]
+    if not mod then
+        return false
+    end
+
+    local rows = self:GetOrderedRows(mod)
+    local order, seen = {}, {}
+    for _, row in ipairs(rows or {}) do
+        if row and row.key and not row.control and not seen[row.key] then
+            order[#order + 1] = row.key
+            seen[row.key] = true
+        end
+    end
+
+    if not seen[rowKey] then
+        order[#order + 1] = rowKey
+        seen[rowKey] = true
+    end
+    if not seen[targetRowKey] then
+        order[#order + 1] = targetRowKey
+        seen[targetRowKey] = true
+    end
+
+    local fromIndex, targetIndex
+    for index, existingKey in ipairs(order) do
+        if existingKey == rowKey then
+            fromIndex = index
+        elseif existingKey == targetRowKey then
+            targetIndex = index
+        end
+    end
+    if not fromIndex or not targetIndex or fromIndex == targetIndex then
+        return false
+    end
+
+    local insertIndex = targetIndex
+    if fromIndex < targetIndex then
+        insertIndex = insertIndex - 1
+    end
+    if afterTarget then
+        insertIndex = insertIndex + 1
+    end
+    insertIndex = math.max(1, math.min(#order, insertIndex))
+    if insertIndex == fromIndex then
+        return false
+    end
+
+    local moved = table.remove(order, fromIndex)
+    table.insert(order, insertIndex, moved)
+    if not self:SetModuleRowOrder(modKey, order) then
+        return false
+    end
+    if self.RefreshUI then
+        self:RefreshUI()
+    end
+    if self.RequestWarbandBoardRefresh then
+        self:RequestWarbandBoardRefresh(false)
+    end
+    return true
 end
 
 function MR:IsCharacterWindowLayoutEnabled()

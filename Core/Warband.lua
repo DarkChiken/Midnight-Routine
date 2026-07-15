@@ -666,7 +666,8 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                             doneRows = 0,
                         }
 
-                        for _, row in ipairs(mod.rows) do
+                        local orderedRows = self.GetOrderedRows and self:GetOrderedRows(mod) or mod.rows
+                        for _, row in ipairs(orderedRows) do
                             local rowVisible = self.IsRowVisibleForCharacter and self:IsRowVisibleForCharacter(mod, row, charData) or (not row.isVisible or row.isVisible())
                             local rowEnabled = not (effectiveSettings and effectiveSettings.hiddenRows and effectiveSettings.hiddenRows[row.key] == false)
 

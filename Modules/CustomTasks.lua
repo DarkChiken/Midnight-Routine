@@ -1049,6 +1049,13 @@ function MR:DeleteCustomTask(taskId, scope)
     if storage and storage[CUSTOM_MODULE_KEY] and storage[CUSTOM_MODULE_KEY].hiddenRows then
         storage[CUSTOM_MODULE_KEY].hiddenRows[rowKey] = nil
     end
+    if storage and storage[CUSTOM_MODULE_KEY] and type(storage[CUSTOM_MODULE_KEY].rowOrder) == "table" then
+        for index = #storage[CUSTOM_MODULE_KEY].rowOrder, 1, -1 do
+            if storage[CUSTOM_MODULE_KEY].rowOrder[index] == rowKey then
+                table.remove(storage[CUSTOM_MODULE_KEY].rowOrder, index)
+            end
+        end
+    end
 
     RefreshCustomTaskViews(self)
     return true
