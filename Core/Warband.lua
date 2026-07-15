@@ -101,6 +101,229 @@ local function GetConcentrationOrderIndex(order)
     return index
 end
 
+local function GetCharacterOrderIndex(order)
+    local index = {}
+    if type(order) == "table" then
+        for pos, charKey in ipairs(order) do
+            if type(charKey) == "string" and charKey ~= "" then
+                index[charKey] = pos
+            end
+        end
+    end
+    return index
+end
+
+function MR:GetAltBoardCharacterOrder()
+    if not (self and self.db and self.db.profile) then
+        return {}
+    end
+
+    self.db.profile.altBoardCharacterOrder = self.db.profile.altBoardCharacterOrder or {}
+    return self.db.profile.altBoardCharacterOrder
+end
+
+function MR:SetAltBoardCharacterOrder(order)
+    if not (self and self.db and self.db.profile) then
+        return
+    end
+
+    local cleaned, seen = {}, {}
+    if type(order) == "table" then
+        for _, charKey in ipairs(order) do
+            if type(charKey) == "string" and charKey ~= "" and not seen[charKey] then
+                cleaned[#cleaned + 1] = charKey
+                seen[charKey] = true
+            end
+        end
+    end
+
+    self.db.profile.altBoardCharacterOrder = cleaned
+end
+
+function MR:MoveAltBoardCharacter(charKey, direction)
+    direction = tonumber(direction) or 0
+    if type(charKey) ~= "string" or charKey == "" or direction == 0 then
+        return false
+    end
+
+    local order = {}
+    local seen = {}
+    for _, existingKey in ipairs(self:GetAltBoardCharacterOrder()) do
+        if type(existingKey) == "string" and existingKey ~= "" and not seen[existingKey] then
+            order[#order + 1] = existingKey
+            seen[existingKey] = true
+        end
+    end
+
+    if self.db and self.db.sv and type(self.db.sv.char) == "table" then
+        local currentKey = self:GetCurrentCharacterKey()
+        local hiddenChars = (self.db and self.db.profile and self.db.profile.altBoardHiddenCharacters) or {}
+        local discovered = {}
+        for existingKey in pairs(self.db.sv.char) do
+            if type(existingKey) == "string" and existingKey ~= "" and not seen[existingKey] then
+                local name, realm = ParseCharacterKey(existingKey)
+                discovered[#discovered + 1] = {
+                    key = existingKey,
+                    name = name,
+                    realm = realm,
+                    isCurrent = existingKey == currentKey,
+                    hidden = hiddenChars[existingKey] == true,
+                }
+                seen[existingKey] = true
+            end
+        end
+        table.sort(discovered, function(a, b)
+            if a.hidden ~= b.hidden then
+                return not a.hidden
+            end
+            if a.isCurrent ~= b.isCurrent then
+                return a.isCurrent
+            end
+            if a.realm ~= b.realm then
+                return a.realm < b.realm
+            end
+            return a.name < b.name
+        end)
+        for _, entry in ipairs(discovered) do
+            order[#order + 1] = entry.key
+        end
+    end
+
+    if not seen[charKey] then
+        order[#order + 1] = charKey
+        seen[charKey] = true
+    end
+
+    local pos
+    for index, existingKey in ipairs(order) do
+        if existingKey == charKey then
+            pos = index
+            break
+        end
+    end
+
+    if not pos then
+        return false
+    end
+
+    local target = math.max(1, math.min(#order, pos + direction))
+    if target == pos then
+        return false
+    end
+
+    local moved = table.remove(order, pos)
+    table.insert(order, target, moved)
+    self:SetAltBoardCharacterOrder(order)
+
+    if self.RefreshWarbandBoard then
+        self:RefreshWarbandBoard()
+    end
+    if self.RefreshMainAltPicker then
+        self:RefreshMainAltPicker()
+    end
+    if self.RefreshConcentrationTracker then
+        self:RefreshConcentrationTracker()
+    end
+    return true
+end
+
+function MR:SetAltBoardCharacterPosition(charKey, targetCharKey, afterTarget)
+    if type(charKey) ~= "string" or charKey == "" or type(targetCharKey) ~= "string" or targetCharKey == "" or charKey == targetCharKey then
+        return false
+    end
+
+    local order = {}
+    local seen = {}
+    for _, existingKey in ipairs(self:GetAltBoardCharacterOrder()) do
+        if type(existingKey) == "string" and existingKey ~= "" and not seen[existingKey] then
+            order[#order + 1] = existingKey
+            seen[existingKey] = true
+        end
+    end
+
+    if self.db and self.db.sv and type(self.db.sv.char) == "table" then
+        local currentKey = self:GetCurrentCharacterKey()
+        local hiddenChars = (self.db and self.db.profile and self.db.profile.altBoardHiddenCharacters) or {}
+        local discovered = {}
+        for existingKey in pairs(self.db.sv.char) do
+            if type(existingKey) == "string" and existingKey ~= "" and not seen[existingKey] then
+                local name, realm = ParseCharacterKey(existingKey)
+                discovered[#discovered + 1] = {
+                    key = existingKey,
+                    name = name,
+                    realm = realm,
+                    isCurrent = existingKey == currentKey,
+                    hidden = hiddenChars[existingKey] == true,
+                }
+                seen[existingKey] = true
+            end
+        end
+        table.sort(discovered, function(a, b)
+            if a.hidden ~= b.hidden then
+                return not a.hidden
+            end
+            if a.isCurrent ~= b.isCurrent then
+                return a.isCurrent
+            end
+            if a.realm ~= b.realm then
+                return a.realm < b.realm
+            end
+            return a.name < b.name
+        end)
+        for _, entry in ipairs(discovered) do
+            order[#order + 1] = entry.key
+        end
+    end
+
+    if not seen[charKey] then
+        order[#order + 1] = charKey
+        seen[charKey] = true
+    end
+    if not seen[targetCharKey] then
+        order[#order + 1] = targetCharKey
+        seen[targetCharKey] = true
+    end
+
+    local fromIndex, targetIndex
+    for index, existingKey in ipairs(order) do
+        if existingKey == charKey then
+            fromIndex = index
+        elseif existingKey == targetCharKey then
+            targetIndex = index
+        end
+    end
+    if not fromIndex or not targetIndex or fromIndex == targetIndex then
+        return false
+    end
+
+    local insertIndex = targetIndex
+    if fromIndex < targetIndex then
+        insertIndex = insertIndex - 1
+    end
+    if afterTarget then
+        insertIndex = insertIndex + 1
+    end
+    insertIndex = math.max(1, math.min(#order, insertIndex))
+    if insertIndex == fromIndex then
+        return false
+    end
+
+    local moved = table.remove(order, fromIndex)
+    table.insert(order, insertIndex, moved)
+    self:SetAltBoardCharacterOrder(order)
+
+    if self.RefreshWarbandBoard then
+        self:RefreshWarbandBoard()
+    end
+    if self.RefreshMainAltPicker then
+        self:RefreshMainAltPicker()
+    end
+    if self.RefreshConcentrationTracker then
+        self:RefreshConcentrationTracker()
+    end
+    return true
+end
+
 function MR:GetAltBoardConcentrationOrder()
     if not (self and self.db and self.db.profile) then
         return {}
@@ -190,6 +413,90 @@ function MR:MoveAltBoardConcentrationProfession(skillLineID, direction)
 
     local moved = table.remove(order, pos)
     table.insert(order, target, moved)
+    self:SetAltBoardConcentrationOrder(order)
+
+    if self.RefreshWarbandBoard then
+        self:RefreshWarbandBoard()
+    end
+    if self.RefreshConcentrationTracker then
+        self:RefreshConcentrationTracker()
+    end
+    return true
+end
+
+function MR:SetAltBoardConcentrationProfessionPosition(skillLineID, targetSkillLineID, afterTarget)
+    skillLineID = tonumber(skillLineID)
+    targetSkillLineID = tonumber(targetSkillLineID)
+    if not skillLineID or not targetSkillLineID or skillLineID == targetSkillLineID then
+        return false
+    end
+
+    local order = {}
+    local seen = {}
+    for _, existingID in ipairs(self:GetAltBoardConcentrationOrder()) do
+        existingID = tonumber(existingID)
+        if existingID and not seen[existingID] then
+            order[#order + 1] = existingID
+            seen[existingID] = true
+        end
+    end
+
+    local discovered = {}
+    if self.db and self.db.sv and type(self.db.sv.char) == "table" then
+        for _, charData in pairs(self.db.sv.char) do
+            local concentration = type(charData) == "table" and charData.professionConcentration or nil
+            if type(concentration) == "table" then
+                for existingID in pairs(concentration) do
+                    existingID = tonumber(existingID)
+                    if existingID and not seen[existingID] then
+                        discovered[#discovered + 1] = existingID
+                        seen[existingID] = true
+                    end
+                end
+            end
+        end
+    end
+    table.sort(discovered)
+    for _, existingID in ipairs(discovered) do
+        order[#order + 1] = existingID
+    end
+
+    if not seen[skillLineID] then
+        order[#order + 1] = skillLineID
+        seen[skillLineID] = true
+    end
+    if not seen[targetSkillLineID] then
+        order[#order + 1] = targetSkillLineID
+        seen[targetSkillLineID] = true
+    end
+
+    local fromIndex, targetIndex
+    for index, existingID in ipairs(order) do
+        if existingID == skillLineID then
+            fromIndex = index
+        elseif existingID == targetSkillLineID then
+            targetIndex = index
+        end
+    end
+    if not fromIndex or not targetIndex or fromIndex == targetIndex then
+        return false
+    end
+
+    local insertIndex = targetIndex
+    if fromIndex < targetIndex then
+        insertIndex = insertIndex - 1
+    end
+    if afterTarget then
+        insertIndex = insertIndex + 1
+    end
+    insertIndex = math.max(1, math.min(#order, insertIndex))
+    if insertIndex == fromIndex then
+        return false
+    end
+
+    local moved = table.remove(order, fromIndex)
+    table.insert(order, insertIndex, moved)
+
     self:SetAltBoardConcentrationOrder(order)
 
     if self.RefreshWarbandBoard then
@@ -472,7 +779,13 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
         end
     end
 
+    local characterOrderIndex = GetCharacterOrderIndex(self:GetAltBoardCharacterOrder())
     table.sort(results, function(a, b)
+        local aOrder = characterOrderIndex[a.key] or math.huge
+        local bOrder = characterOrderIndex[b.key] or math.huge
+        if aOrder ~= bOrder then
+            return aOrder < bOrder
+        end
         if a.isCurrent ~= b.isCurrent then
             return a.isCurrent
         end

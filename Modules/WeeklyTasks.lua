@@ -344,6 +344,8 @@ MR:RegisterModule({
         local previousRitualActiveMapId = db[mod.key]["ritual_site_active_map_id"]
         local previousRitualCompletedName = db[mod.key]["ritual_site_completed_name"]
         local previousRitualCompletedMapId = db[mod.key]["ritual_site_completed_map_id"]
+        local previousUATVActiveName = db[mod.key]["uatv_branch_name"]
+        local previousUATVCompletedName = db[mod.key]["uatv_completed_branch_name"]
         local beforeProgress = {}
         for key, value in pairs(db[mod.key]) do
             beforeProgress[key] = value
@@ -649,9 +651,8 @@ MR:RegisterModule({
 
         for _, row in ipairs(mod.rows) do
             if row.key == "abyss_anglers" then
-                local isDone = (tonumber(db[mod.key]["abyss_anglers"]) or 0) > 0
-                    or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID))
-                    or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_INTRO_QUEST_ID))
+                local isDone = C_QuestLog.IsQuestFlaggedCompleted
+                    and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
                 local isActive = IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
                     or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID)
 
@@ -705,6 +706,9 @@ MR:RegisterModule({
 
         if C_QuestLog.IsQuestFlaggedCompleted(93744) then
             db[mod.key]["unity_against_void"] = 1
+            db[mod.key]["uatv_completed_branch_name"] = previousUATVCompletedName
+                or previousUATVActiveName
+                or db[mod.key]["uatv_branch_name"]
         else
             for _, branch in ipairs(UATV_BRANCHES) do
                 if C_QuestLog.IsQuestFlaggedCompleted(branch.quest) then
@@ -722,6 +726,13 @@ MR:RegisterModule({
             and MR:IsCurrentWorldBossCompleted() then
             db[mod.key]["unity_against_void"] = 1
             db[mod.key]["uatv_completed_branch_name"] = activeUATVBranch.name
+        end
+
+        if (tonumber(db[mod.key]["unity_against_void"]) or 0) >= 1
+            and not db[mod.key]["uatv_completed_branch_name"] then
+            db[mod.key]["uatv_completed_branch_name"] = previousUATVCompletedName
+                or previousUATVActiveName
+                or db[mod.key]["uatv_branch_name"]
         end
 
         for _, row in ipairs(mod.rows) do
@@ -875,14 +886,12 @@ MR:RegisterModule({
             label    = L["Weekly_AbyssAnglers_Label"] or "|cff2ae7c6Abyss Anglers:|r",
             max      = 1,
             note     = L["Weekly_AbyssAnglers_Note"] or "Complete an Abyss Anglers dive in Zul'Aman. This helps cover the new weekly-capped activity tied to up to 3 Fused Vitality purchases.",
-            questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID, ABYSS_ANGLERS_INTRO_QUEST_ID },
+            questIds = { ABYSS_ANGLERS_WEEKLY_QUEST_ID },
             patchKey = "12.0.5",
             tooltipFunc = function(tip)
                 tip:AddLine(" ")
-                if C_QuestLog.IsQuestFlaggedCompleted and (
-                    C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID)
-                    or C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_INTRO_QUEST_ID)
-                ) then
+                if C_QuestLog.IsQuestFlaggedCompleted
+                    and C_QuestLog.IsQuestFlaggedCompleted(ABYSS_ANGLERS_WEEKLY_QUEST_ID) then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
                     tip:AddLine("  " .. (L["Weekly_AbyssAnglers_Label"] or "Abyss Anglers"), 0.4, 0.85, 0.4)
                 elseif IsQuestCurrentlyActive(ABYSS_ANGLERS_WEEKLY_QUEST_ID) or IsQuestCurrentlyActive(ABYSS_ANGLERS_INTRO_QUEST_ID) then
@@ -1086,17 +1095,6 @@ MR:RegisterModule({
             turnInTracked = true,
             questIds = { 93744 },
             branchQuestIds = UATV_BRANCH_QUEST_IDS,
-
-            isVisible = function()
-                for _, qid in ipairs(UATV_BRANCH_QUEST_IDS) do
-                    if IsQuestCurrentlyActive(qid) or C_QuestLog.IsQuestFlaggedCompleted(qid) then
-                        return true
-                    end
-                end
-                return IsQuestCurrentlyActive(93744)
-                    or C_QuestLog.IsQuestFlaggedCompleted(93744)
-                    or MR:GetProgress("s1_weekly", "unity_against_void") >= 1
-            end,
 
             tooltipFunc = function(tip)
                 local s1db = MR.db.char.progress["s1_weekly"] or {}

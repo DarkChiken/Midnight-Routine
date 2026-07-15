@@ -234,7 +234,127 @@ local function WBClassColor(entry)
     return WBStatusColor(entry)
 end
 
-local function WBConcentrationColor(entry)
+local WBConcentrationColor
+
+local WBDraggingConcentrationSkillLineID
+local WBDraggingAltBoardCharacterKey
+local WBDragGhost
+local WBDragTarget
+local WBRestoreDragTarget
+
+local function WBEnsureDragGhost()
+    if WBDragGhost then
+        return WBDragGhost
+    end
+
+    local ghost = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    ghost:SetFrameStrata("TOOLTIP")
+    ghost:SetSize(170, 24)
+    ghost:SetBackdrop(MakeBackdrop())
+    ghost:SetBackdropColor(0.018, 0.032, 0.048, 0.94)
+    ghost:SetBackdropBorderColor(0.20, 0.78, 0.70, 0.95)
+    ghost:EnableMouse(false)
+    ghost:Hide()
+
+    local label = ghost:CreateFontString(nil, "OVERLAY")
+    label:SetFont(FONT_ROWS, math.max(9, GetFontSize()), GetFontFlags())
+    label:SetPoint("LEFT", ghost, "LEFT", 8, 0)
+    label:SetPoint("RIGHT", ghost, "RIGHT", -8, 0)
+    label:SetJustifyH("LEFT")
+    label:SetWordWrap(false)
+    label:SetTextColor(0.92, 0.98, 1.00)
+    ghost.label = label
+
+    ghost:SetScript("OnUpdate", function(selfGhost)
+        if not IsMouseButtonDown("LeftButton") then
+            selfGhost:Hide()
+            WBDraggingConcentrationSkillLineID = nil
+            WBDraggingAltBoardCharacterKey = nil
+            WBRestoreDragTarget()
+            return
+        end
+
+        local x, y = GetCursorPosition()
+        if x and y then
+            local scale = UIParent:GetEffectiveScale()
+            selfGhost:ClearAllPoints()
+            selfGhost:SetPoint("CENTER", UIParent, "BOTTOMLEFT", (x / scale) + 18, (y / scale) - 14)
+        end
+    end)
+
+    WBDragGhost = ghost
+    return ghost
+end
+
+local function WBStartDragVisual(label, r, g, b)
+    local ghost = WBEnsureDragGhost()
+    ghost.label:SetText(label or "")
+    ghost:SetBackdropBorderColor(r or 0.20, g or 0.78, b or 0.70, 0.95)
+    ghost:Show()
+end
+
+WBRestoreDragTarget = function()
+    if WBDragTarget and WBDragTarget.SetBackdropBorderColor then
+        local c = WBDragTarget._dragBorderColor
+        if c then
+            WBDragTarget:SetBackdropBorderColor(c[1], c[2], c[3], c[4])
+        end
+    end
+    WBDragTarget = nil
+end
+
+local function WBStopDragVisual()
+    if WBDragGhost then
+        WBDragGhost:Hide()
+    end
+    WBRestoreDragTarget()
+end
+
+local function WBMarkDragTarget(target)
+    if WBDragTarget == target then
+        return
+    end
+    WBRestoreDragTarget()
+    WBDragTarget = target
+    if target and target.SetBackdropBorderColor then
+        target:SetBackdropBorderColor(1.00, 0.95, 0.35, 1)
+    end
+end
+
+local function WBUpdateDragTargetFromCursor(sourceID, chips, setter, orientation)
+    if not sourceID or type(chips) ~= "table" then
+        return
+    end
+
+    local cursorX, cursorY = GetCursorPosition()
+    if not cursorX or not cursorY then
+        return
+    end
+
+    for _, chip in ipairs(chips) do
+        local targetID = chip and chip.dragID
+        if chip and chip:IsShown() and targetID and targetID ~= sourceID then
+            local scale = chip.GetEffectiveScale and chip:GetEffectiveScale() or UIParent:GetEffectiveScale()
+            local x = cursorX / scale
+            local y = cursorY / scale
+            local left, right, top, bottom = chip:GetLeft(), chip:GetRight(), chip:GetTop(), chip:GetBottom()
+            if left and right and top and bottom and x >= left and x <= right and y <= top and y >= bottom then
+                local afterTarget
+                if orientation == "horizontal" then
+                    afterTarget = x > (left + ((right - left) * 0.5))
+                else
+                    afterTarget = y < (bottom + ((top - bottom) * 0.5))
+                end
+                WBMarkDragTarget(chip)
+                return setter(sourceID, targetID, afterTarget)
+            end
+        end
+    end
+    WBRestoreDragTarget()
+    return false
+end
+
+WBConcentrationColor = function(entry)
     if not entry then
         return 0.55, 0.72, 0.95
     end
@@ -820,6 +940,29 @@ local function WBPopulateConcentrationOverview(frame, data)
     local totalCharacters = 0
     local totalProfessions = 0
     local yOff = 0
+    frame.overviewContent._orderChips = {}
+    frame.overviewContent:SetScript("OnUpdate", function(selfContent)
+        if not WBDraggingConcentrationSkillLineID then
+            return
+        end
+        if not IsMouseButtonDown("LeftButton") then
+            WBUpdateDragTargetFromCursor(WBDraggingConcentrationSkillLineID, selfContent._orderChips, function(sourceID, targetID, afterTarget)
+                if MR.SetAltBoardConcentrationProfessionPosition then
+                    return MR:SetAltBoardConcentrationProfessionPosition(sourceID, targetID, afterTarget)
+                end
+                return false
+            end)
+            WBDraggingConcentrationSkillLineID = nil
+            WBStopDragVisual()
+            return
+        end
+        WBUpdateDragTargetFromCursor(WBDraggingConcentrationSkillLineID, selfContent._orderChips, function(sourceID, targetID, afterTarget)
+            if MR.SetAltBoardConcentrationProfessionPosition then
+                return MR:SetAltBoardConcentrationProfessionPosition(sourceID, targetID, afterTarget)
+            end
+            return false
+        end)
+    end)
 
     for _, charEntry in ipairs(data or {}) do
         local concentrationEntries = type(charEntry.concentration) == "table" and charEntry.concentration or nil
@@ -864,10 +1007,17 @@ local function WBPopulateConcentrationOverview(frame, data)
                 local dailyGain = math.max(0, projected - current)
                 local fullInSeconds, fullAt = WBConcentrationTimeToFull(concentrationEntry)
 
-                local row = CreateFrame("Frame", nil, card)
+                local row = CreateFrame("Frame", nil, card, "BackdropTemplate")
                 row:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -rowY)
                 row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -12, -rowY)
                 row:SetHeight(54)
+                row:SetBackdrop(MakeBackdrop(false))
+                row:SetBackdropColor(0, 0, 0, 0)
+                row:SetBackdropBorderColor(rr * 0.36, rg * 0.36, rb * 0.36, 0)
+                row:EnableMouse(true)
+                row.dragID = tonumber(concentrationEntry.skillLineID)
+                row._dragBorderColor = { rr * 0.36, rg * 0.36, rb * 0.36, 0 }
+                frame.overviewContent._orderChips[#frame.overviewContent._orderChips + 1] = row
 
                 local label = row:CreateFontString(nil, "OVERLAY")
                 label:SetFont(FONT_HEADERS, math.max(9, GetFontSize()), GetFontFlags())
@@ -940,6 +1090,35 @@ local function WBPopulateConcentrationOverview(frame, data)
                     fullAtText:SetText(string.format(L["AltBoard_ConcentrationFullAt"] or "Full on %s", WBFormatConcentrationFullAt(fullAt)))
                 end
                 fullAtText:SetTextColor(0.52, 0.62, 0.72)
+
+                row:SetScript("OnMouseDown", function(selfRow, button)
+                    if button ~= "LeftButton" then
+                        return
+                    end
+                    WBDraggingConcentrationSkillLineID = tonumber(concentrationEntry.skillLineID)
+                    WBStartDragVisual(concentrationEntry.label or (L["Unknown"] or "Unknown"), rr, rg, rb)
+                    selfRow._dragging = true
+                    selfRow:SetBackdropColor(0.055 + rr * 0.040, 0.070 + rg * 0.040, 0.090 + rb * 0.040, 0.40)
+                    selfRow:SetBackdropBorderColor(rr, rg, rb, 1)
+                    GameTooltip:Hide()
+                end)
+                row:SetScript("OnMouseUp", function(selfRow, button)
+                    if button == "LeftButton" then
+                        WBDraggingConcentrationSkillLineID = nil
+                        WBStopDragVisual()
+                        selfRow._dragging = nil
+                        selfRow:SetBackdropColor(0, 0, 0, 0)
+                        selfRow:SetBackdropBorderColor(rr * 0.36, rg * 0.36, rb * 0.36, 0)
+                    end
+                end)
+                row:SetScript("OnEnter", function(selfRow)
+                    GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(L["AltBoard_DragProfessionOrder"] or "Click and drag to reorder professions.", 1, 1, 1)
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave", function()
+                    GameTooltip:Hide()
+                end)
 
                 table.insert(frame.overviewWidgets, row)
                 rowY = rowY + 62
@@ -1242,6 +1421,29 @@ local function WBPopulateConcentrationTracker(frame)
     local yOff = 0
 
     frame.content:SetWidth(contentWidth)
+    frame.content._orderChips = {}
+    frame.content:SetScript("OnUpdate", function(selfContent)
+        if not WBDraggingConcentrationSkillLineID then
+            return
+        end
+        if not IsMouseButtonDown("LeftButton") then
+            WBUpdateDragTargetFromCursor(WBDraggingConcentrationSkillLineID, selfContent._orderChips, function(sourceID, targetID, afterTarget)
+                if MR.SetAltBoardConcentrationProfessionPosition then
+                    return MR:SetAltBoardConcentrationProfessionPosition(sourceID, targetID, afterTarget)
+                end
+                return false
+            end)
+            WBDraggingConcentrationSkillLineID = nil
+            WBStopDragVisual()
+            return
+        end
+        WBUpdateDragTargetFromCursor(WBDraggingConcentrationSkillLineID, selfContent._orderChips, function(sourceID, targetID, afterTarget)
+            if MR.SetAltBoardConcentrationProfessionPosition then
+                return MR:SetAltBoardConcentrationProfessionPosition(sourceID, targetID, afterTarget)
+            end
+            return false
+        end)
+    end)
 
     for _, charEntry in ipairs(data or {}) do
         local concentrationEntries = type(charEntry.concentration) == "table" and charEntry.concentration or nil
@@ -1289,10 +1491,17 @@ local function WBPopulateConcentrationTracker(frame)
                 local dailyGain = math.max(0, projected - current)
                 local fullInSeconds = WBConcentrationTimeToFull(concentrationEntry)
 
-                local row = CreateFrame("Frame", nil, card)
+                local row = CreateFrame("Frame", nil, card, "BackdropTemplate")
                 row:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -rowY)
                 row:SetPoint("TOPRIGHT", card, "TOPRIGHT", -12, -rowY)
                 row:SetHeight(compact and 24 or 42)
+                row:SetBackdrop(MakeBackdrop(false))
+                row:SetBackdropColor(0, 0, 0, 0)
+                row:SetBackdropBorderColor(rr * 0.36, rg * 0.36, rb * 0.36, 0)
+                row:EnableMouse(true)
+                row.dragID = tonumber(concentrationEntry.skillLineID)
+                row._dragBorderColor = { rr * 0.36, rg * 0.36, rb * 0.36, 0 }
+                frame.content._orderChips[#frame.content._orderChips + 1] = row
 
                 local label = row:CreateFontString(nil, "OVERLAY")
                 label:SetFont(FONT_ROWS, compact and math.max(8, GetFontSize() - 1) or math.max(9, GetFontSize()), GetFontFlags())
@@ -1353,6 +1562,35 @@ local function WBPopulateConcentrationTracker(frame)
                     end
                     fullText:SetTextColor(0.64, 0.74, 0.84)
                 end
+
+                row:SetScript("OnMouseDown", function(selfRow, button)
+                    if button ~= "LeftButton" then
+                        return
+                    end
+                    WBDraggingConcentrationSkillLineID = tonumber(concentrationEntry.skillLineID)
+                    WBStartDragVisual(concentrationEntry.label or (L["Unknown"] or "Unknown"), rr, rg, rb)
+                    selfRow._dragging = true
+                    selfRow:SetBackdropColor(0.055 + rr * 0.040, 0.070 + rg * 0.040, 0.090 + rb * 0.040, 0.40)
+                    selfRow:SetBackdropBorderColor(rr, rg, rb, 1)
+                    GameTooltip:Hide()
+                end)
+                row:SetScript("OnMouseUp", function(selfRow, button)
+                    if button == "LeftButton" then
+                        WBDraggingConcentrationSkillLineID = nil
+                        WBStopDragVisual()
+                        selfRow._dragging = nil
+                        selfRow:SetBackdropColor(0, 0, 0, 0)
+                        selfRow:SetBackdropBorderColor(rr * 0.36, rg * 0.36, rb * 0.36, 0)
+                    end
+                end)
+                row:SetScript("OnEnter", function(selfRow)
+                    GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(L["AltBoard_DragProfessionOrder"] or "Click and drag to reorder professions.", 1, 1, 1)
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave", function()
+                    GameTooltip:Hide()
+                end)
 
                 table.insert(frame.widgets, row)
                 rowY = rowY + (compact and 30 or 48)
@@ -1969,6 +2207,29 @@ function MR:RefreshWarbandBoard()
 
     WBReleaseWidgets(frame.charButtons)
     WBReleaseWidgets(frame.detailWidgets)
+    frame.charRail._characterDragRows = {}
+    frame.charRail:SetScript("OnUpdate", function(selfRail)
+        if not WBDraggingAltBoardCharacterKey then
+            return
+        end
+        if not IsMouseButtonDown("LeftButton") then
+            WBUpdateDragTargetFromCursor(WBDraggingAltBoardCharacterKey, selfRail._characterDragRows, function(sourceKey, targetKey, afterTarget)
+                if MR.SetAltBoardCharacterPosition then
+                    return MR:SetAltBoardCharacterPosition(sourceKey, targetKey, afterTarget)
+                end
+                return false
+            end)
+            WBDraggingAltBoardCharacterKey = nil
+            WBStopDragVisual()
+            return
+        end
+        WBUpdateDragTargetFromCursor(WBDraggingAltBoardCharacterKey, selfRail._characterDragRows, function(sourceKey, targetKey, afterTarget)
+            if MR.SetAltBoardCharacterPosition then
+                return MR:SetAltBoardCharacterPosition(sourceKey, targetKey, afterTarget)
+            end
+            return false
+        end)
+    end)
 
     local totalDone, totalRows, staleCount = 0, 0, 0
     for _, entry in ipairs(data) do
@@ -2079,7 +2340,7 @@ function MR:RefreshWarbandBoard()
         progressFill:SetHeight(3)
         local pr, pg, pb = countColor(entry.doneRows, math.max(entry.totalRows, 1))
         progressFill:SetColorTexture(pr, pg, pb, 0.92)
-        progressFill:SetWidth(math.max(1, (170 * math.min(1, entry.doneRows / math.max(entry.totalRows, 1)))))
+        progressFill:SetWidth(math.max(1, (((btn:GetWidth() or 216) - 46) * math.min(1, entry.doneRows / math.max(entry.totalRows, 1)))))
 
         local name = btn:CreateFontString(nil, "OVERLAY")
         name:SetFont(FONT_HEADERS, math.max(10, GetFontSize() + 1), GetFontFlags())
@@ -2150,21 +2411,46 @@ function MR:RefreshWarbandBoard()
             GameTooltip:Hide()
         end)
 
+        btn.dragID = entry.key
+        btn._dragBorderColor = isSelected
+            and { sr * 0.52, sg * 0.52, sb * 0.52, 0.90 }
+            or { 0.07, 0.12, 0.18, 0.56 }
+        frame.charRail._characterDragRows[#frame.charRail._characterDragRows + 1] = btn
+
         btn:SetScript("OnClick", function()
             frame.selectedCharKey = entry.key
             MR:RefreshWarbandBoard()
+        end)
+        btn:SetScript("OnMouseDown", function(selfBtn, button)
+            if button ~= "LeftButton" then
+                return
+            end
+            WBDraggingAltBoardCharacterKey = entry.key
+            WBStartDragVisual(entry.name, sr, sg, sb)
+            selfBtn:SetBackdropBorderColor(sr, sg, sb, 1)
+            GameTooltip:Hide()
+        end)
+        btn:SetScript("OnMouseUp", function(_, button)
+            if button == "LeftButton" then
+                WBDraggingAltBoardCharacterKey = nil
+                WBStopDragVisual()
+            end
         end)
         btn:SetScript("OnEnter", function(selfBtn)
             if not isSelected then
                 selfBtn:SetBackdropColor(0.026, 0.046, 0.072, 0.96)
                 selfBtn:SetBackdropBorderColor(sr * 0.42, sg * 0.42, sb * 0.42, 0.86)
             end
+            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+            GameTooltip:SetText(L["AltBoard_DragCharacterOrder"] or "Click and drag to reorder characters.", 1, 1, 1)
+            GameTooltip:Show()
         end)
         btn:SetScript("OnLeave", function(selfBtn)
             if not isSelected then
                 selfBtn:SetBackdropColor(0.018, 0.032, 0.052, 0.90)
                 selfBtn:SetBackdropBorderColor(0.07, 0.12, 0.18, 0.56)
             end
+            GameTooltip:Hide()
         end)
 
         table.insert(frame.charButtons, btn)
@@ -2229,6 +2515,29 @@ function MR:RefreshWarbandBoard()
         local chipWidth = math.max(168, math.floor((contentWidth - ((columns - 1) * gap)) / columns))
         local rowHeight = 26
         local usedRows = math.max(1, math.ceil(#concentrationEntries / columns))
+        frame.concentrationPane._orderChips = {}
+        frame.concentrationPane:SetScript("OnUpdate", function(selfPane)
+            if not WBDraggingConcentrationSkillLineID then
+                return
+            end
+            if not IsMouseButtonDown("LeftButton") then
+                WBUpdateDragTargetFromCursor(WBDraggingConcentrationSkillLineID, selfPane._orderChips, function(sourceID, targetID, afterTarget)
+                    if MR.SetAltBoardConcentrationProfessionPosition then
+                        return MR:SetAltBoardConcentrationProfessionPosition(sourceID, targetID, afterTarget)
+                    end
+                    return false
+                end, "horizontal")
+                WBDraggingConcentrationSkillLineID = nil
+                WBStopDragVisual()
+                return
+            end
+            WBUpdateDragTargetFromCursor(WBDraggingConcentrationSkillLineID, selfPane._orderChips, function(sourceID, targetID, afterTarget)
+                if MR.SetAltBoardConcentrationProfessionPosition then
+                    return MR:SetAltBoardConcentrationProfessionPosition(sourceID, targetID, afterTarget)
+                end
+                return false
+            end, "horizontal")
+        end)
 
         for index, concentrationEntry in ipairs(concentrationEntries) do
             local rr, rg, rb = WBConcentrationColor(concentrationEntry)
@@ -2245,6 +2554,11 @@ function MR:RefreshWarbandBoard()
             chip:SetBackdrop(MakeBackdrop())
             chip:SetBackdropColor(0.018 + rr * 0.045, 0.030 + rg * 0.045, 0.046 + rb * 0.045, 0.92)
             chip:SetBackdropBorderColor(rr * 0.42, rg * 0.42, rb * 0.42, 0.72)
+            chip:EnableMouse(true)
+            chip.skillLineID = tonumber(concentrationEntry.skillLineID)
+            chip.dragID = tonumber(concentrationEntry.skillLineID)
+            chip._dragBorderColor = { rr * 0.42, rg * 0.42, rb * 0.42, 0.72 }
+            frame.concentrationPane._orderChips[#frame.concentrationPane._orderChips + 1] = chip
 
             local chipGlow = chip:CreateTexture(nil, "BACKGROUND")
             chipGlow:SetAllPoints()
@@ -2259,60 +2573,10 @@ function MR:RefreshWarbandBoard()
             local label = chip:CreateFontString(nil, "OVERLAY")
             label:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 1), GetFontFlags())
             label:SetPoint("LEFT", dot, "RIGHT", 6, 0)
-            label:SetPoint("RIGHT", chip, "RIGHT", -132, 0)
+            label:SetPoint("RIGHT", chip, "RIGHT", -68, 0)
             label:SetJustifyH("LEFT")
             label:SetText(labelText)
             label:SetTextColor(0.84, 0.89, 0.96)
-
-            local leftBtn = CreateFrame("Button", nil, chip, "BackdropTemplate")
-            leftBtn:SetSize(16, 16)
-            leftBtn:SetPoint("RIGHT", chip, "RIGHT", -96, 0)
-            leftBtn:SetBackdrop(MakeBackdrop())
-            leftBtn:SetBackdropColor(0.02, 0.04, 0.07, 0.76)
-            leftBtn:SetBackdropBorderColor(rr * 0.38, rg * 0.38, rb * 0.38, 0.65)
-            local leftLbl = leftBtn:CreateFontString(nil, "OVERLAY")
-            leftLbl:SetFont(FONT_HEADERS, math.max(8, GetFontSize() - 2), GetFontFlags())
-            leftLbl:SetPoint("CENTER", leftBtn, "CENTER", 0, 0)
-            leftLbl:SetText("<")
-            leftLbl:SetTextColor(0.70, 0.82, 0.90)
-            leftBtn:SetScript("OnClick", function()
-                if MR.MoveAltBoardConcentrationProfession then
-                    MR:MoveAltBoardConcentrationProfession(concentrationEntry.skillLineID, -1)
-                end
-            end)
-            leftBtn:SetScript("OnEnter", function()
-                leftBtn:SetBackdropBorderColor(rr, rg, rb, 1)
-                leftLbl:SetTextColor(1, 1, 1)
-            end)
-            leftBtn:SetScript("OnLeave", function()
-                leftBtn:SetBackdropBorderColor(rr * 0.38, rg * 0.38, rb * 0.38, 0.65)
-                leftLbl:SetTextColor(0.70, 0.82, 0.90)
-            end)
-
-            local rightBtn = CreateFrame("Button", nil, chip, "BackdropTemplate")
-            rightBtn:SetSize(16, 16)
-            rightBtn:SetPoint("LEFT", leftBtn, "RIGHT", 2, 0)
-            rightBtn:SetBackdrop(MakeBackdrop())
-            rightBtn:SetBackdropColor(0.02, 0.04, 0.07, 0.76)
-            rightBtn:SetBackdropBorderColor(rr * 0.38, rg * 0.38, rb * 0.38, 0.65)
-            local rightLbl = rightBtn:CreateFontString(nil, "OVERLAY")
-            rightLbl:SetFont(FONT_HEADERS, math.max(8, GetFontSize() - 2), GetFontFlags())
-            rightLbl:SetPoint("CENTER", rightBtn, "CENTER", 0, 0)
-            rightLbl:SetText(">")
-            rightLbl:SetTextColor(0.70, 0.82, 0.90)
-            rightBtn:SetScript("OnClick", function()
-                if MR.MoveAltBoardConcentrationProfession then
-                    MR:MoveAltBoardConcentrationProfession(concentrationEntry.skillLineID, 1)
-                end
-            end)
-            rightBtn:SetScript("OnEnter", function()
-                rightBtn:SetBackdropBorderColor(rr, rg, rb, 1)
-                rightLbl:SetTextColor(1, 1, 1)
-            end)
-            rightBtn:SetScript("OnLeave", function()
-                rightBtn:SetBackdropBorderColor(rr * 0.38, rg * 0.38, rb * 0.38, 0.65)
-                rightLbl:SetTextColor(0.70, 0.82, 0.90)
-            end)
 
             local value = chip:CreateFontString(nil, "OVERLAY")
             value:SetFont(FONT_HEADERS, math.max(9, GetFontSize() - 1), GetFontFlags())
@@ -2321,6 +2585,38 @@ function MR:RefreshWarbandBoard()
             value:SetJustifyH("RIGHT")
             value:SetText(valueText)
             value:SetTextColor(0.97, 0.98, 1.00)
+
+            chip:SetScript("OnMouseDown", function(selfChip, button)
+                if button ~= "LeftButton" then
+                    return
+                end
+                WBDraggingConcentrationSkillLineID = tonumber(concentrationEntry.skillLineID)
+                WBStartDragVisual(labelText, rr, rg, rb)
+                selfChip:SetBackdropColor(0.055 + rr * 0.050, 0.075 + rg * 0.050, 0.095 + rb * 0.050, 0.98)
+                selfChip:SetBackdropBorderColor(rr, rg, rb, 1)
+                GameTooltip:Hide()
+            end)
+            chip:SetScript("OnMouseUp", function(selfChip, button)
+                if button == "LeftButton" then
+                    WBDraggingConcentrationSkillLineID = nil
+                    WBStopDragVisual()
+                    selfChip:SetBackdropColor(0.018 + rr * 0.045, 0.030 + rg * 0.045, 0.046 + rb * 0.045, 0.92)
+                    selfChip:SetBackdropBorderColor(rr * 0.42, rg * 0.42, rb * 0.42, 0.72)
+                end
+            end)
+            chip:SetScript("OnEnter", function(selfChip)
+                selfChip:SetBackdropBorderColor(rr * 0.64, rg * 0.64, rb * 0.64, 0.90)
+                GameTooltip:SetOwner(selfChip, "ANCHOR_RIGHT")
+                GameTooltip:SetText(L["AltBoard_DragProfessionOrder"] or "Click and drag to reorder professions.", 1, 1, 1)
+                GameTooltip:Show()
+            end)
+            chip:SetScript("OnLeave", function(selfChip)
+                if tonumber(WBDraggingConcentrationSkillLineID) ~= tonumber(concentrationEntry.skillLineID) then
+                    selfChip:SetBackdropColor(0.018 + rr * 0.045, 0.030 + rg * 0.045, 0.046 + rb * 0.045, 0.92)
+                    selfChip:SetBackdropBorderColor(rr * 0.42, rg * 0.42, rb * 0.42, 0.72)
+                end
+                GameTooltip:Hide()
+            end)
 
             table.insert(frame.heroConcentrationWidgets, chip)
         end
