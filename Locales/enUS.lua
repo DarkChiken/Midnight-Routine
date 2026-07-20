@@ -467,7 +467,7 @@ L["Act_Stormarion_Label"] = "|cffff9040Stormarion Assault:|r"
 L["Act_Stormarion_Note"] = "Repeating event in Voidstorm every 30 min (active for 15 min).\nComplete once per week for the Stand Your Ground reward."
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "Season 1 Weeklies"
+L["Weekly_SeasonTitle"] = "Weeklies"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6Weekly: Abundance:|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6Lost Legends:|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6Saltheril's Soiree:|r"

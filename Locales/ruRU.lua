@@ -450,7 +450,7 @@ L["Act_Stormarion_Label"] = "|cffff9040Атака на Штормарион:|r"
 L["Act_Stormarion_Note"] = "Повторяющееся событие в Буре Бездне каждые 30 мин (активно 15 мин).\nВыполните раз в неделю для получения награды «Не отступать»."
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "Еженедельники 1-го сезона"
+L["Weekly_SeasonTitle"] = "Еженедельники"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6Еженедельное: Изобилие:|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6Утраченные легенды:|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6Званый ужин у Салтерила:|r"

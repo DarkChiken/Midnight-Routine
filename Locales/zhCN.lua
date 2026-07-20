@@ -451,7 +451,7 @@ L["Act_Stormarion_Label"] = "|cffff9040斯托玛兰突袭战：|r"
 L["Act_Stormarion_Note"] = "虚影风暴每30分钟重复一次的事件活动（持续15分钟）。\n每周完成一次获得'坚守阵地'任务奖励。"
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "第1赛季周常"
+L["Weekly_SeasonTitle"] = "周常"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6每周：丰饶供品：|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6失落的传说：|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6萨瑟利尔的聚会：|r"

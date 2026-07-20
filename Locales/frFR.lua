@@ -450,7 +450,7 @@ L["Act_Stormarion_Label"] = "|cffff9040Assaut de Fulgarion :|r"
 L["Act_Stormarion_Note"] = "Événement répétable dans la Tempête-du-Vide toutes les 30 min (actif pendant 15 min).\nÀ terminer une fois par semaine pour la récompense : Inébranlable."
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "Hebdomadaires de la Saison 1"
+L["Weekly_SeasonTitle"] = "Hebdomadaires"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6Hebdomadaire : Abondance :|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6Légendes perdues :|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6Soirée de Saltheril :|r"

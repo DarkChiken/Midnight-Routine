@@ -756,11 +756,10 @@ function MR:GetProgress(moduleKey, rowKey)
             localValue = currentValue
         end
         if localValue ~= nil then
-            if self.db then
-                self.db.global = self.db.global or {}
-                self.db.global.customTaskProgress = self.db.global.customTaskProgress or {}
-                self.db.global.customTaskProgress[moduleKey] = self.db.global.customTaskProgress[moduleKey] or {}
-                self.db.global.customTaskProgress[moduleKey][rowKey] = localValue
+            local globalProgress = self.db and self.db.global and self.db.global.customTaskProgress
+            if globalProgress then
+                globalProgress[moduleKey] = globalProgress[moduleKey] or {}
+                globalProgress[moduleKey][rowKey] = localValue
             end
             return localValue
         end
@@ -1122,11 +1121,10 @@ function MR:GetManualOverride(modKey, rowKey)
             localValue = currentValue
         end
         if localValue ~= nil then
-            if self.db then
-                self.db.global = self.db.global or {}
-                self.db.global.customTaskManualOverrides = self.db.global.customTaskManualOverrides or {}
-                self.db.global.customTaskManualOverrides[modKey] = self.db.global.customTaskManualOverrides[modKey] or {}
-                self.db.global.customTaskManualOverrides[modKey][rowKey] = localValue
+            local globalOverrides = self.db and self.db.global and self.db.global.customTaskManualOverrides
+            if globalOverrides then
+                globalOverrides[modKey] = globalOverrides[modKey] or {}
+                globalOverrides[modKey][rowKey] = localValue
             end
             return localValue
         end

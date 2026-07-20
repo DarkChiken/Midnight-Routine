@@ -451,7 +451,7 @@ L["Act_Stormarion_Label"] = "|cffff9040風瑪利昂襲擊：|r"
 L["Act_Stormarion_Note"] = "虛無風暴每30分鐘重復一次的事件活動（持續15分鐘）。\n每週完成一次獲得'堅守陣地'任務獎勵。"
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "第1賽季每週任務"
+L["Weekly_SeasonTitle"] = "每週任務"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6每週任務：豐足：|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6失落的傳說：|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6薩瑟里的晚會：|r"

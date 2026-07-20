@@ -82,7 +82,7 @@ local VOID_INVASION_SHOWDOWNS = {
 local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
 local ABYSS_ANGLERS_INTRO_QUEST_ID = 96388
 
-local function GetMainS1Progress()
+local function GetMainWeeklyProgress()
     local source = MR.GetMainFrameProgressSource and MR:GetMainFrameProgressSource() or (MR.db and MR.db.char)
     local progress = source and source.progress
     return progress and progress["s1_weekly"] or {}
@@ -826,7 +826,7 @@ MR:RegisterModule({
             patchKey = "12.0.5",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
-                local s1db = GetMainS1Progress()
+                local s1db = GetMainWeeklyProgress()
                 local completedName = s1db["void_assault_completed_name"]
                 local activeName = s1db["void_assault_active_name"]
                 local activePoiName = s1db["void_assault_active_poi_name"]
@@ -859,7 +859,7 @@ MR:RegisterModule({
             allowQuestFlagBackfill = true,
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
-                local s1db = GetMainS1Progress()
+                local s1db = GetMainWeeklyProgress()
                 local completedName = s1db["ritual_site_completed_name"]
                 local activeName = s1db["ritual_site_active_name"]
                 local activePoiName = s1db["ritual_site_active_poi_name"]
@@ -935,7 +935,7 @@ MR:RegisterModule({
             allowQuestFlagBackfill = true,
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
-                local s1db = GetMainS1Progress()
+                local s1db = GetMainWeeklyProgress()
                 local completedName = s1db["showdown_completed_name"]
                 local activeName = s1db["showdown_active_name"]
                 local rowDone = (tonumber(s1db["void_invasion_showdown"]) or 0) > 0
@@ -1016,7 +1016,7 @@ MR:RegisterModule({
             note     = L["Delves_Call_Note"],
             patchKey = "12.0.0",
             isVisible = function()
-                local mdb = GetMainS1Progress()
+                local mdb = GetMainWeeklyProgress()
                 return IsQuestCurrentlyActive(93595) or ((mdb and tonumber(mdb["call_to_delves"])) or 0) > 0
             end,
         },
@@ -1050,7 +1050,7 @@ MR:RegisterModule({
                     { quest = 89289, name = L["Weekly_Soiree_Label"] },
                 }
 
-                local s1db = GetMainS1Progress()
+                local s1db = GetMainWeeklyProgress()
                 local completedName = (MR:GetProgress("s1_weekly", "saltherils_soiree") >= 1 and s1db["soiree_completed_name"]) or nil
                 local activeName = s1db["soiree_active_name"]
 
@@ -1118,7 +1118,7 @@ MR:RegisterModule({
             branchQuestIds = UATV_BRANCH_QUEST_IDS,
 
             tooltipFunc = function(tip)
-                local s1db = GetMainS1Progress()
+                local s1db = GetMainWeeklyProgress()
                 local activeBranchInfo = FindActiveQuestVariant(UATV_BRANCHES)
                 local completedBranch = (MR:GetProgress("s1_weekly", "unity_against_void") >= 1 and s1db["uatv_completed_branch_name"]) or nil
                 local activeBranch = (activeBranchInfo and activeBranchInfo.name) or s1db["uatv_branch_name"]

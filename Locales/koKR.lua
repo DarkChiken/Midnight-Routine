@@ -455,7 +455,7 @@ L["Act_Stormarion_Label"] = "|cffff9040스토르마리온 공격:|r"
 L["Act_Stormarion_Note"] = "보이드스톰에서 30분마다 반복되는 이벤트 (15분간 활성).\n주간 1회 완료 시 'Stand Your Ground' 보상 획득."
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "시즌 1 주간 퀘스트"
+L["Weekly_SeasonTitle"] = "주간 퀘스트"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6주간: 풍요:|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6잃어버린 전설:|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6살테릴의 연회:|r"

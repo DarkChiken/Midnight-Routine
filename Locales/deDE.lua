@@ -472,7 +472,7 @@ L["Act_Stormarion_Label"] = "|cffff9040Angriff auf Sturmarion:|r"
 L["Act_Stormarion_Note"] = "Wiederkehrendes Ereignis im Leerensturm alle 30 Minuten (15 Minuten lang aktiv).\nEinmal pro Woche abschließen, um die Belohnung „Stand Your Ground“ zu erhalten."
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "Saison-1-Wochenaufgaben"
+L["Weekly_SeasonTitle"] = "Wochenaufgaben"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6Woechentlich: Ueberfluss:|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6Verlorene Legenden:|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6Saltheril's Soiree:|r"

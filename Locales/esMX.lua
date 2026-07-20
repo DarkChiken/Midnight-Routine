@@ -450,7 +450,7 @@ L["Act_Stormarion_Label"] = "|cffff9040Asalto a Stormarion:|r"
 L["Act_Stormarion_Note"] = "Evento repetible en Tormenta del Vacío cada 30 min (activo durante 15 min).\nCompleta una vez a la semana para obtener la recompensa Defender el terreno."
 
 -- WeeklyTasks
-L["Weekly_SeasonTitle"] = "Semanales de la Temporada 1"
+L["Weekly_SeasonTitle"] = "Semanales"
 L["Weekly_Abundance_Label"] = "|cff2ae7c6Semanal: Abundancia:|r"
 L["Weekly_Legends_Label"] = "|cff2ae7c6Leyendas perdidas:|r"
 L["Weekly_Soiree_Label"] = "|cff2ae7c6Velada de Saltheril:|r"
