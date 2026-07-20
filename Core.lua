@@ -779,6 +779,10 @@ function MR:IsRowVisibleForCharacter(mod, row, charData)
         return true
     end
 
+    if mod and (mod.key == "darkmoon_faire" or (type(row.key) == "string" and row.key:match("_dmf$"))) then
+        return row.isVisible() == true
+    end
+
     charData = charData or (self.GetMainFrameProgressSource and self:GetMainFrameProgressSource()) or (self.db and self.db.char)
     if type(charData) == "table" and self.db and charData ~= self.db.char then
         local visibility = charData.rowVisibility
@@ -815,6 +819,58 @@ function MR:GetManualOverrideBucket(moduleKey, rowKey)
     return self.db.char.manualOverrides
 end
 
+local function IsDefaultProgressValue(value)
+    return type(value) == "number" and value == 0
+end
+
+local function RemoveEmptyProgressBucket(progress, modKey)
+    if progress[modKey] and next(progress[modKey]) == nil then
+        progress[modKey] = nil
+    end
+end
+
+local function SetProgressValue(progress, modKey, rowKey, val)
+    if IsDefaultProgressValue(val) then
+        local bucket = progress[modKey]
+        if not bucket or bucket[rowKey] == nil then
+            RemoveEmptyProgressBucket(progress, modKey)
+            return false
+        end
+        bucket[rowKey] = nil
+        RemoveEmptyProgressBucket(progress, modKey)
+        return true
+    end
+
+    if not progress[modKey] then progress[modKey] = {} end
+    if progress[modKey][rowKey] == val then return false end
+    progress[modKey][rowKey] = val
+    return true
+end
+
+local function PruneProgressStore(progress)
+    if type(progress) ~= "table" then
+        return false
+    end
+
+    local dirty = false
+    for modKey, bucket in pairs(progress) do
+        if type(bucket) == "table" then
+            for rowKey, value in pairs(bucket) do
+                if IsDefaultProgressValue(value) then
+                    bucket[rowKey] = nil
+                    dirty = true
+                end
+            end
+            if next(bucket) == nil then
+                progress[modKey] = nil
+                dirty = true
+            end
+        end
+    end
+
+    return dirty
+end
+
 function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
     local progressBucket = self.GetProgressBucket and self:GetProgressBucket(moduleKey, rowKey) or self.db.char.progress
     if self.ShouldSuspendBackgroundWorkInCurrentInstance and self:ShouldSuspendBackgroundWorkInCurrentInstance() and not bypassInstanceSuspend then
@@ -827,7 +883,7 @@ function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
                 progressBucket[moduleKey]["task_" .. taskId] = nil
             end
         end
-        progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
+        SetProgressValue(progressBucket, moduleKey, rowKey, math.max(0, math.min(value, maxVal)))
         return
     end
 
@@ -845,7 +901,7 @@ function MR:SetProgress(moduleKey, rowKey, value, maxVal, bypassInstanceSuspend)
             progressBucket[moduleKey]["task_" .. taskId] = nil
         end
     end
-    progressBucket[moduleKey][rowKey] = math.max(0, math.min(value, maxVal))
+    SetProgressValue(progressBucket, moduleKey, rowKey, math.max(0, math.min(value, maxVal)))
     self:RefreshUI()
 end
 
@@ -2082,14 +2138,11 @@ function MR:BuildSpellIndex()
 end
 
 local function WriteProgress(progress, modKey, rowKey, val, overrides)
-    if not progress[modKey] then progress[modKey] = {} end
     if overrides and overrides[modKey] then
         local mo = overrides[modKey][rowKey]
         if mo and mo > val then val = mo end
     end
-    if progress[modKey][rowKey] == val then return false end
-    progress[modKey][rowKey] = val
-    return true
+    return SetProgressValue(progress, modKey, rowKey, val)
 end
 
 local function ValuesEqual(a, b)
@@ -2151,19 +2204,17 @@ local function UpdateCurrencyProgressForRow(self, progress, mod, row)
         dirty = true
     end
 
-    if not progress[mod.key] then progress[mod.key] = {} end
     local walletKey = row.key .. "_wallet"
-    local previousWallet = progress[mod.key][walletKey]
+    local previousWallet = progress[mod.key] and progress[mod.key][walletKey]
 
-    if progress[mod.key][walletKey] ~= wallet then
-        progress[mod.key][walletKey] = wallet
+    if SetProgressValue(progress, mod.key, walletKey, wallet) then
         dirty = true
     end
 
     if row.trackWeeklyEarned then
         local collectedKey = row.key .. "_collected"
         local trackingCap = row.weeklyCap or weeklyCap or row.max
-        local collected = tonumber(progress[mod.key][collectedKey]) or 0
+        local collected = progress[mod.key] and tonumber(progress[mod.key][collectedKey]) or 0
 
         if previousWallet ~= nil and wallet > previousWallet then
             collected = collected + (wallet - previousWallet)
@@ -2174,8 +2225,7 @@ local function UpdateCurrencyProgressForRow(self, progress, mod, row)
             collected = math.min(collected, trackingCap)
         end
 
-        if progress[mod.key][collectedKey] ~= collected then
-            progress[mod.key][collectedKey] = collected
+        if SetProgressValue(progress, mod.key, collectedKey, collected) then
             dirty = true
         end
     end
@@ -2458,6 +2508,12 @@ function MR:RefreshModuleScans(moduleKeys, refreshUI)
             end
 
             local changed = mod.onScan(mod) == true
+            if PruneProgressStore(self.db.char.progress) then
+                changed = true
+            end
+            if self.db.global and PruneProgressStore(self.db.global.customTaskProgress) then
+                changed = true
+            end
             if not changed and not ValuesEqual(beforeProgress, self.db.char.progress[moduleKey]) then
                 changed = true
             end
@@ -2597,7 +2653,7 @@ function MR:Scan()
                         local mo = _ov[mod.key][row.key]
                         if mo and mo > capped then capped = mo end
                     end
-                    if mdb[row.key] ~= capped then mdb[row.key] = capped; dirty = true end
+                    if SetProgressValue(progress, mod.key, row.key, capped) then dirty = true end
                 end
                 if row.liveTierLabelKey then
                     row.vaultLabel = mdb[row.liveTierLabelKey]
@@ -2608,6 +2664,9 @@ function MR:Scan()
             end
         end
     end
+
+    if PruneProgressStore(progress) then dirty = true end
+    if self.db.global and PruneProgressStore(self.db.global.customTaskProgress) then dirty = true end
 
     if dirty then self:RefreshUI() end
     if self.SyncAllRareKills then self:SyncAllRareKills() end
@@ -2635,6 +2694,7 @@ local STATIC_TURN_IN_COMPLETIONS = {
     [90575] = { mod = "s1_weekly",           row = "fortify_runestones"  },
     [90576] = { mod = "s1_weekly",           row = "fortify_runestones"  },
     [93744] = { mod = "s1_weekly",           row = "unity_against_void"  },
+    [96727] = { mod = "s1_weekly",           row = "unity_against_void"  },
     [90962] = { mod = "midnight_activities", row = "stormarion_assault"  },
     [94835] = { mod = "pvp_weeklies",        row = "early_training"      },
 }

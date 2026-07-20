@@ -1087,6 +1087,20 @@ EnsureMainRowWidget = function(section, rowKey)
     return rowFrame
 end
 
+local function GetMainFrameProgressModule(modKey)
+    local source = MR.GetMainFrameProgressSource and MR:GetMainFrameProgressSource() or (MR.db and MR.db.char)
+    local progress = source and source.progress
+    return progress and progress[modKey] or nil
+end
+
+local function GetMainFrameRowCount(row)
+    if MR.IsMainAltViewActive and MR:IsMainAltViewActive() then
+        return nil, nil
+    end
+
+    return row.countText, row.countColor
+end
+
 UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     local rowId = row.key or tostring(row.label or yOff)
     local rowFrame = EnsureMainRowWidget(section, rowId)
@@ -1202,7 +1216,8 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
             rowFrame._headerActionText:Show()
         end
 
-        if row.countText and row.countText ~= "" then
+        local headerCountText, headerCountColor = GetMainFrameRowCount(row)
+        if headerCountText and headerCountText ~= "" then
             rowFrame._headerCount:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
             rowFrame._headerCount:ClearAllPoints()
             if headerActionButton then
@@ -1211,9 +1226,9 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
                 rowFrame._headerCount:SetPoint("RIGHT", rowFrame, "RIGHT", -8, 0)
             end
             rowFrame._headerCount:SetJustifyH("RIGHT")
-            rowFrame._headerCount:SetText(row.countText)
-            if row.countColor then
-                rowFrame._headerCount:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+            rowFrame._headerCount:SetText(headerCountText)
+            if headerCountColor then
+                rowFrame._headerCount:SetTextColor(headerCountColor[1], headerCountColor[2], headerCountColor[3])
             else
                 rowFrame._headerCount:SetTextColor(0.74, 0.80, 0.88)
             end
@@ -1359,10 +1374,11 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
     end
     rowFrame._count:SetWidth(0)
 
-    if row.countText then
-        rowFrame._count:SetText(row.countText)
-        if row.countColor then
-            rowFrame._count:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+    local countText, countTextColor = GetMainFrameRowCount(row)
+    if countText then
+        rowFrame._count:SetText(countText)
+        if countTextColor then
+            rowFrame._count:SetTextColor(countTextColor[1], countTextColor[2], countTextColor[3])
         else
             rowFrame._count:SetTextColor(0.8, 0.8, 0.8)
         end
@@ -1389,7 +1405,7 @@ UpdateMainRowWidget = function(self, section, mod, row, done, yOff, colW)
             rowFrame._count:SetWidth(0)
         end
     elseif isCurrencyRow then
-        local mdb = MR.db and MR.db.char.progress[mod.key]
+        local mdb = GetMainFrameProgressModule(mod.key)
         local wallet = (mdb and mdb[row.key .. "_wallet"]) or done
         rowFrame._count:SetText(string.format("%d/%d", done, row.max))
         rowFrame._count:SetTextColor(countColor(done, row.max))
@@ -4405,7 +4421,8 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             end)
         end
 
-        if row.countText and row.countText ~= "" then
+        local headerCountText, headerCountColor = GetMainFrameRowCount(row)
+        if headerCountText and headerCountText ~= "" then
             local countText = rowFrame:CreateFontString(nil, "OVERLAY")
             countText:SetFont(FONT_ROWS, math.max(8, GetFontSize() - 2), GetFontFlags())
             if headerActionButton then
@@ -4414,9 +4431,9 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
                 countText:SetPoint("RIGHT", rowFrame, "RIGHT", -8, 0)
             end
             countText:SetJustifyH("RIGHT")
-            countText:SetText(row.countText)
-            if row.countColor then
-                countText:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+            countText:SetText(headerCountText)
+            if headerCountColor then
+                countText:SetTextColor(headerCountColor[1], headerCountColor[2], headerCountColor[3])
             else
                 countText:SetTextColor(0.74, 0.80, 0.88)
             end
@@ -4723,10 +4740,11 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
         countFS:SetWordWrap(false)
     end
 
-    if row.countText then
-        countFS:SetText(row.countText)
-        if row.countColor then
-            countFS:SetTextColor(row.countColor[1], row.countColor[2], row.countColor[3])
+    local countText, countTextColor = GetMainFrameRowCount(row)
+    if countText then
+        countFS:SetText(countText)
+        if countTextColor then
+            countFS:SetTextColor(countTextColor[1], countTextColor[2], countTextColor[3])
         else
             countFS:SetTextColor(0.8, 0.8, 0.8)
         end
@@ -4751,7 +4769,7 @@ function MR:BuildRow(mod, row, done, yOff, collapsed, xOff, colW, parent, widget
             lbl:SetPoint("RIGHT", countFS, "LEFT", -8, 0)
         end
     elseif isCurrencyRow then
-        local mdb    = MR.db and MR.db.char.progress[mod.key]
+        local mdb    = GetMainFrameProgressModule(mod.key)
         local wallet = (mdb and mdb[row.key .. "_wallet"]) or done
 
         countFS:SetText(string.format("%d/%d", done, row.max))

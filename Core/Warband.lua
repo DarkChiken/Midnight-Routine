@@ -550,6 +550,7 @@ function MR:SetMainAltViewCharacter(charKey)
         self.mainAltViewCharKey = charKey
     end
 
+    self._moduleStatsCache = nil
     if self.RefreshUI then
         self:RefreshUI()
     end

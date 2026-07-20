@@ -30,6 +30,10 @@ local UATV_BRANCHES = {
     { quest = 93766, name = L["Unity_WorldQuests"]   },
 }
 
+local UATV_META_QUEST_IDS = {
+    93744, 96727,
+}
+
 local UATV_BRANCH_QUEST_IDS = {
     93890, 93767, 94457, 93909, 93911, 93769, 93891, 93910, 93912, 93889, 93892, 93913, 93766,
 }
@@ -77,6 +81,12 @@ local VOID_INVASION_SHOWDOWNS = {
 
 local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
 local ABYSS_ANGLERS_INTRO_QUEST_ID = 96388
+
+local function GetMainS1Progress()
+    local source = MR.GetMainFrameProgressSource and MR:GetMainFrameProgressSource() or (MR.db and MR.db.char)
+    local progress = source and source.progress
+    return progress and progress["s1_weekly"] or {}
+end
 
 local MIDNIGHT_MAP_IDS = {
     [2393] = true,
@@ -466,8 +476,7 @@ MR:RegisterModule({
 
         for _, row in ipairs(mod.rows) do
             if row.key == "void_assaults" then
-                local metaDone = C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842) or false
-                if metaDone or #completedVoidAssaultWeeklies > 0 then
+                if #completedVoidAssaultWeeklies > 0 then
                     row.countText = db[mod.key]["void_assault_completed_name"] or (L["Done"] or "Done")
                     row.countColor = { 0.4, 0.85, 0.4 }
                 elseif db[mod.key]["void_assault_active_name"] then
@@ -479,6 +488,13 @@ MR:RegisterModule({
                 end
                 break
             end
+        end
+
+        if (tonumber(db[mod.key]["lost_legends"]) or 0) > 0
+            and C_QuestLog.IsQuestFlaggedCompleted
+            and C_QuestLog.IsQuestFlaggedCompleted(93891)
+            and not C_QuestLog.IsQuestFlaggedCompleted(89268) then
+            db[mod.key]["lost_legends"] = nil
         end
 
         local completedRitualSiteWeeklies, activeRitualSiteWeeklies = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
@@ -704,12 +720,17 @@ MR:RegisterModule({
         db[mod.key]["uatv_completed_branch_name"] = nil
         db[mod.key]["unity_against_void"] = db[mod.key]["unity_against_void"] or 0
 
-        if C_QuestLog.IsQuestFlaggedCompleted(93744) then
-            db[mod.key]["unity_against_void"] = 1
-            db[mod.key]["uatv_completed_branch_name"] = previousUATVCompletedName
-                or previousUATVActiveName
-                or db[mod.key]["uatv_branch_name"]
-        else
+        for _, questId in ipairs(UATV_META_QUEST_IDS) do
+            if C_QuestLog.IsQuestFlaggedCompleted(questId) then
+                db[mod.key]["unity_against_void"] = 1
+                db[mod.key]["uatv_completed_branch_name"] = previousUATVCompletedName
+                    or previousUATVActiveName
+                    or db[mod.key]["uatv_branch_name"]
+                break
+            end
+        end
+
+        if db[mod.key]["unity_against_void"] < 1 then
             for _, branch in ipairs(UATV_BRANCHES) do
                 if C_QuestLog.IsQuestFlaggedCompleted(branch.quest) then
                     db[mod.key]["unity_against_void"] = 1
@@ -801,18 +822,18 @@ MR:RegisterModule({
             label    = L["Weekly_VoidAssaults_Label"] or "|cff2ae7c6Void Assaults:|r",
             max      = 1,
             note     = L["Weekly_VoidAssaults_Note"] or "Complete the active Void Assault weekly in Eversong Woods or Zul'Aman for a Spark of Radiance.",
-            questIds = { 95842, 94385, 94386 },
+            questIds = { 94385, 94386 },
             patchKey = "12.0.5",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
-                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local s1db = GetMainS1Progress()
                 local completedName = s1db["void_assault_completed_name"]
                 local activeName = s1db["void_assault_active_name"]
                 local activePoiName = s1db["void_assault_active_poi_name"]
                 local fallbackName = L["Done"] or "Done"
 
                 tip:AddLine(" ")
-                if completedName or #completedVariants > 0 or (C_QuestLog.IsQuestFlaggedCompleted and C_QuestLog.IsQuestFlaggedCompleted(95842)) then
+                if completedName or #completedVariants > 0 then
                     tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
                     tip:AddLine("  " .. (completedName or GetVariantName(completedVariants, 1, fallbackName)), 0.4, 0.85, 0.4)
                 elseif activeName or #activeVariants > 0 then
@@ -838,7 +859,7 @@ MR:RegisterModule({
             allowQuestFlagBackfill = true,
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
-                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local s1db = GetMainS1Progress()
                 local completedName = s1db["ritual_site_completed_name"]
                 local activeName = s1db["ritual_site_active_name"]
                 local activePoiName = s1db["ritual_site_active_poi_name"]
@@ -914,7 +935,7 @@ MR:RegisterModule({
             allowQuestFlagBackfill = true,
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
-                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local s1db = GetMainS1Progress()
                 local completedName = s1db["showdown_completed_name"]
                 local activeName = s1db["showdown_active_name"]
                 local rowDone = (tonumber(s1db["void_invasion_showdown"]) or 0) > 0
@@ -995,7 +1016,7 @@ MR:RegisterModule({
             note     = L["Delves_Call_Note"],
             patchKey = "12.0.0",
             isVisible = function()
-                local mdb = MR and MR.db and MR.db.char and MR.db.char.progress and MR.db.char.progress["s1_weekly"]
+                local mdb = GetMainS1Progress()
                 return IsQuestCurrentlyActive(93595) or ((mdb and tonumber(mdb["call_to_delves"])) or 0) > 0
             end,
         },
@@ -1013,7 +1034,7 @@ MR:RegisterModule({
             patchKey = "12.0.0",
             turnInTracked = true,
             allowQuestFlagBackfill = true,
-            questIds = { 89268, 93891 },
+            questIds = { 89268 },
         },
         {
             key      = "saltherils_soiree",
@@ -1029,7 +1050,7 @@ MR:RegisterModule({
                     { quest = 89289, name = L["Weekly_Soiree_Label"] },
                 }
 
-                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local s1db = GetMainS1Progress()
                 local completedName = (MR:GetProgress("s1_weekly", "saltherils_soiree") >= 1 and s1db["soiree_completed_name"]) or nil
                 local activeName = s1db["soiree_active_name"]
 
@@ -1093,11 +1114,11 @@ MR:RegisterModule({
             note     = L["Weekly_Unity_Note"],
             patchKey = "12.0.0",
             turnInTracked = true,
-            questIds = { 93744 },
+            questIds = UATV_META_QUEST_IDS,
             branchQuestIds = UATV_BRANCH_QUEST_IDS,
 
             tooltipFunc = function(tip)
-                local s1db = MR.db.char.progress["s1_weekly"] or {}
+                local s1db = GetMainS1Progress()
                 local activeBranchInfo = FindActiveQuestVariant(UATV_BRANCHES)
                 local completedBranch = (MR:GetProgress("s1_weekly", "unity_against_void") >= 1 and s1db["uatv_completed_branch_name"]) or nil
                 local activeBranch = (activeBranchInfo and activeBranchInfo.name) or s1db["uatv_branch_name"]
