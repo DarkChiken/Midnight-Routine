@@ -82,6 +82,43 @@ local VOID_INVASION_SHOWDOWNS = {
 local ABYSS_ANGLERS_WEEKLY_QUEST_ID = 92447
 local ABYSS_ANGLERS_INTRO_QUEST_ID = 96388
 
+local LOST_LEGENDS_FIRST_TIME_RELICS = {
+    { quest = 88993, name = L["Legends_WeynansWard"] },
+    { quest = 88994, name = L["Legends_CauldronOfEchoes"] },
+    { quest = 88995, name = L["Legends_AlnharasBloom"] },
+    { quest = 88996, name = L["Legends_EcholessFlame"] },
+    { quest = 88997, name = L["Legends_RussulasOutreach"] },
+    { quest = 88998, name = L["Legends_RootOfTheWorld"] },
+    { quest = 88999, name = L["Legends_SkysHope"] },
+}
+
+local LOST_LEGENDS_REPEAT_RELICS = {
+    { quest = 92716, name = L["Legends_WeynansWard"] },
+    { quest = 92719, name = L["Legends_CauldronOfEchoes"] },
+    { quest = 92720, name = L["Legends_AlnharasBloom"] },
+    { quest = 92721, name = L["Legends_EcholessFlame"] },
+    { quest = 92722, name = L["Legends_RussulasOutreach"] },
+    { quest = 92724, name = L["Legends_RootOfTheWorld"] },
+    { quest = 92725, name = L["Legends_SkysHope"] },
+}
+
+local LOST_LEGENDS_PATHS = {
+    { master = 89268, relics = LOST_LEGENDS_FIRST_TIME_RELICS },
+    { master = 92713, relics = LOST_LEGENDS_REPEAT_RELICS },
+}
+
+local LOST_LEGENDS_ALL_RELICS = {}
+for _, path in ipairs(LOST_LEGENDS_PATHS) do
+    for _, variant in ipairs(path.relics) do
+        LOST_LEGENDS_ALL_RELICS[#LOST_LEGENDS_ALL_RELICS + 1] = variant
+    end
+end
+
+local LOST_LEGENDS_QUEST_IDS = {}
+for _, variant in ipairs(LOST_LEGENDS_ALL_RELICS) do
+    LOST_LEGENDS_QUEST_IDS[#LOST_LEGENDS_QUEST_IDS + 1] = variant.quest
+end
+
 local function GetMainWeeklyProgress()
     local source = MR.GetMainFrameProgressSource and MR:GetMainFrameProgressSource() or (MR.db and MR.db.char)
     local progress = source and source.progress
@@ -490,11 +527,25 @@ MR:RegisterModule({
             end
         end
 
-        if (tonumber(db[mod.key]["lost_legends"]) or 0) > 0
-            and C_QuestLog.IsQuestFlaggedCompleted
-            and C_QuestLog.IsQuestFlaggedCompleted(93891)
-            and not C_QuestLog.IsQuestFlaggedCompleted(89268) then
-            db[mod.key]["lost_legends"] = nil
+        local activeLegendVariant = FindActiveQuestVariant(LOST_LEGENDS_ALL_RELICS)
+        db[mod.key]["legends_active_name"] = activeLegendVariant and activeLegendVariant.name or nil
+
+        for _, variant in ipairs(LOST_LEGENDS_REPEAT_RELICS) do
+            if C_QuestLog.IsQuestFlaggedCompleted(variant.quest) then
+                db[mod.key]["lost_legends"] = 1
+                db[mod.key]["legends_completed_name"] = variant.name
+                break
+            end
+        end
+
+        if (tonumber(db[mod.key]["lost_legends"]) or 0) >= 1
+            and not db[mod.key]["legends_completed_name"] then
+            for _, variant in ipairs(LOST_LEGENDS_FIRST_TIME_RELICS) do
+                if C_QuestLog.IsQuestFlaggedCompleted(variant.quest) then
+                    db[mod.key]["legends_completed_name"] = variant.name
+                    break
+                end
+            end
         end
 
         local completedRitualSiteWeeklies, activeRitualSiteWeeklies = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
@@ -1033,8 +1084,31 @@ MR:RegisterModule({
             max      = 1,
             patchKey = "12.0.0",
             turnInTracked = true,
-            allowQuestFlagBackfill = true,
-            questIds = { 89268 },
+            questIds = LOST_LEGENDS_QUEST_IDS,
+            zone = 2413,
+            x = 54.2,
+            y = 53.0,
+            waypointTitle = "Zur'ashar Kassameh",
+            tooltipFunc = function(tip)
+                local s1db = GetMainWeeklyProgress()
+                local isDone = MR:GetProgress("s1_weekly", "lost_legends") >= 1
+                local completedName = (isDone and s1db["legends_completed_name"]) or nil
+                local activeName = s1db["legends_active_name"]
+
+                tip:AddLine(" ")
+                if completedName then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. completedName, 0.4, 0.85, 0.4)
+                elseif isDone then
+                    tip:AddLine(L["Tooltip_Done_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. (L["Done"] or "Done"), 0.4, 0.85, 0.4)
+                elseif activeName then
+                    tip:AddLine(L["Tooltip_Active_Variant"], 1, 1, 1)
+                    tip:AddLine("  " .. activeName, 1, 0.9, 0.3)
+                else
+                    tip:AddLine(L["Tooltip_No_Legends"], 1, 1, 1)
+                end
+            end,
         },
         {
             key      = "saltherils_soiree",
