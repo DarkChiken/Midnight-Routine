@@ -3693,6 +3693,9 @@ SlashCmdList["MIDROUTE"] = function(msg)
         if MR.frame then MR.frame:Hide() end
         MR:SetMainPanelOpen(false, true)
     elseif msg == "show" then
+        if not MR.frame and MR.BuildUI then
+            MR:BuildUI()
+        end
         if MR.frame then MR.frame:Show() end
         MR:SetMainPanelOpen(true, true)
         MR:ClearManagedWindowsBundleHidden()

@@ -22,6 +22,7 @@ local UATV_BRANCHES = {
     { quest = 93911, name = L["Unity_Dungeons"]      },
     { quest = 93769, name = L["Unity_Housing"]       },
     { quest = 93891, name = L["Unity_Legends"]       },
+    { quest = 96727, name = L["Unity_OffworldShowdowns"] },
     { quest = 93910, name = L["Unity_Prey"]          },
     { quest = 93912, name = L["Unity_Raids"]         },
     { quest = 93889, name = L["Unity_Soiree"]        },
@@ -34,9 +35,10 @@ local UATV_META_QUEST_IDS = {
     93744, 96727,
 }
 
-local UATV_BRANCH_QUEST_IDS = {
-    93890, 93767, 94457, 93909, 93911, 93769, 93891, 93910, 93912, 93889, 93892, 93913, 93766,
-}
+local UATV_BRANCH_QUEST_IDS = {}
+for _, branch in ipairs(UATV_BRANCHES) do
+    UATV_BRANCH_QUEST_IDS[#UATV_BRANCH_QUEST_IDS + 1] = branch.quest
+end
 
 local HALDURON_WEEKLIES = {
     { quest = 93751, name = L["Halduron_WindrunnerSpire"]     },
@@ -875,6 +877,8 @@ MR:RegisterModule({
             note     = L["Weekly_VoidAssaults_Note"] or "Complete the active Void Assault weekly in Eversong Woods or Zul'Aman for a Spark of Radiance.",
             questIds = { 94385, 94386 },
             patchKey = "12.0.5",
+            completedNameKey = "void_assault_completed_name",
+            activeNameKey = "void_assault_active_name",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_ASSAULT_WEEKLIES)
                 local s1db = GetMainWeeklyProgress()
@@ -908,6 +912,8 @@ MR:RegisterModule({
             patchKey = "12.0.5",
             turnInTracked = true,
             allowQuestFlagBackfill = true,
+            completedNameKey = "ritual_site_completed_name",
+            activeNameKey = "ritual_site_active_name",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(RITUAL_SITE_WEEKLIES)
                 local s1db = GetMainWeeklyProgress()
@@ -984,6 +990,8 @@ MR:RegisterModule({
             patchKey = "12.0.7",
             turnInTracked = true,
             allowQuestFlagBackfill = true,
+            completedNameKey = "showdown_completed_name",
+            activeNameKey = "showdown_active_name",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(VOID_INVASION_SHOWDOWNS)
                 local s1db = GetMainWeeklyProgress()
@@ -1013,6 +1021,8 @@ MR:RegisterModule({
             patchKey = "12.0.0",
             turnInTracked = true,
             questIds = { 92319, 92321, 92320, 92322, 92323, 92324, 92325, 92326, 92327 },
+            completedNameKey = "arcantina_completed_name",
+            activeNameKey = "arcantina_active_name",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(ARCANTINA_WEEKLIES)
 
@@ -1040,6 +1050,8 @@ MR:RegisterModule({
             note     = L["Weekly_Halduron_Note"],
             patchKey = "12.0.0",
             questIds = { 93753, 93754, 93755, 93756, 93757, 93758, 95468 },
+            completedNameKey = "halduron_completed_name",
+            activeNameKey = "halduron_active_name",
             tooltipFunc = function(tip)
                 local completedVariants, activeVariants = CollectQuestVariants(HALDURON_WEEKLIES)
 
@@ -1085,6 +1097,8 @@ MR:RegisterModule({
             patchKey = "12.0.0",
             turnInTracked = true,
             questIds = LOST_LEGENDS_QUEST_IDS,
+            completedNameKey = "legends_completed_name",
+            activeNameKey = "legends_active_name",
             zone = 2413,
             x = 54.2,
             y = 53.0,
@@ -1118,6 +1132,8 @@ MR:RegisterModule({
             patchKey = "12.0.0",
             turnInTracked = true,
             questIds = { 89289, 91966 },
+            completedNameKey = "soiree_completed_name",
+            activeNameKey = "soiree_active_name",
             tooltipFunc = function(tip)
                 local variants = {
                     { quest = 91966, name = "Saltheril's Soiree" },
@@ -1190,6 +1206,8 @@ MR:RegisterModule({
             turnInTracked = true,
             questIds = UATV_META_QUEST_IDS,
             branchQuestIds = UATV_BRANCH_QUEST_IDS,
+            completedNameKey = "uatv_completed_branch_name",
+            activeNameKey = "uatv_branch_name",
 
             tooltipFunc = function(tip)
                 local s1db = GetMainWeeklyProgress()

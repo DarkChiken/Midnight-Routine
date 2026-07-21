@@ -694,6 +694,10 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
 
                                 if row.countText and not stale and snapshot.isCurrent then
                                     displayValue = row.countText
+                                elseif complete and row.completedNameKey and not stale and modProgress[row.completedNameKey] then
+                                    displayValue = modProgress[row.completedNameKey]
+                                elseif (not complete) and row.activeNameKey and not stale and modProgress[row.activeNameKey] then
+                                    displayValue = modProgress[row.activeNameKey]
                                 elseif row.trackWeeklyEarned then
                                     displayValue = string.format("%d / %d", value, maxValue)
                                 elseif row.noMax then
