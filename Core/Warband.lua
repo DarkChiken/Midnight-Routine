@@ -689,10 +689,10 @@ function MR:GetWarbandWeeklyData(showHiddenOverride)
                                 local complete = (row.trackWeeklyEarned or not row.noMax) and maxValue > 0 and value >= maxValue
                                 local rowLabel = CleanAccountLabel(row.label)
                                 local displayValue
-                                local accentLabel = (not stale) and (modProgress[row.liveTierLabelKey or ""] or row.vaultLabel) or nil
-                                local accentColor = (not stale) and (modProgress[row.liveTierColorKey or ""] or row.vaultColor) or nil
+                                local accentLabel = (not stale) and (modProgress[row.liveTierLabelKey or ""] or (snapshot.isCurrent and row.vaultLabel)) or nil
+                                local accentColor = (not stale) and (modProgress[row.liveTierColorKey or ""] or (snapshot.isCurrent and row.vaultColor)) or nil
 
-                                if row.countText and not stale then
+                                if row.countText and not stale and snapshot.isCurrent then
                                     displayValue = row.countText
                                 elseif row.trackWeeklyEarned then
                                     displayValue = string.format("%d / %d", value, maxValue)
