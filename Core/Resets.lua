@@ -38,11 +38,21 @@ function MR:GetLastDailyTimestamp()
         end
     end
 
+    local region    = GetCurrentRegion() or 1
+    local resetInfo = WEEKLY_RESET_SCHEDULE[region]
+    local resetHour = resetInfo and resetInfo.hour or 0
+
     local cal = C_DateAndTime.GetCurrentCalendarTime()
     if not cal then return nil end
     local now = GetServerTime()
     local secondsSinceMidnight = (cal.hour * 3600) + (cal.minute * 60) + (cal.second or 0)
-    return now - secondsSinceMidnight
+    local todayReset = now - secondsSinceMidnight + (resetHour * 3600)
+
+    if todayReset > now then
+        todayReset = todayReset - DAY_SECONDS
+    end
+
+    return todayReset
 end
 
 function MR:CheckDailyReset()

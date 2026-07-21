@@ -964,12 +964,30 @@ function MR:ResetCustomTasksByType(resetType)
     local progress = self.db and self.db.char and self.db.char.progress and self.db.char.progress[CUSTOM_MODULE_KEY]
     local overrides = self.db and self.db.char and self.db.char.manualOverrides and self.db.char.manualOverrides[CUSTOM_MODULE_KEY]
     local diffProg = self.db and self.db.char and self.db.char.customTaskDiffProgress
-    local globalProgress = self.db and self.db.global and self.db.global.customTaskProgress and self.db.global.customTaskProgress[CUSTOM_MODULE_KEY]
-    local globalOverrides = self.db and self.db.global and self.db.global.customTaskManualOverrides and self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY]
-    local globalDiffProg = self.db and self.db.global and self.db.global.customTaskDiffProgress
     if not tasks then
         return
     end
+
+    local resetAt = (resetType == "daily")
+        and (self.GetLastDailyTimestamp and self:GetLastDailyTimestamp())
+        or (self.GetLastResetTimestamp and self:GetLastResetTimestamp())
+    local region = (GetCurrentRegion and GetCurrentRegion()) or 1
+    local globalStampKey = ((resetType == "daily") and "lastCustomTaskDailyResetAt" or "lastCustomTaskWeeklyResetAt")
+        .. "_" .. tostring(region)
+    local sharedAlreadyReset = false
+    if self.db and self.db.global and resetAt then
+        local prevGlobalResetAt = tonumber(self.db.global[globalStampKey]) or 0
+        if prevGlobalResetAt >= resetAt then
+            sharedAlreadyReset = true
+        else
+            self.db.global[globalStampKey] = resetAt
+        end
+    end
+
+    local globalProgress = (not sharedAlreadyReset) and self.db and self.db.global and self.db.global.customTaskProgress and self.db.global.customTaskProgress[CUSTOM_MODULE_KEY] or nil
+    local globalOverrides = (not sharedAlreadyReset) and self.db and self.db.global and self.db.global.customTaskManualOverrides and self.db.global.customTaskManualOverrides[CUSTOM_MODULE_KEY] or nil
+    local globalDiffProg = (not sharedAlreadyReset) and self.db and self.db.global and self.db.global.customTaskDiffProgress or nil
+
     if not progress and not overrides and not diffProg and not globalProgress and not globalOverrides and not globalDiffProg then
         return
     end
