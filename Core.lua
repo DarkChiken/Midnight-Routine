@@ -2275,6 +2275,13 @@ end
 function MR:RequestScan(delay)
     delay = tonumber(delay) or 0
 
+    if self._scanSuppressedUntil then
+        local remaining = self._scanSuppressedUntil - GetTime()
+        if remaining > delay then
+            delay = remaining + 0.1
+        end
+    end
+
     if delay > 0 then
         if self._requestedScanTimer then
             self:CancelTimer(self._requestedScanTimer)
