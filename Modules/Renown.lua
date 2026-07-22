@@ -399,6 +399,7 @@ local function BuildRenownFrame()
     local ROW_SPACE = compact and (BAR_H + 8) or (BAR_H + 34)
     local PAD       = 12
     local HEADER_H  = 24
+    local fontSize  = db.renownFontSize or 9
     local minimized = db.renownMinimized or false
     local headerBottom = IsManagedHeaderBottom()
     local hidden    = db.renownHiddenFactions or {}
@@ -470,7 +471,7 @@ local function BuildRenownFrame()
     titleIcon:SetVertexColor(0.85, 0.65, 0.10, 1)
 
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    titleTxt:SetFont(FONT_HEADERS, math.max(9, fontSize + 1), GetFontFlags())
     titleTxt:SetPoint("LEFT", titleIcon, "RIGHT", 7, 0)
     titleTxt:SetText(L["Renown_Title"])
 
@@ -617,7 +618,7 @@ local function BuildRenownFrame()
         accentRail:SetColorTexture(cr, cg, cb, 0)
 
         local nameLabel = rowFrame:CreateFontString(nil, "OVERLAY")
-        nameLabel:SetFont(FONT_HEADERS, 11, GetFontFlags())
+        nameLabel:SetFont(FONT_HEADERS, math.max(10, fontSize + 2), GetFontFlags())
         nameLabel:SetPoint("TOPLEFT", rowFrame, "TOPLEFT", 11, -6)
         nameLabel:SetPoint("RIGHT", rowFrame, "RIGHT", -70, -6)
         nameLabel:SetTextColor(0.92, 0.92, 0.90)
@@ -635,7 +636,7 @@ local function BuildRenownFrame()
         if compact or not showLevel then renownBadge:Hide() end
 
         local renownLabel = renownBadge:CreateFontString(nil, "OVERLAY")
-        renownLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, GetFontFlags())
+        renownLabel:SetFont(FONT_ROWS, fontSize, GetFontFlags())
         renownLabel:SetPoint("CENTER", renownBadge, "CENTER", 0, 0)
         renownLabel:SetTextColor(0.92, 0.92, 0.92)
         if compact or not showLevel then renownLabel:Hide() end
@@ -667,7 +668,7 @@ local function BuildRenownFrame()
         barEdge:SetColorTexture(1, 1, 1, 0.22)
 
         local barLabel = barBg:CreateFontString(nil, "OVERLAY")
-        barLabel:SetFont(FONT_ROWS, db.renownFontSize or 9, GetFontFlags())
+        barLabel:SetFont(FONT_ROWS, fontSize, GetFontFlags())
         if compact then
             barLabel:SetPoint("LEFT", barBg, "LEFT", 5, 0)
             barLabel:SetPoint("RIGHT", barBg, "RIGHT", -48, 0)
@@ -678,7 +679,7 @@ local function BuildRenownFrame()
         barLabel:SetTextColor(1, 1, 1)
 
         local compactLevelLabel = barBg:CreateFontString(nil, "OVERLAY")
-        compactLevelLabel:SetFont(FONT_ROWS, math.max(8, (db.renownFontSize or 9) - 1), GetFontFlags())
+        compactLevelLabel:SetFont(FONT_ROWS, math.max(8, fontSize - 1), GetFontFlags())
         compactLevelLabel:SetPoint("RIGHT", barBg, "RIGHT", -4, 0)
         compactLevelLabel:SetJustifyH("RIGHT")
         compactLevelLabel:SetTextColor(0.92, 0.92, 0.92)
@@ -1292,7 +1293,7 @@ PopulateRenownConfig = function(f)
                 db.renownScale = v
                 if renownFrame then renownFrame:SetScale(v) end
             end,
-            0.55, 0.22, 0.82, MR.db.profile.syncWindowScale)
+            0.55, 0.22, 0.82, MR.db.profile.syncWindowScale == true)
     else
         SecLabel(L["Config_FactionSettings"])
 

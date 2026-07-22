@@ -411,6 +411,18 @@ end
 local function BuildExpansionDropdown(parent, forAltBoard, opts)
     opts = opts or {}
 
+    local function ResolveDropdownFontSize()
+        if type(opts.fontSize) == "function" then
+            return opts.fontSize() or 8
+        end
+
+        if type(opts.fontSize) == "number" then
+            return opts.fontSize
+        end
+
+        return math.max(8, GetFontSize() - 1)
+    end
+
     local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
     btn:SetSize(opts.width or 150, opts.height or 18)
     btn.forAltBoard = forAltBoard
@@ -419,7 +431,7 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
     btn:SetBackdropBorderColor(0.18, 0.40, 0.45, 1)
 
     local label = btn:CreateFontString(nil, "OVERLAY")
-    label:SetFont(FONT_ROWS, opts.fontSize or 8, GetFontFlags())
+    label:SetFont(FONT_ROWS, ResolveDropdownFontSize(), GetFontFlags())
     label:SetPoint("LEFT", btn, "LEFT", 8, 1)
     label:SetPoint("RIGHT", btn, "RIGHT", -20, 1)
     label:SetJustifyH("LEFT")
@@ -427,7 +439,7 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
     btn._label = label
 
     local caret = btn:CreateFontString(nil, "OVERLAY")
-    caret:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    caret:SetFont(FONT_HEADERS, math.max(9, ResolveDropdownFontSize() + 1), GetFontFlags())
     caret:SetPoint("RIGHT", btn, "RIGHT", -7, 1)
     caret:SetText("v")
     caret:SetTextColor(0.78, 0.90, 0.92)
@@ -456,10 +468,11 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
     btn._dismiss = dismiss
 
     function btn:ApplyFonts()
-        local fontSize = GetFontSize()
-        local labelSize = opts.fontSize or math.max(8, fontSize - 1)
+        local labelSize = ResolveDropdownFontSize()
         local caretSize = math.max(9, labelSize + 1)
+        local rowHeight = math.max(18, labelSize + 10)
 
+        self:SetHeight(math.max(opts.height or 18, labelSize + 8))
         if self._label then
             self._label:SetFont(FONT_ROWS, labelSize, GetFontFlags())
         end
@@ -474,6 +487,7 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
             if row._check then
                 row._check:SetFont(FONT_HEADERS, caretSize, GetFontFlags())
             end
+            row:SetHeight(rowHeight)
         end
     end
 
@@ -512,13 +526,13 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
         row:SetBackdropBorderColor(0.12, 0.26, 0.32, 0.95)
 
         row._label = row:CreateFontString(nil, "OVERLAY")
-        row._label:SetFont(FONT_ROWS, opts.fontSize or 8, GetFontFlags())
+        row._label:SetFont(FONT_ROWS, ResolveDropdownFontSize(), GetFontFlags())
         row._label:SetPoint("LEFT", row, "LEFT", 8, 1)
         row._label:SetPoint("RIGHT", row, "RIGHT", -22, 1)
         row._label:SetJustifyH("LEFT")
 
         row._check = row:CreateFontString(nil, "OVERLAY")
-        row._check:SetFont(FONT_HEADERS, 10, GetFontFlags())
+        row._check:SetFont(FONT_HEADERS, math.max(9, ResolveDropdownFontSize() + 1), GetFontFlags())
         row._check:SetPoint("RIGHT", row, "RIGHT", -7, 1)
 
         row:SetScript("OnEnter", function(selfRow)
@@ -543,15 +557,18 @@ local function BuildExpansionDropdown(parent, forAltBoard, opts)
 
         local selectedKey = MR:GetSelectedExpansionKey(selfBtn.forAltBoard)
         local rowWidth = math.max(selfBtn:GetWidth(), 130)
+        local labelSize = ResolveDropdownFontSize()
+        local rowHeight = math.max(18, labelSize + 10)
+        selfBtn:ApplyFonts()
         popup:ClearAllPoints()
         popup:SetPoint("TOPLEFT", selfBtn, "BOTTOMLEFT", 0, -4)
-        popup:SetSize(rowWidth, (#expansions * 20) + 6)
+        popup:SetSize(rowWidth, (#expansions * (rowHeight + 2)) + 6)
 
         for index, info in ipairs(expansions) do
             local row = EnsurePopupButton(index)
             row:ClearAllPoints()
-            row:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3 - ((index - 1) * 20))
-            row:SetSize(rowWidth - 6, 18)
+            row:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3 - ((index - 1) * (rowHeight + 2)))
+            row:SetSize(rowWidth - 6, rowHeight)
             row._checked = info.key == selectedKey
             row._label:SetText(info.shortLabel or info.label or info.key)
             row._label:SetTextColor(row._checked and 0.96 or 0.74, row._checked and 1.00 or 0.90, row._checked and 1.00 or 0.92)

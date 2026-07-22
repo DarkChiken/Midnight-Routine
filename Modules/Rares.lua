@@ -592,8 +592,9 @@ BuildRaresFrame = function()
     gearBtn:SetPoint("RIGHT", minBtn, "LEFT", -3, 0)
     UpdateMinBtn()
 
+    local titleFontSize = math.max(9, (db.raresFontSize or 9) + 1)
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 10, GetFontFlags())
+    titleTxt:SetFont(FONT_HEADERS, titleFontSize, GetFontFlags())
     titleTxt:SetPoint("LEFT",  titleIcon, "RIGHT", 5, 0)
     titleTxt:SetPoint("RIGHT", gearBtn, "LEFT", -6, 0)
     titleTxt:SetJustifyH("LEFT")
@@ -768,6 +769,7 @@ BuildRaresFrame = function()
         local isCollapsed = (not singleZone) and collapsed[zone.key]
 
         if not singleZone then
+            local zoneHeaderFontSize = math.max(8, db.raresFontSize or 9)
             local zHdr = CreateFrame("Button", nil, content, "BackdropTemplate")
             zHdr:SetPoint("TOPLEFT",  content, "TOPLEFT",  OUTER_PAD, -yOff)
             zHdr:SetPoint("TOPRIGHT", content, "TOPRIGHT", -OUTER_PAD, -yOff)
@@ -777,12 +779,12 @@ BuildRaresFrame = function()
             zHdr:SetBackdropBorderColor(cr*0.34, cg*0.34, cb*0.34, 0.76 * alpha)
 
             local arrow = zHdr:CreateFontString(nil, "OVERLAY")
-            arrow:SetFont(FONT_ROWS, 9, GetFontFlags())
+            arrow:SetFont(FONT_ROWS, zoneHeaderFontSize, GetFontFlags())
             arrow:SetPoint("LEFT", zHdr, "LEFT", 9, 1)
             arrow:SetText(isCollapsed and "|cff889095+|r" or "|cff889095-|r")
 
             local zName = zHdr:CreateFontString(nil, "OVERLAY")
-            zName:SetFont(FONT_HEADERS, 10, GetFontFlags())
+            zName:SetFont(FONT_HEADERS, math.max(9, zoneHeaderFontSize + 1), GetFontFlags())
             zName:SetPoint("LEFT", arrow, "RIGHT", 5, 0)
             zName:SetTextColor(0.90, 0.92, 0.90)
             zName:SetText(zone.label)
@@ -792,7 +794,7 @@ BuildRaresFrame = function()
 
             local zDone, zTotal = GetZoneStatus(zone)
             local zCount = zHdr:CreateFontString(nil, "OVERLAY")
-            zCount:SetFont(FONT_ROWS, 9, GetFontFlags())
+            zCount:SetFont(FONT_ROWS, zoneHeaderFontSize, GetFontFlags())
             zCount:SetPoint("RIGHT", zHdr, "RIGHT", -9, 0)
             zCount:SetJustifyH("RIGHT")
             zCount:SetTextColor(cr, cg, cb)
@@ -1350,7 +1352,7 @@ PopulateRaresConfig = function(f)
                 db.raresScale = v
                 if raresFrame then raresFrame:SetScale(v) end
             end,
-            0.45, 0.22, 0.82, MR.db.profile.syncWindowScale)
+            0.45, 0.22, 0.82, MR.db.profile.syncWindowScale == true)
     elseif activePage == "zones" then
         SecLabel(L["Config_ZoneSettings"])
 

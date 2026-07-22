@@ -70,6 +70,7 @@ local function S(data) data.mode = data.mode or "single"; return E("study", data
 local function WQ(data) data.mode = data.mode or "any"; return E("weeklyQuest", data) end
 local function WD(data) data.mode = data.mode or "single"; return E("weeklyDrop", data) end
 local function DMF(data) data.mode = "single"; return E("darkmoon", data) end
+local function TR(data) data.mode = "single"; return E("treatise", data) end
 
 local PROFESSION_ICONS = {
     alchemy = "Interface\\Icons\\Trade_Alchemy",
@@ -98,6 +99,137 @@ local PROFESSION_CATCHUP_CURRENCIES = {
     [2917] = 3191,
     [2918] = 3190,
 }
+
+local DRAGONFLIGHT_CATCHUP_ITEM_ID = 191784
+
+local LEGACY_EXPANSIONS = {
+    {
+        key = "tww",
+        label = L["ProfKnowledge_LegacySection_TWW"] or "The War Within",
+        professions = {
+            { key = "alchemy", label = L["Alchemy"], skillLine = 2871, catchupCurrency = 3057, weekly = {
+                WQ{ questID = 83725, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84133, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "blacksmithing", label = L["Blacksmithing"], skillLine = 2872, catchupCurrency = 3058, weekly = {
+                WQ{ questID = 83726, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84127, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "enchanting", label = L["Enchanting"], skillLine = 2874, catchupCurrency = 3059, weekly = {
+                WQ{ questID = 83727, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84084, kp = 3, note = L["ProfKnowledge_TrainerQuest"] },
+            } },
+            { key = "engineering", label = L["Engineering"], skillLine = 2875, catchupCurrency = 3060, weekly = {
+                WQ{ questID = 83728, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84128, kp = 1, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "herbalism", label = L["Herbalism"], skillLine = 2877, catchupCurrency = 3061, weekly = {
+                WQ{ questID = 83729, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 82916, kp = 3, note = L["ProfKnowledge_TrainerQuest"] },
+            } },
+            { key = "inscription", label = L["Inscription"], skillLine = 2878, catchupCurrency = 3062, weekly = {
+                WQ{ questID = 83730, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84129, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "jewelcrafting", label = L["Jewelcrafting"], skillLine = 2879, catchupCurrency = 3063, weekly = {
+                WQ{ questID = 83731, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84130, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "leatherworking", label = L["Leatherworking"], skillLine = 2880, catchupCurrency = 3064, weekly = {
+                WQ{ questID = 83732, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84131, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "mining", label = L["Mining"], skillLine = 2881, catchupCurrency = 3065, weekly = {
+                WQ{ questID = 83733, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 83102, kp = 3, note = L["ProfKnowledge_TrainerQuest"] },
+            } },
+            { key = "skinning", label = L["Skinning"], skillLine = 2882, catchupCurrency = 3066, weekly = {
+                WQ{ questID = 83734, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 82992, kp = 3, note = L["ProfKnowledge_TrainerQuest"] },
+            } },
+            { key = "tailoring", label = L["Tailoring"], skillLine = 2883, catchupCurrency = 3067, weekly = {
+                WQ{ questID = 83735, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 84132, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+        },
+    },
+    {
+        key = "dragonflight",
+        label = L["ProfKnowledge_LegacySection_Dragonflight"] or "Dragonflight",
+        sharedCatchupItemID = DRAGONFLIGHT_CATCHUP_ITEM_ID,
+        professions = {
+            { key = "alchemy", label = L["Alchemy"], skillLine = 2823, weekly = {
+                TR{ spellID = 383522, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+            } },
+            { key = "blacksmithing", label = L["Blacksmithing"], skillLine = 2822, weekly = {
+                TR{ spellID = 383517, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 70589, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "enchanting", label = L["Enchanting"], skillLine = 2825, weekly = {
+                TR{ spellID = 383523, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+            } },
+            { key = "engineering", label = L["Engineering"], skillLine = 2827, weekly = {
+                TR{ spellID = 383844, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+            } },
+            { key = "herbalism", label = L["Herbalism"], skillLine = 2832, weekly = {
+                TR{ spellID = 383515, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+            } },
+            { key = "inscription", label = L["Inscription"], skillLine = 2828, weekly = {
+                TR{ spellID = 383759, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 70592, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "jewelcrafting", label = L["Jewelcrafting"], skillLine = 2829, weekly = {
+                TR{ spellID = 383524, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 70593, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "leatherworking", label = L["Leatherworking"], skillLine = 2830, weekly = {
+                TR{ spellID = 383519, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 70594, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+            { key = "mining", label = L["Mining"], skillLine = 2833, weekly = {
+                TR{ spellID = 383516, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+            } },
+            { key = "skinning", label = L["Skinning"], skillLine = 2834, weekly = {
+                TR{ spellID = 392944, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+            } },
+            { key = "tailoring", label = L["Tailoring"], skillLine = 2831, weekly = {
+                TR{ spellID = 383520, kp = 1, note = L["ProfKnowledge_TreatiseNote"] },
+                WQ{ questID = 70595, kp = 2, note = L["ProfKnowledge_ServiceQuest"] },
+            } },
+        },
+    },
+}
+
+local KNOWLEDGE_EXPANSION_MIDNIGHT_KEY = "midnight"
+
+local function GetKnowledgeExpansionOptions()
+    local options = { { key = KNOWLEDGE_EXPANSION_MIDNIGHT_KEY, label = L["Expansion_Midnight"] or "Midnight" } }
+    for _, expansion in ipairs(LEGACY_EXPANSIONS) do
+        options[#options + 1] = { key = expansion.key, label = expansion.label }
+    end
+    return options
+end
+
+local function GetSelectedKnowledgeExpansion()
+    local key = MR.db and MR.db.profile and MR.db.profile.gatheringSelectedKnowledgeExpansion
+    if key == KNOWLEDGE_EXPANSION_MIDNIGHT_KEY then
+        return key
+    end
+    for _, expansion in ipairs(LEGACY_EXPANSIONS) do
+        if expansion.key == key then
+            return key
+        end
+    end
+    return KNOWLEDGE_EXPANSION_MIDNIGHT_KEY
+end
+
+local function SetSelectedKnowledgeExpansion(key)
+    if not (MR.db and MR.db.profile) then
+        return
+    end
+    MR.db.profile.gatheringSelectedKnowledgeExpansion = key
+    RebuildGatheringLocationsFrame()
+end
 
 local ENTRY_FALLBACK_ICONS = {
     treasure = "Interface\\Icons\\INV_Misc_Map_01",
@@ -316,7 +448,29 @@ local function Required(entry)
     return 1
 end
 
+local function IsSpellOnCooldown(spellID)
+    if not (spellID and C_Spell and C_Spell.GetSpellCooldown) then
+        return false
+    end
+
+    local info = C_Spell.GetSpellCooldown(spellID)
+    if not info then
+        return false
+    end
+
+    local duration = info.duration or 0
+    if duration <= 1.5 then
+        return false
+    end
+
+    return ((info.startTime or 0) + duration) > GetTime()
+end
+
 local function Completed(entry)
+    if entry.spellID then
+        return IsSpellOnCooldown(entry.spellID) and 1 or 0
+    end
+
     local total = 0
     for _, questID in ipairs(QuestIDs(entry)) do
         if C_QuestLog.IsQuestFlaggedCompleted(questID) then total = total + 1 end
@@ -433,6 +587,34 @@ local function GetProfessionCatchupAmount(skillLineID)
 
     local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
     return (info and info.quantity) or 0
+end
+
+local function GetCurrencyAmount(currencyID)
+    if not (currencyID and currencyID > 0 and C_CurrencyInfo and C_CurrencyInfo.GetCurrencyInfo) then
+        return 0
+    end
+
+    local info = C_CurrencyInfo.GetCurrencyInfo(currencyID)
+    return (info and info.quantity) or 0
+end
+
+local function GetDragonShardCount()
+    if not (C_Item and C_Item.GetItemCount) then
+        return 0
+    end
+
+    return C_Item.GetItemCount(DRAGONFLIGHT_CATCHUP_ITEM_ID, false, false, true) or 0
+end
+
+local function LegacyProfessionWeeklyStats(profession)
+    local done, total, kpDone, kpTotal = 0, 0, 0, 0
+    for _, entry in ipairs(profession.weekly or {}) do
+        total = total + 1
+        if IsDone(entry) then done = done + 1 end
+        kpDone = kpDone + KPDone(entry)
+        kpTotal = kpTotal + KPTotal(entry)
+    end
+    return done, total, kpDone, kpTotal
 end
 
 local function GetEntryIcon(entry)
@@ -574,9 +756,17 @@ local function GetVisibleKnowledgeTotals()
     return professions, sourcesDone, sourcesTotal, kpDone, kpTotal
 end
 
+local function StripInlineColor(text)
+    text = tostring(text or "")
+    text = text:gsub("|c%x%x%x%x%x%x%x%x", "")
+    text = text:gsub("|r", "")
+    return text
+end
+
 local function IsProfessionCollapsed(professionKey)
     local profile = MR.db and MR.db.profile
-    return profile and profile.gatheringCollapsedProfessions and profile.gatheringCollapsedProfessions[professionKey] == true or false
+    local saved = profile and profile.gatheringCollapsedProfessions and profile.gatheringCollapsedProfessions[professionKey]
+    return saved ~= false
 end
 
 local function SetProfessionCollapsed(professionKey, collapsed)
@@ -585,7 +775,11 @@ local function SetProfessionCollapsed(professionKey, collapsed)
     end
 
     MR.db.profile.gatheringCollapsedProfessions = MR.db.profile.gatheringCollapsedProfessions or {}
-    MR.db.profile.gatheringCollapsedProfessions[professionKey] = collapsed and true or nil
+    if collapsed then
+        MR.db.profile.gatheringCollapsedProfessions[professionKey] = nil
+    else
+        MR.db.profile.gatheringCollapsedProfessions[professionKey] = false
+    end
 end
 
 local function ApplyGatheringFrameTheme(frame, opts)
@@ -615,7 +809,7 @@ local function ApplyGatheringFrameTheme(frame, opts)
         frame._gatheringGlow:SetPoint("TOPLEFT", frame, "TOPLEFT", 1, -1)
         frame._gatheringGlow:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -1, 1)
     end
-    frame._gatheringGlow:SetColorTexture(bg[1], math.min(bg[2] + 0.07, 1), math.min(bg[3] + 0.07, 1), 0.30)
+    frame._gatheringGlow:SetColorTexture(bg[1], math.min(bg[2] + 0.07, 1), math.min(bg[3] + 0.07, 1), 0.30 * alpha)
 
     if opts.headerGlow ~= false then
         if not frame._gatheringHeaderGlow then
@@ -625,11 +819,369 @@ local function ApplyGatheringFrameTheme(frame, opts)
             frame._gatheringHeaderGlow:SetHeight(opts.headerHeight or 64)
         end
         frame._gatheringHeaderGlow:SetHeight(opts.headerHeight or 64)
-        frame._gatheringHeaderGlow:SetColorTexture(accent[1] * 0.45, accent[2] * 0.45, accent[3] * 0.45, 0.22)
+        frame._gatheringHeaderGlow:SetColorTexture(accent[1] * 0.45, accent[2] * 0.45, accent[3] * 0.45, 0.22 * alpha)
         frame._gatheringHeaderGlow:Show()
     elseif frame._gatheringHeaderGlow then
         frame._gatheringHeaderGlow:Hide()
     end
+end
+
+local function BuildLegacyKnowledgeSection(content, width, yOff, fontSize, contentAlpha, borderAlpha, filterExpansionKey)
+    for _, expansion in ipairs(LEGACY_EXPANSIONS) do
+      if not filterExpansionKey or expansion.key == filterExpansionKey then
+        local learnedProfessions = {}
+        for _, profession in ipairs(expansion.professions) do
+            if HasProfessionLearned(profession.skillLine) then
+                learnedProfessions[#learnedProfessions + 1] = profession
+            end
+        end
+
+        if #learnedProfessions > 0 then
+            local sectionHeader = content:CreateFontString(nil, "OVERLAY")
+            sectionHeader:SetFont(FONT_ROWS, fontSize + 1, GetFontFlags())
+            sectionHeader:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
+            sectionHeader:SetTextColor(0.85, 0.75, 0.55, 0.95)
+            sectionHeader:SetText(expansion.label)
+            yOff = yOff + 18
+
+            local rowHeight = math.max(fontSize + 9, 20)
+            for _, profession in ipairs(learnedProfessions) do
+                local done, total, kpDone, kpTotal = LegacyProfessionWeeklyStats(profession)
+                local catchupAmount = profession.catchupCurrency and GetCurrencyAmount(profession.catchupCurrency) or nil
+
+                local row = CreateFrame("Frame", nil, content, "BackdropTemplate")
+                row:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
+                row:SetSize(width - 24, rowHeight)
+                row:SetBackdrop(MakeBackdrop())
+                row:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
+                row:SetBackdropBorderColor(0.30, 0.26, 0.20, 0.65 * borderAlpha)
+
+                local nameText = row:CreateFontString(nil, "OVERLAY")
+                nameText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
+                nameText:SetPoint("LEFT", row, "LEFT", 6, 0)
+                nameText:SetJustifyH("LEFT")
+                nameText:SetText(profession.label)
+                nameText:SetTextColor(0.90, 0.90, 0.90)
+
+                local statusText = row:CreateFontString(nil, "OVERLAY")
+                statusText:SetFont(FONT_ROWS, fontSize - 2, GetFontFlags())
+                statusText:SetPoint("RIGHT", row, "RIGHT", -6, 0)
+                statusText:SetJustifyH("RIGHT")
+
+                if total > 0 then
+                    local weeklyText = string.format(L["ProfKnowledge_LegacyWeeklyFormat"] or "Weekly %d/%d", done, total)
+                    local catchupText = catchupAmount and string.format(L["ProfKnowledge_LegacyCatchupFormat"] or "Catch-Up %d", catchupAmount) or nil
+                    statusText:SetText(catchupText and (weeklyText .. "   " .. catchupText) or weeklyText)
+                    if done >= total then
+                        statusText:SetTextColor(0.32, 0.80, 0.50, 0.95)
+                    else
+                        statusText:SetTextColor(0.95, 0.80, 0.25, 0.95)
+                    end
+                elseif catchupAmount then
+                    statusText:SetText(string.format(L["ProfKnowledge_LegacyCatchupFormat"] or "Catch-Up %d", catchupAmount))
+                    statusText:SetTextColor(0.70, 0.85, 1.00, 0.95)
+                else
+                    statusText:SetText(L["ProfKnowledge_LegacyLearnedOnly"] or "Learned")
+                    statusText:SetTextColor(0.60, 0.60, 0.60, 0.90)
+                end
+
+                row:EnableMouse(true)
+                row:SetScript("OnEnter", function()
+                    GameTooltip:SetOwner(row, "ANCHOR_RIGHT")
+                    GameTooltip:SetText(profession.label, 1, 1, 1)
+                    GameTooltip:AddLine(expansion.label, 0.72, 0.80, 1.00, true)
+                    if total > 0 then
+                        GameTooltip:AddLine(" ")
+                        GameTooltip:AddLine(string.format(L["ProfKnowledge_KPValue"], kpDone, kpTotal), 0.80, 0.80, 0.90)
+                        for _, entry in ipairs(profession.weekly) do
+                            local entryDone = IsDone(entry)
+                            if entryDone then
+                                GameTooltip:AddLine("  [" .. (L["Done"] or "Done") .. "] " .. (entry.note or ""), 0.32, 0.80, 0.50, true)
+                            else
+                                GameTooltip:AddLine("  [" .. (L["ProfKnowledge_StatusPending"] or "Pending") .. "] " .. (entry.note or ""), 0.85, 0.85, 0.85, true)
+                            end
+                        end
+                    end
+                    if catchupAmount then
+                        GameTooltip:AddLine(" ")
+                        GameTooltip:AddLine(string.format(L["ProfKnowledge_LegacyCatchupFormat"] or "Catch-Up %d", catchupAmount), 0.70, 0.85, 1.00)
+                    end
+                    GameTooltip:Show()
+                end)
+                row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+                yOff = yOff + rowHeight + 4
+            end
+
+            if expansion.sharedCatchupItemID then
+                local shardCount = GetDragonShardCount()
+                local shardRow = content:CreateFontString(nil, "OVERLAY")
+                shardRow:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
+                shardRow:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
+                shardRow:SetTextColor(0.70, 0.85, 1.00, 0.90)
+                shardRow:SetText(string.format(L["ProfKnowledge_LegacyDragonShard"] or "Dragon Shards of Knowledge: %d", shardCount))
+                yOff = yOff + 18
+            end
+
+            yOff = yOff + 6
+        end
+      end
+    end
+
+    return yOff
+end
+
+local function BuildKnowledgeExpansionDropdown(parent, opts)
+    opts = opts or {}
+
+    local function ResolveDropdownFontSize()
+        if type(opts.fontSize) == "function" then
+            return opts.fontSize() or 8
+        end
+
+        if type(opts.fontSize) == "number" then
+            return opts.fontSize
+        end
+
+        local db = MR.db and MR.db.profile or {}
+        return math.max(8, db.gatheringFontSize or db.fontSize or 9)
+    end
+
+    local function ResolveDropdownAlpha()
+        if type(opts.alpha) == "function" then
+            local value = opts.alpha()
+            if type(value) == "number" then
+                return math.max(0, math.min(value, 1))
+            end
+        elseif type(opts.alpha) == "number" then
+            return math.max(0, math.min(opts.alpha, 1))
+        end
+
+        return 1
+    end
+
+    local function EstimateDropdownTextWidth(text, fontSize)
+        text = tostring(text or "")
+        return (#text * math.max(fontSize or 8, 8) * 0.58) + 34
+    end
+
+    local function ResolveOptionListWidth(optionList, fontSize)
+        local width = opts.width or 78
+        for _, option in ipairs(optionList or {}) do
+            width = math.max(width, EstimateDropdownTextWidth(option.label, fontSize))
+        end
+        return math.min(opts.maxWidth or 220, math.ceil(width))
+    end
+
+    local btn = CreateFrame("Button", nil, parent, "BackdropTemplate")
+    btn:SetSize(opts.width or 78, opts.height or 18)
+    btn:SetBackdrop(MakeBackdrop())
+    btn:SetBackdropColor(0.05, 0.12, 0.20, 0.95)
+    btn:SetBackdropBorderColor(0.40, 0.32, 0.18, 1)
+
+    local label = btn:CreateFontString(nil, "OVERLAY")
+    label:SetFont(FONT_ROWS, ResolveDropdownFontSize(), GetFontFlags())
+    label:SetPoint("LEFT", btn, "LEFT", 6, 0)
+    label:SetPoint("RIGHT", btn, "RIGHT", -14, 0)
+    label:SetJustifyH("LEFT")
+    label:SetTextColor(0.90, 0.80, 0.55)
+    btn._label = label
+
+    local caret = btn:CreateFontString(nil, "OVERLAY")
+    caret:SetFont(FONT_HEADERS, math.max(9, ResolveDropdownFontSize() + 1), GetFontFlags())
+    caret:SetPoint("RIGHT", btn, "RIGHT", -5, 0)
+    caret:SetText("v")
+    caret:SetTextColor(0.85, 0.75, 0.55)
+    btn._caret = caret
+
+    local popup = CreateFrame("Frame", nil, UIParent, "BackdropTemplate")
+    popup:SetFrameStrata("DIALOG")
+    popup:SetFrameLevel(50)
+    popup:SetBackdrop(MakeBackdrop())
+    popup:SetBackdropColor(0.04, 0.09, 0.15, 0.98)
+    popup:SetBackdropBorderColor(0.40, 0.32, 0.18, 1)
+    popup:Hide()
+    popup.buttons = {}
+
+    function btn:ApplyFonts()
+        local labelSize = ResolveDropdownFontSize()
+        local caretSize = math.max(9, labelSize + 1)
+        local rowHeight = math.max(18, labelSize + 10)
+        local minWidth = opts.width or 78
+        local maxWidth = opts.maxWidth or 220
+        local minHeight = opts.height or 18
+        local maxHeight = opts.maxHeight or minHeight
+        local alpha = ResolveDropdownAlpha()
+
+        self:SetHeight(math.min(maxHeight, math.max(minHeight, labelSize + 6)))
+        self:SetBackdropColor(0.05, 0.12, 0.20, 0.95 * alpha)
+        self:SetBackdropBorderColor(0.40, 0.32, 0.18, alpha)
+        if self._label then
+            self._label:SetFont(FONT_ROWS, labelSize, GetFontFlags())
+            local textWidth = math.max((self._label:GetStringWidth() or 0) + 30, EstimateDropdownTextWidth(self._label:GetText(), labelSize))
+            self:SetWidth(math.max(minWidth, math.min(maxWidth, math.ceil(textWidth))))
+        end
+        if self._caret then
+            self._caret:SetFont(FONT_HEADERS, caretSize, GetFontFlags())
+        end
+
+        for _, row in ipairs(popup.buttons) do
+            if row._label then
+                row._label:SetFont(FONT_ROWS, labelSize, GetFontFlags())
+            end
+            if row._check then
+                row._check:SetFont(FONT_HEADERS, caretSize, GetFontFlags())
+            end
+            row:SetHeight(rowHeight)
+        end
+    end
+
+    local dismiss = CreateFrame("Frame", nil, UIParent)
+    dismiss:SetAllPoints(UIParent)
+    dismiss:SetFrameStrata("DIALOG")
+    dismiss:SetFrameLevel(49)
+    dismiss:EnableMouse(true)
+    dismiss:Hide()
+    dismiss:SetScript("OnMouseDown", function()
+        popup:Hide()
+        dismiss:Hide()
+    end)
+
+    btn:SetScript("OnEnter", function(selfBtn)
+        local alpha = ResolveDropdownAlpha()
+        selfBtn:SetBackdropColor(0.08, 0.18, 0.28, 0.98 * alpha)
+        selfBtn:SetBackdropBorderColor(0.85, 0.70, 0.35, alpha)
+    end)
+    btn:SetScript("OnLeave", function(selfBtn)
+        local alpha = ResolveDropdownAlpha()
+        selfBtn:SetBackdropColor(0.05, 0.12, 0.20, 0.95 * alpha)
+        selfBtn:SetBackdropBorderColor(0.40, 0.32, 0.18, alpha)
+    end)
+
+    function btn:Update()
+        local optionList = opts.getOptions()
+        local selectedKey = opts.getSelected()
+        for _, option in ipairs(optionList) do
+            if option.key == selectedKey then
+                self._label:SetText(option.label)
+                break
+            end
+        end
+        self:ApplyFonts()
+    end
+
+    local function EnsurePopupButton(index)
+        local row = popup.buttons[index]
+        if row then
+            return row
+        end
+
+        row = CreateFrame("Button", nil, popup, "BackdropTemplate")
+        row:SetHeight(18)
+        row:SetBackdrop(MakeBackdrop())
+        row:SetBackdropColor(0.05, 0.12, 0.20, 0.94)
+        row:SetBackdropBorderColor(0.12, 0.26, 0.32, 0.95)
+
+        row._label = row:CreateFontString(nil, "OVERLAY")
+        row._label:SetFont(FONT_ROWS, ResolveDropdownFontSize(), GetFontFlags())
+        row._label:SetPoint("LEFT", row, "LEFT", 8, 1)
+        row._label:SetPoint("RIGHT", row, "RIGHT", -22, 1)
+        row._label:SetJustifyH("LEFT")
+
+        row._check = row:CreateFontString(nil, "OVERLAY")
+        row._check:SetFont(FONT_HEADERS, math.max(9, ResolveDropdownFontSize() + 1), GetFontFlags())
+        row._check:SetPoint("RIGHT", row, "RIGHT", -7, 1)
+
+        row:SetScript("OnEnter", function(selfRow)
+            local alpha = ResolveDropdownAlpha()
+            selfRow:SetBackdropColor(0.08, 0.18, 0.28, 0.98 * alpha)
+            selfRow:SetBackdropBorderColor(0.85, 0.70, 0.35, alpha)
+        end)
+        row:SetScript("OnLeave", function(selfRow)
+            local active = selfRow._checked == true
+            local alpha = ResolveDropdownAlpha()
+            selfRow:SetBackdropColor(active and 0.10 or 0.05, active and 0.22 or 0.12, active and 0.30 or 0.20, (active and 0.98 or 0.94) * alpha)
+            selfRow:SetBackdropBorderColor(active and 0.55 or 0.12, active and 0.46 or 0.26, active and 0.20 or 0.32, (active and 1 or 0.95) * alpha)
+        end)
+
+        popup.buttons[index] = row
+        return row
+    end
+
+    btn:SetScript("OnClick", function(selfBtn)
+        local optionList = opts.getOptions()
+        if #optionList <= 1 then
+            return
+        end
+
+        local selectedKey = opts.getSelected()
+        local labelSize = ResolveDropdownFontSize()
+        local rowHeight = math.max(18, labelSize + 10)
+        selfBtn:ApplyFonts()
+        local rowWidth = math.max(selfBtn:GetWidth(), ResolveOptionListWidth(optionList, labelSize), 130)
+        popup:ClearAllPoints()
+        popup:SetPoint("TOPLEFT", selfBtn, "BOTTOMLEFT", 0, -4)
+        popup:SetSize(rowWidth, (#optionList * (rowHeight + 2)) + 6)
+        local menuAlpha = ResolveDropdownAlpha()
+        popup:SetBackdropColor(0.04, 0.09, 0.15, 0.98 * menuAlpha)
+        popup:SetBackdropBorderColor(0.40, 0.32, 0.18, menuAlpha)
+
+        for index, option in ipairs(optionList) do
+            local row = EnsurePopupButton(index)
+            row:ClearAllPoints()
+            row:SetPoint("TOPLEFT", popup, "TOPLEFT", 3, -3 - ((index - 1) * (rowHeight + 2)))
+            row:SetSize(rowWidth - 6, rowHeight)
+            row._checked = option.key == selectedKey
+            row._label:SetText(option.label)
+            row._label:SetTextColor(row._checked and 0.96 or 0.85, row._checked and 0.90 or 0.80, row._checked and 0.65 or 0.75)
+            row._check:SetText(row._checked and "x" or "")
+            row._check:SetTextColor(0.90, 0.80, 0.55)
+            row:SetBackdropColor(row._checked and 0.10 or 0.05, row._checked and 0.22 or 0.12, row._checked and 0.30 or 0.20, (row._checked and 0.98 or 0.94) * menuAlpha)
+            row:SetBackdropBorderColor(row._checked and 0.55 or 0.12, row._checked and 0.46 or 0.26, row._checked and 0.20 or 0.32, (row._checked and 1 or 0.95) * menuAlpha)
+            row:SetScript("OnClick", function()
+                opts.onSelect(option.key)
+                popup:Hide()
+                dismiss:Hide()
+            end)
+            row:Show()
+        end
+
+        for index = #optionList + 1, #popup.buttons do
+            popup.buttons[index]:Hide()
+        end
+
+        if popup:IsShown() then
+            popup:Hide()
+            dismiss:Hide()
+        else
+            dismiss:Show()
+            popup:Show()
+        end
+    end)
+
+    return btn
+end
+
+local function CreateKnowledgeExpansionDropdown(titleBar, gearBtn)
+    local dropdown = BuildKnowledgeExpansionDropdown(titleBar, {
+        width = 122,
+        height = 18,
+        maxHeight = 18,
+        fontSize = function()
+            local db = MR.db and MR.db.profile or {}
+            return math.max(8, db.gatheringFontSize or db.fontSize or 9)
+        end,
+        alpha = function()
+            local db = MR.db and MR.db.profile or {}
+            return db.gatheringAlpha or 1
+        end,
+        getOptions = GetKnowledgeExpansionOptions,
+        getSelected = GetSelectedKnowledgeExpansion,
+        onSelect = SetSelectedKnowledgeExpansion,
+    })
+    dropdown:SetPoint("RIGHT", gearBtn, "LEFT", -4, 0)
+    dropdown:Update()
+    return dropdown, GetSelectedKnowledgeExpansion()
 end
 
 local function BuildGatheringLocationsFrame(isRetry)
@@ -648,6 +1200,7 @@ local function BuildGatheringLocationsFrame(isRetry)
     local contentAlpha = panelAlpha
     local borderAlpha = 0.20 + (0.75 * panelAlpha)
     local accentAlpha = 0.10 + (0.85 * panelAlpha)
+    local chromeAlpha = panelAlpha
 
     local function ApplyFrameHeight(frame, targetHeight)
         AnimateManagedFrameHeight(frame, targetHeight, function(self)
@@ -690,6 +1243,7 @@ local function BuildGatheringLocationsFrame(isRetry)
     titleIcon:SetPoint("LEFT", titleBar, "LEFT", 9, 0)
     titleIcon:SetTexture("Interface\\AddOns\\MidnightRoutine\\Media\\Icon")
     titleIcon:SetVertexColor(0.18, 0.82, 0.74, 1)
+    titleIcon:Hide()
 
     local closeBtn = CloseButton(titleBar, function()
         frame:Hide()
@@ -705,12 +1259,19 @@ local function BuildGatheringLocationsFrame(isRetry)
         function() MR:ToggleGatheringLocationsConfig() end
     )
 
+    local expansionDropdown, selectedExpansion = CreateKnowledgeExpansionDropdown(titleBar, gearBtn)
+    frame.expansionDropdown = expansionDropdown
+    expansionDropdown:ClearAllPoints()
+    expansionDropdown:SetPoint("LEFT", titleBar, "LEFT", 8, -1)
+
     local titleTxt = titleBar:CreateFontString(nil, "OVERLAY")
-    titleTxt:SetFont(FONT_HEADERS, 11, GetFontFlags())
+    titleTxt:SetFont(FONT_HEADERS, math.max(10, (db.gatheringFontSize or 9) + 1), GetFontFlags())
     titleTxt:SetPoint("LEFT", titleIcon, "RIGHT", 5, 0)
+    titleTxt:SetPoint("RIGHT", expansionDropdown, "LEFT", -6, 0)
     titleTxt:SetJustifyH("LEFT")
-    titleTxt:SetText(L["ProfKnowledge_Title"])
-    titleTxt:SetTextColor(0.92, 0.97, 1.00)
+    titleTxt:SetText(StripInlineColor(L["ProfKnowledge_Title"] or "Profession Knowledge"))
+    titleTxt:SetTextColor(1, 1, 1)
+    titleTxt:Hide()
 
     local scroll = CreateFrame("ScrollFrame", nil, frame)
     if headerBottom then
@@ -734,14 +1295,14 @@ local function BuildGatheringLocationsFrame(isRetry)
     frame._scrollTrack = track
     local trackBg = track:CreateTexture(nil, "BACKGROUND")
     trackBg:SetAllPoints()
-    trackBg:SetColorTexture(0, 0, 0, 0.3)
+    trackBg:SetColorTexture(0, 0, 0, 0.3 * chromeAlpha)
     local thumb = CreateFrame("Button", nil, track)
     thumb:SetWidth(5)
     thumb:EnableMouse(true)
     thumb:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
     local thumbTex = thumb:CreateTexture(nil, "OVERLAY")
     thumbTex:SetAllPoints()
-    thumbTex:SetColorTexture(0.80, 0.53, 0.20, 0.6)
+    thumbTex:SetColorTexture(0.80, 0.53, 0.20, 0.6 * chromeAlpha)
 
     local function UpdateScrollBar()
         local viewH, contentH = scroll:GetHeight(), content:GetHeight()
@@ -841,33 +1402,19 @@ local function BuildGatheringLocationsFrame(isRetry)
     end)
     minBtn:SetPoint("RIGHT", closeBtn, "LEFT", -3, 0)
     gearBtn:SetPoint("RIGHT", minBtn, "LEFT", -3, 0)
-    titleTxt:SetPoint("RIGHT", minBtn, "LEFT", -6, 0)
+    if chromeAlpha <= 0.001 then
+        for _, headerBtn in ipairs({ closeBtn, gearBtn, minBtn }) do
+            if headerBtn.SetBackdropColor then
+                headerBtn:SetBackdropColor(0, 0, 0, 0)
+                headerBtn:SetBackdropBorderColor(0, 0, 0, 0)
+            end
+        end
+    end
 
     local yOff = 0
     local fontSize = db.gatheringFontSize or 9
-    local knownProfessions, totalDone, totalSources, totalKPDone, totalKPTotal = GetVisibleKnowledgeTotals()
 
-    if knownProfessions > 0 then
-        local chipGap = 8
-        local chipW = math.floor((math.max(width - 24, 240) - chipGap) / 2)
-        local chip1 = CreateSummaryChip(content, 8, yOff, chipW, 22, string.format(L["ProfKnowledge_SummarySources"], totalDone, totalSources), 0.22, 0.78, 1.00, fontSize - 1)
-        local chip2 = CreateSummaryChip(content, 8 + chipW + chipGap, yOff, chipW, 22, string.format("%d/%d KP", totalKPDone, totalKPTotal), 0.22, 0.86, 0.62, fontSize - 1)
-        for _, chip in ipairs({ chip1, chip2 }) do
-            chip:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
-            local br, bgc, bb = chip:GetBackdropBorderColor()
-            chip:SetBackdropBorderColor(br, bgc, bb, 0.85 * borderAlpha)
-            if chip:GetRegions() then
-                local regions = { chip:GetRegions() }
-                for _, region in ipairs(regions) do
-                    if region and region.GetObjectType and region:GetObjectType() == "Texture" then
-                        region:SetAlpha(0.65 * contentAlpha)
-                    end
-                end
-            end
-        end
-        yOff = yOff + 30
-    end
-
+    if selectedExpansion == "midnight" then
     for _, profession in ipairs(PROFESSIONS) do
         if HasProfessionLearned(profession.skillLine) then
             local cr, cg, cb = GetProfessionColor(profession.key)
@@ -877,19 +1424,22 @@ local function BuildGatheringLocationsFrame(isRetry)
             local catchupAmount = GetProfessionCatchupAmount(profession.skillLine)
             local skillSummary = GetProfessionSkillSummary(profession.skillLine)
             local isCollapsed = IsProfessionCollapsed(profession.key)
+            local cardW = math.max(1, width - 20)
+            local collapsedRowH = math.max(24, fontSize + 15)
+            local collapsedIconSize = math.max(16, math.min(20, fontSize + 7))
             local card = CreateFrame("Frame", nil, content, "BackdropTemplate")
-            card:SetPoint("TOPLEFT", content, "TOPLEFT", 8, -yOff)
-            card:SetWidth(width - 24)
+            card:SetPoint("TOPLEFT", content, "TOPLEFT", 6, -yOff)
+            card:SetWidth(cardW)
             card:SetBackdrop(MakeBackdrop())
-            card:SetBackdropColor(0, 0, 0, 0.12 * contentAlpha)
-            card:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, borderAlpha)
+            card:SetBackdropColor(0.018, 0.022, 0.028, (isCollapsed and 0.58 or 0.86) * contentAlpha)
+            card:SetBackdropBorderColor(0.12, 0.15, 0.18, (isCollapsed and 0.48 or 0.74) * chromeAlpha)
 
             local iconPlate = CreateFrame("Frame", nil, card, "BackdropTemplate")
-            iconPlate:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -10)
-            iconPlate:SetSize(24, 24)
+            iconPlate:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -8)
+            iconPlate:SetSize(28, 28)
             iconPlate:SetBackdrop(MakeBackdrop())
-            iconPlate:SetBackdropColor(cr * 0.12, cg * 0.12, cb * 0.12, 0.95)
-            iconPlate:SetBackdropBorderColor(cr * 0.45, cg * 0.45, cb * 0.45, 0.90)
+            iconPlate:SetBackdropColor(0.015, 0.018, 0.024, 0.95 * chromeAlpha)
+            iconPlate:SetBackdropBorderColor(cr * 0.55, cg * 0.55, cb * 0.55, 0.85 * chromeAlpha)
 
             local iconTex = iconPlate:CreateTexture(nil, "ARTWORK")
             iconTex:SetPoint("TOPLEFT", iconPlate, "TOPLEFT", 2, -2)
@@ -899,48 +1449,70 @@ local function BuildGatheringLocationsFrame(isRetry)
 
             local cardStripe = card:CreateTexture(nil, "ARTWORK")
             cardStripe:SetPoint("TOPLEFT", card, "TOPLEFT", 1, -1)
-            cardStripe:SetPoint("TOPRIGHT", card, "TOPRIGHT", -1, -1)
-            cardStripe:SetHeight(4)
-            cardStripe:SetColorTexture(cr, cg, cb, accentAlpha)
+            cardStripe:SetPoint("BOTTOMLEFT", card, "BOTTOMLEFT", 1, 1)
+            cardStripe:SetWidth(3)
+            cardStripe:SetColorTexture(cr, cg, cb, 0)
 
             local cardGlow = card:CreateTexture(nil, "BACKGROUND")
             cardGlow:SetPoint("TOPLEFT", card, "TOPLEFT", 1, -1)
             cardGlow:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -1, 1)
-            cardGlow:SetColorTexture(cr * 0.10, cg * 0.10, cb * 0.10, 0.18 * contentAlpha)
+            cardGlow:SetColorTexture(1, 1, 1, isCollapsed and 0 or (0.025 * contentAlpha))
 
             local header = card:CreateFontString(nil, "OVERLAY")
-            header:SetFont(FONT_ROWS, fontSize + 2, GetFontFlags())
-            header:SetPoint("TOPLEFT", iconPlate, "TOPRIGHT", 8, -1)
-            local hr, hg, hb = MixColor(cr, cg, cb, 0.15)
-            header:SetTextColor(hr, hg, hb, 1)
+            header:SetFont(FONT_HEADERS, math.max(9, fontSize), GetFontFlags())
+            if isCollapsed then
+                iconPlate:ClearAllPoints()
+                iconPlate:SetPoint("LEFT", card, "LEFT", 7, 0)
+                iconPlate:SetSize(collapsedIconSize, collapsedIconSize)
+                iconPlate:SetBackdropColor(0.015, 0.018, 0.024, 0.70 * chromeAlpha)
+                iconPlate:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, 0.70 * chromeAlpha)
+                iconTex:ClearAllPoints()
+                iconTex:SetPoint("TOPLEFT", iconPlate, "TOPLEFT", 2, -2)
+                iconTex:SetPoint("BOTTOMRIGHT", iconPlate, "BOTTOMRIGHT", -2, 2)
+                header:SetPoint("LEFT", iconPlate, "RIGHT", 6, 0)
+                header:SetPoint("RIGHT", card, "RIGHT", -64, 0)
+            else
+                header:SetPoint("TOPLEFT", iconPlate, "TOPRIGHT", 8, -1)
+                header:SetPoint("TOPRIGHT", card, "TOPRIGHT", -96, -1)
+            end
+            header:SetJustifyH("LEFT")
+            header:SetWordWrap(false)
+            header:SetTextColor(0.96, 0.97, 0.98, 1)
             header:SetText(profession.label)
 
             local headerSub = card:CreateFontString(nil, "OVERLAY")
-            headerSub:SetFont(FONT_ROWS, fontSize - 2, GetFontFlags())
-            headerSub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -2)
-            headerSub:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+            headerSub:SetFont(FONT_ROWS, math.max(8, fontSize - 2), GetFontFlags())
+            headerSub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -3)
+            headerSub:SetPoint("RIGHT", card, "RIGHT", -12, 0)
             headerSub:SetJustifyH("LEFT")
-            headerSub:SetTextColor(0.72, 0.80, 0.88, 0.95)
+            headerSub:SetTextColor(0.66, 0.72, 0.78, 0.95)
             headerSub:SetWordWrap(false)
 
             local headerMeta = card:CreateFontString(nil, "OVERLAY")
-            headerMeta:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
-            headerMeta:SetPoint("TOPRIGHT", card, "TOPRIGHT", -24, -11)
+            headerMeta:SetFont(FONT_HEADERS, math.max(9, fontSize), GetFontFlags())
+            if isCollapsed then
+                headerMeta:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+                headerMeta:SetWidth(48)
+            else
+                headerMeta:SetPoint("TOPRIGHT", card, "TOPRIGHT", -30, -10)
+                headerMeta:SetWidth(64)
+            end
             headerMeta:SetJustifyH("RIGHT")
-            local mr, mg, mb = MixColor(cr, cg, cb, 0.35)
-            headerMeta:SetTextColor(mr, mg, mb, 0.95)
-            headerMeta:SetText(string.format("%d/%d  |  %d/%d KP", doneSources, totalSources, kpDone, kpTotal))
+            headerMeta:SetWordWrap(false)
+            headerMeta:SetTextColor(0.88, 0.91, 0.94, 0.95)
+            headerMeta:SetText(string.format("%d/%d", doneSources, totalSources))
 
             local collapseBtn = CreateFrame("Button", nil, card)
-            collapseBtn:SetPoint("TOPRIGHT", card, "TOPRIGHT", -6, -8)
-            collapseBtn:SetSize(16, 16)
+            collapseBtn:SetPoint("TOPRIGHT", card, "TOPRIGHT", -7, -8)
+            collapseBtn:SetSize(18, 18)
             collapseBtn:RegisterForClicks("LeftButtonUp")
 
             local collapseLbl = collapseBtn:CreateFontString(nil, "OVERLAY")
-            collapseLbl:SetFont(FONT_HEADERS, 11, GetFontFlags())
+            collapseLbl:SetFont(FONT_HEADERS, math.max(10, fontSize), GetFontFlags())
             collapseLbl:SetPoint("CENTER")
             collapseLbl:SetText(isCollapsed and "+" or "-")
             collapseLbl:SetTextColor(0.84, 0.90, 0.95, 0.95)
+            collapseBtn:SetShown(not isCollapsed)
 
             local function ToggleProfessionCard()
                 SetProfessionCollapsed(profession.key, not IsProfessionCollapsed(profession.key))
@@ -950,46 +1522,46 @@ local function BuildGatheringLocationsFrame(isRetry)
             local headerHit = CreateFrame("Button", nil, card)
             headerHit:SetPoint("TOPLEFT", card, "TOPLEFT", 0, 0)
             headerHit:SetPoint("TOPRIGHT", card, "TOPRIGHT", 0, 0)
-            headerHit:SetHeight(36)
+            headerHit:SetHeight(isCollapsed and collapsedRowH or 44)
             headerHit:RegisterForClicks("LeftButtonUp")
             headerHit:SetScript("OnClick", ToggleProfessionCard)
             headerHit:SetScript("OnEnter", function()
-                card:SetBackdropBorderColor(cr * 0.60, cg * 0.60, cb * 0.60, math.min(1, borderAlpha + 0.15))
+                card:SetBackdropBorderColor(cr * 0.52, cg * 0.52, cb * 0.52, math.min(1, chromeAlpha + 0.15) * chromeAlpha)
                 collapseLbl:SetTextColor(1, 1, 1, 1)
             end)
             headerHit:SetScript("OnLeave", function()
-                card:SetBackdropBorderColor(cr * 0.42, cg * 0.42, cb * 0.42, borderAlpha)
+                card:SetBackdropBorderColor(0.12, 0.15, 0.18, (isCollapsed and 0.48 or 0.74) * chromeAlpha)
                 collapseLbl:SetTextColor(0.84, 0.90, 0.95, 0.95)
             end)
             collapseBtn:SetScript("OnClick", ToggleProfessionCard)
 
             if isCollapsed then
-                headerSub:SetText(string.format(L["ProfKnowledge_HeaderSubCollapsed"], weeklyRemaining, catchupAmount))
-                headerMeta:SetFont(FONT_ROWS, fontSize - 2, GetFontFlags())
+                headerSub:Hide()
                 headerMeta:SetText(string.format("%d/%d", doneSources, totalSources))
             else
                 headerSub:SetText(string.format(L["ProfKnowledge_HeaderSubFormat"], skillSummary or "--", weeklyRemaining, catchupAmount))
+                headerMeta:SetText(string.format("%d/%d KP", kpDone, kpTotal))
             end
 
-            local cardY = isCollapsed and 34 or 50
+            local cardY = isCollapsed and collapsedRowH or 54
 
             if not isCollapsed then
                 for _, section in ipairs(profession.sections) do
                     if ShowInKnowledgeTracker(section) then
                         local sectionDone, sectionTotal = SectionStats(section)
                         local sectionChip = CreateFrame("Frame", nil, card, "BackdropTemplate")
-                        sectionChip:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -cardY)
+                        sectionChip:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -cardY)
                         sectionChip:SetHeight(18)
                         sectionChip:SetBackdrop(MakeBackdrop())
-                        sectionChip:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
-                        sectionChip:SetBackdropBorderColor(cr * 0.30, cg * 0.30, cb * 0.30, 0.80 * borderAlpha)
+                        sectionChip:SetBackdropColor(1, 1, 1, 0.035 * contentAlpha)
+                        sectionChip:SetBackdropBorderColor(0.24, 0.28, 0.32, 0.65 * chromeAlpha)
 
                         local sectionHeader = sectionChip:CreateFontString(nil, "OVERLAY")
                         sectionHeader:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
                         sectionHeader:SetPoint("LEFT", sectionChip, "LEFT", 6, 0)
-                        sectionHeader:SetTextColor(0.90, 0.93, 0.97, 0.95)
+                        sectionHeader:SetTextColor(0.84, 0.88, 0.92, 0.95)
                         sectionHeader:SetText(string.format(L["ProfKnowledge_SectionFormat"], section.label, sectionDone, sectionTotal))
-                        sectionChip:SetWidth(math.min((sectionHeader:GetStringWidth() or 90) + 14, width - 48))
+                        sectionChip:SetWidth(math.min((sectionHeader:GetStringWidth() or 90) + 14, cardW - 24))
                         cardY = cardY + 22
 
                         local rowHeight = math.max(fontSize + 11, 22)
@@ -998,16 +1570,16 @@ local function BuildGatheringLocationsFrame(isRetry)
                             local done = current >= required
                             if not (done and db.gatheringHideCompleted) then
                                 local row = CreateFrame("Button", nil, card, "BackdropTemplate")
-                                row:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -cardY)
-                                row:SetSize(width - 44, rowHeight + 4)
+                                row:SetPoint("TOPLEFT", card, "TOPLEFT", 12, -cardY)
+                                row:SetSize(cardW - 24, rowHeight + 4)
                                 row:RegisterForClicks("LeftButtonUp")
                                 row:SetBackdrop(MakeBackdrop())
                                 if done then
-                                    row:SetBackdropColor(0, 0, 0, 0.08 * contentAlpha)
-                                    row:SetBackdropBorderColor(0.18, 0.38, 0.28, 0.65 * borderAlpha)
+                                    row:SetBackdropColor(1, 1, 1, 0.025 * contentAlpha)
+                                    row:SetBackdropBorderColor(0.16, 0.30, 0.22, 0.55 * chromeAlpha)
                                 else
-                                    row:SetBackdropColor(0, 0, 0, 0.10 * contentAlpha)
-                                    row:SetBackdropBorderColor(cr * 0.20, cg * 0.20, cb * 0.20, 0.65 * borderAlpha)
+                                    row:SetBackdropColor(1, 1, 1, 0.035 * contentAlpha)
+                                    row:SetBackdropBorderColor(0.20, 0.24, 0.28, 0.58 * chromeAlpha)
                                 end
 
                                 local hover = row:CreateTexture(nil, "BACKGROUND")
@@ -1036,14 +1608,14 @@ local function BuildGatheringLocationsFrame(isRetry)
                                     waypointIcon = row:CreateTexture(nil, "ARTWORK")
                                     waypointIcon:SetAtlas("Waypoint-MapPin-Untracked", true)
                                     waypointIcon:SetSize(14, 14)
-                                    waypointIcon:SetPoint("RIGHT", row, "RIGHT", -84, 0)
+                                    waypointIcon:SetPoint("RIGHT", row, "RIGHT", -72, 0)
                                     waypointIcon:SetAlpha(0.75)
                                 end
 
                                 local nameText = row:CreateFontString(nil, "OVERLAY")
                                 nameText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
                                 nameText:SetPoint("LEFT", dot, "RIGHT", 6, 0)
-                                nameText:SetPoint("RIGHT", row, "RIGHT", waypointIcon and -102 or -86, 0)
+                                nameText:SetPoint("RIGHT", row, "RIGHT", waypointIcon and -90 or -74, 0)
                                 nameText:SetJustifyH("LEFT")
                                 nameText:SetWordWrap(false)
                                 nameText:SetText(EntryName(entry))
@@ -1051,8 +1623,8 @@ local function BuildGatheringLocationsFrame(isRetry)
 
                                 local statusText = row:CreateFontString(nil, "OVERLAY")
                                 statusText:SetFont(FONT_ROWS, fontSize - 1, GetFontFlags())
-                                statusText:SetPoint("RIGHT", row, "RIGHT", -2, 0)
-                                statusText:SetWidth(78)
+                                statusText:SetPoint("RIGHT", row, "RIGHT", -8, 0)
+                                statusText:SetWidth(62)
                                 statusText:SetJustifyH("RIGHT")
                                 statusText:SetText(ProgressText(entry))
                                 if done then statusText:SetTextColor(0.32, 0.80, 0.50, 0.95)
@@ -1109,12 +1681,15 @@ local function BuildGatheringLocationsFrame(isRetry)
                         cardY = cardY + 4
                     end
                 end
-            else
-                cardY = cardY + 2
             end
-            card:SetHeight(cardY + (isCollapsed and 8 or 8))
-            yOff = yOff + card:GetHeight() + 8
+            card:SetHeight(isCollapsed and collapsedRowH or (cardY + 8))
+            yOff = yOff + card:GetHeight() + (isCollapsed and 3 or 8)
         end
+    end
+    end
+
+    if selectedExpansion ~= "midnight" then
+        yOff = BuildLegacyKnowledgeSection(content, width, yOff, fontSize, contentAlpha, chromeAlpha, selectedExpansion)
     end
 
     if yOff == 0 then
@@ -1373,20 +1948,13 @@ PopulateGatheringConfig = function(frame)
         end, 0.78, 0.55, 0.16, syncFs)
         Slider(L["BACKGROUND"], 0, 1, 0.05, function() return db.gatheringAlpha or 1.0 end, function(value)
             db.gatheringAlpha = math.floor(value * 20) / 20
-            if gatheringLocationsFrame then
-                ApplyGatheringFrameTheme(gatheringLocationsFrame, {
-                    alpha = value,
-                    bg = { 0.03, 0.05, 0.09, 0.97 * value },
-                    border = { 0.24, 0.31, 0.42, value },
-                    accent = { 0.18, 0.78, 0.72 },
-                    headerHeight = 64,
-                })
-            end
+            RebuildGatheringLocationsFrame()
+            PopulateGatheringConfig(frame)
         end, 0.40, 0.40, 0.40)
         Slider(L["SCALE"], 0.5, 2.0, 0.05, function() return db.gatheringScale or 1.0 end, function(value)
             db.gatheringScale = value
             if gatheringLocationsFrame then gatheringLocationsFrame:SetScale(value) end
-        end, 0.45, 0.22, 0.82, MR.db.profile.syncWindowScale)
+        end, 0.45, 0.22, 0.82, MR.db.profile.syncWindowScale == true)
     elseif activePage == "professions" then
         SecLabel(L["Config_TabModules"] or "Professions")
         for _, profession in ipairs(PROFESSIONS) do
