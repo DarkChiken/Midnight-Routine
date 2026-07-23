@@ -42,6 +42,10 @@ Modules/DarkmoonFaire.lua
 Modules/CustomTasks.lua
 Modules/Renown.lua
 Modules/Rares.lua
+Modules/ProfessionKnowledge_Core.lua
+Modules/ProfessionKnowledge_Midnight.lua
+Modules/ProfessionKnowledge_TWW.lua
+Modules/ProfessionKnowledge_Dragonflight.lua
 Modules/ProfessionKnowledge.lua
 
 UI/WarbandBoard.lua
