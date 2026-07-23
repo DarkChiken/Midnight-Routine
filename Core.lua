@@ -226,6 +226,16 @@ local DEFAULTS = {
         gatheringProfColors  = {},
         gatheringCollapsedProfessions = {},
         gatheringHideCompleted = false,
+        professionKnowledgeShowTasks = true,
+        professionKnowledgeHideMainTasks = false,
+        professionKnowledgeTaskCategories = {
+            quests = true,
+            drops = true,
+            treatises = true,
+            darkmoon = true,
+            catchup = true,
+            other = true,
+        },
         headerColors    = {},
         headerBackgroundColors = {},
         rowColors       = {},
@@ -1330,6 +1340,15 @@ function MR:IsModuleEnabled(key)
     return not (s and s.enabled == false)
 end
 
+function MR:ShouldHideProfessionModuleInMain(mod)
+    local profile = self.db and self.db.profile
+    if not (profile and profile.professionKnowledgeShowTasks ~= false and profile.professionKnowledgeHideMainTasks == true) then
+        return false
+    end
+
+    return type(mod) == "table" and mod.profSkillLine ~= nil
+end
+
 function MR:IsPatchEnabled(patchKey)
     if not patchKey then
         return true
@@ -2283,11 +2302,19 @@ function MR:RequestScan(delay)
     end
 
     if delay > 0 then
+        local targetAt = GetTime() + delay
+
+        if self._requestedScanTimer and self._requestedScanAt and self._requestedScanAt >= targetAt then
+            return
+        end
+
         if self._requestedScanTimer then
             self:CancelTimer(self._requestedScanTimer)
         end
+        self._requestedScanAt = targetAt
         self._requestedScanTimer = self:ScheduleTimer(function()
             self._requestedScanTimer = nil
+            self._requestedScanAt = nil
             self:Scan()
         end, delay)
         return
